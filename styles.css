@@ -35,17 +35,21 @@ p.subtitle {
   }
 }
 
-/* אייקונים חברתיים */
+/* אייקונים חברתיים - אופציה 1 עם אפקט ריחוף */
 .social-links {
   margin-bottom: 20px;
+  text-align: center;
 }
 
 .social-icon {
-  margin: 0 10px;
+  margin: 0 12px;
   display: inline-block;
-  width: 32px;
-  height: 32px;
-  transition: fill 0.3s ease;
+  width: 36px;
+  height: 36px;
+  cursor: pointer;
+  transition: transform 0.3s ease, filter 0.3s ease, box-shadow 0.3s ease;
+  filter: grayscale(70%);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15); /* צללה קלה */
 }
 
 .social-icon svg {
@@ -55,9 +59,16 @@ p.subtitle {
   transition: fill 0.3s ease;
 }
 
-.social-icon:hover svg {
-  fill: #004d80;
+.social-icon:hover {
+  filter: grayscale(0%);
+  transform: scale(1.2);
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.3); /* צללה מודגשת יותר בריחוף */
 }
+
+.social-icon:hover svg {
+  fill: #004d80; /* צבע כהה יותר בריחוף */
+}
+
 
 /* קטגוריות - עיצוב מודרני לכפתורים */
 .categories {
