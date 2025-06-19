@@ -7,33 +7,31 @@
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <header class="sticky-header">
-    <div class="top-header">
-      <div class="logo-wrapper">
-        <a href="index.html">
-          <img src="assets/images/FIND4ULOGGO.png" alt="Find4U Logo" class="logo" />
-        </a>
-        <h1 class="site-title">Find4U - כל מה שחיפשתם במקום אחד</h1>
-      </div>
-      <button class="menu-toggle" aria-label="תפריט">☰</button>
+<header class="sticky-header">
+  <div class="top-bar">
+    <div class="logo-wrapper">
+      <a href="index.html">
+        <img src="assets/images/FIND4ULOGGO.png" alt="Find4U Logo" class="logo" />
+      </a>
+      <h1 class="site-title">Find4U - כל מה שחיפשתם במקום אחד</h1>
     </div>
+    <button class="menu-toggle" aria-label="תפריט">☰</button>
+  </div>
+  <nav class="nav-categories" id="categoryButtons">
+    <button class="active" data-emoji="🛋️" onclick="showCategory('all', this)">כל המוצרים</button>
+    <button data-emoji="🏠" onclick="showCategory('home', this)">לבית ולגינה</button>
+    <button data-emoji="🛏️" onclick="showCategory('bedroom', this)">לחדר שינה</button>
+    <button data-emoji="🚗" onclick="showCategory('car', this)">לרכב</button>
+    <button data-emoji="👶" onclick="showCategory('kids', this)">לילדים</button>
+    <a href="guides.html" class="nav-link">מדריכים</a>
+  </nav>
+</header>
 
-    <nav class="nav-categories" id="categoryButtons">
-      <button class="active" data-emoji="🛋️" onclick="showCategory('all', this)">כל המוצרים</button>
-      <button data-emoji="🏠" onclick="showCategory('home', this)">לבית ולגינה</button>
-      <button data-emoji="🛏️" onclick="showCategory('bedroom', this)">לחדר שינה</button>
-      <button data-emoji="🚗" onclick="showCategory('car', this)">לרכב</button>
-      <button data-emoji="👶" onclick="showCategory('kids', this)">לילדים</button>
-      <a href="guides.html" class="nav-link">מדריכים</a>
-    </nav>
-  </header>
-
+<main>
   <p class="welcome-text">🎉 ברוכים הבאים ל-Find4U 🎉</p>
   <p class="subtitle">אנחנו מוצאים עבורכם את המוצרים השווים ביותר אחרי שבדקנו אותם</p>
 
-  <div class="social-links">
-    <!-- אייקונים -->
-  </div>
+  <div class="social-links"></div>
 
   <p class="subtitle search-text">חפש מוצר:</p>
   <div class="search-container">
@@ -41,6 +39,8 @@
   </div>
 
   <div id="productsGrid" class="grid-container"></div>
+</main>
+
 
   <script src="https://cdn.jsdelivr.net/npm/fuse.js@6.6.2"></script>
   <script src="products.js"></script>

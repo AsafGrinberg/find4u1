@@ -1,6 +1,7 @@
 let activeCategory = 'all';
 let fuse;
 
+// פונקציה שמציגה את המוצרים בדף
 function displayProducts(items) {
   const container = document.getElementById('productsGrid');
 
@@ -42,16 +43,20 @@ function displayProducts(items) {
   }, 400);
 }
 
+// פונקציה לבחירת קטגוריה
 function showCategory(category, button) {
   activeCategory = category;
 
   const buttons = document.querySelectorAll('#categoryButtons button');
   buttons.forEach(btn => btn.classList.remove('active'));
   button.classList.add('active');
+  document.getElementById('categoryButtons').classList.remove('show');
+
 
   filterProducts();
 }
 
+// פונקציה לסינון לפי חיפוש וקטגוריה
 function filterProducts() {
   const input = document.getElementById('searchInput').value.trim();
 
@@ -80,11 +85,14 @@ function filterProducts() {
   displayProducts(filtered);
 }
 
+// קוד שמריץ הכל בהעלאת הדף
 window.onload = () => {
   displayProducts(products);
-  // חיבור אירוע הקליק להמבורגר
+
+  // פתיחת תפריט המבורגר במובייל
   const menuToggle = document.querySelector('.menu-toggle');
   const navCategories = document.getElementById('categoryButtons');
+
   if (menuToggle && navCategories) {
     menuToggle.addEventListener('click', () => {
       navCategories.classList.toggle('show');
@@ -92,6 +100,7 @@ window.onload = () => {
   }
 };
 
+// אפשרות לחיפוש גם עם אנטר
 document.getElementById('searchInput').addEventListener('keydown', function(event) {
   if (event.key === 'Enter') {
     event.preventDefault();
