@@ -1,14 +1,15 @@
+/* בסיס */
 html, body {
   direction: rtl;
-  text-align: right;
-  margin: 0; 
+  margin: 0;
   padding: 0;
   box-sizing: border-box;
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   background: #f9fbfd;
+  overflow-x: hidden;
 }
 
-/* Sticky Header - לוגו + קטגוריות */
+/* רקע גרדיאנט */
 .sticky-header {
   position: sticky;
   top: 0;
@@ -19,148 +20,108 @@ html, body {
   box-shadow: 0 6px 15px rgba(161, 145, 207, 0.1);
 }
 
-/* שורה עליונה - הלוגו */
+/* שורה עליונה: לוגו + כותרת + המבורגר */
 .top-header {
   display: flex;
-  flex-wrap: wrap;
   justify-content: space-between;
   align-items: center;
-  padding: 8px 20px 4px 20px; /* הקטנתי padding תחתון */
+  padding: 10px 20px;
   color: white;
-  user-select: none;
-  gap: 12px;
 }
 
 .logo-wrapper {
   display: flex;
   align-items: center;
-  gap: 14px;
-  flex-shrink: 0;
-  flex: 1 1 100%;
-  justify-content: center;
+  gap: 12px;
 }
 
 .logo {
-  max-height: 75px;
+  max-height: 70px;
   width: auto;
-  filter: drop-shadow(0 1.5px 2px rgba(0,0,0,0.3));
-  cursor: pointer; /* מדגיש שהלוגו לחיץ */
 }
 
 .site-title {
   font-size: 1.4rem;
   font-weight: 700;
-  letter-spacing: 0.05em;
   text-shadow: 0 1px 4px rgba(0,0,0,0.3);
-  white-space: nowrap;
+  margin: 0;
 }
 
-/* קטגוריות */
-.nav-categories {
-  display: flex;
-  flex-wrap: nowrap;
-  gap: 16px;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
-  padding: 4px 12px 8px 12px; /* הקטנתי פדינג מעלה ומטה */
-  flex: 1 1 100%;
-  justify-content: center;
-  white-space: nowrap;
-  background: transparent; /* רקע שקוף כי ה-sticky-header כבר רקע */
-}
-
-.nav-categories::-webkit-scrollbar {
+.menu-toggle {
   display: none;
-}
-
-.nav-categories button {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  background: rgba(255, 255, 255, 0.25);
-  border: 1.5px solid rgba(67, 100, 247, 0.3);
-  border-radius: 30px;
-  padding: 10px 26px;
-  font-weight: 600;
-  font-size: 15px;
+  font-size: 32px;
+  background: none;
+  border: none;
   color: white;
   cursor: pointer;
-  white-space: nowrap;
-  user-select: none;
-  transition: background-color 0.4s ease, box-shadow 0.3s ease, transform 0.3s ease;
 }
 
-.nav-categories button:hover {
+/* קטגוריות בשורה נפרדת במחשב */
+.nav-categories {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 10px 20px;
+}
+
+.nav-categories button,
+.nav-categories .nav-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.25);
+  border: 1px solid #4364f7;
+  border-radius: 30px;
+  padding: 8px 20px;
+  font-size: 15px;
+  color: white;
+  text-decoration: none;
+  cursor: pointer;
+  transition: 0.3s;
+}
+
+.nav-categories button:hover,
+.nav-categories .nav-link:hover {
   background: rgba(255, 255, 255, 0.4);
-  border-color: #4364f7;
-  box-shadow: 0 0 2px 1px rgba(67, 100, 247, 0.6);
-  transform: scale(1.05);
 }
 
 .nav-categories button.active {
   background: white;
   color: #2948e0;
-  font-weight: 700;
-  border-color: #2948e0;
-  box-shadow: none;
-  cursor: default;
-  transform: scale(1.05);
 }
 
 .nav-categories button[data-emoji]:before {
   content: attr(data-emoji);
-  margin-left: 8px;
-  font-size: 20px;
+  margin-left: 6px;
+  font-size: 18px;
 }
 
-/* הודעת ברוכים הבאים */
+/* ברוכים הבאים */
 .welcome-text {
   text-align: center;
   font-size: 1.2rem;
   font-weight: bold;
-  margin: 12px auto 0; /* הקטנתי מרווח עליון */
-  color: #2948e0; /* לשנות לצבע קריא יותר מהרקע הלבן */
+  margin: 20px auto 0;
+  color: #2948e0;
   text-shadow: 0 1px 4px rgba(0,0,0,0.15);
 }
 
-/* אנימציית רקע גרדיאנט */
+.subtitle {
+  text-align: center;
+  font-size: 1.1rem;
+  margin: 10px auto 20px;
+  max-width: 1120px;
+}
+
+/* אנימציית גרדיאנט */
 @keyframes gradientBG {
   0% { background-position: 0% 50%; }
   50% { background-position: 100% 50%; }
   100% { background-position: 0% 50%; }
 }
 
-/* רספונסיב */
-@media (max-width: 767px) {
-  .nav-categories {
-    flex-wrap: wrap;
-    white-space: normal;
-    justify-content: center;
-    overflow-x: visible;
-    gap: 10px;
-    padding: 8px;
-  }
-
-  .logo-wrapper {
-    justify-content: center;
-  }
-
-  .nav-categories button {
-    flex: 1 0 auto;
-    min-width: 100px;
-    margin: 4px 6px;
-  }
-}
-
-/* שאר העיצוב נשאר כפי ששלחת */
-.subtitle {
-  text-align: center;
-  font-size: 1.1rem;
-  margin: 20px auto 10px;
-  max-width: 1120px;
-}
-
+/* חיפוש */
 .search-text {
   text-align: center;
   font-weight: 600;
@@ -186,6 +147,7 @@ html, body {
   direction: rtl;
 }
 
+/* גריד מוצרים */
 .grid-container {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
@@ -224,6 +186,7 @@ html, body {
   font-weight: 600;
 }
 
+/* אייקונים של רשתות */
 .social-links {
   display: flex;
   justify-content: center;
@@ -259,4 +222,24 @@ html, body {
 .social-icon:hover svg {
   fill: #fff;
   transform: scale(1.2);
+}
+
+/* מובייל: הקטגוריות נסתרות, המבורגר מוצג */
+@media (max-width: 767px) {
+  .menu-toggle { display: block; }
+
+  .nav-categories {
+    display: none;
+    flex-direction: column;
+    gap: 10px;
+    background: linear-gradient(135deg, #4364f7, #a0c1f7, #b18fcf);
+    position: absolute;
+    top: 100%;
+    right: 0;
+    left: 0;
+    padding: 15px 20px;
+    z-index: 999;
+  }
+
+  .nav-categories.show { display: flex; }
 }

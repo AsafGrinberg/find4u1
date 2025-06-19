@@ -50,8 +50,6 @@ function showCategory(category, button) {
   button.classList.add('active');
 
   filterProducts();
-
-  // אין כאן גלילה לראש הדף
 }
 
 function filterProducts() {
@@ -84,7 +82,16 @@ function filterProducts() {
 
 window.onload = () => {
   displayProducts(products);
+  // חיבור אירוע הקליק להמבורגר
+  const menuToggle = document.querySelector('.menu-toggle');
+  const navCategories = document.getElementById('categoryButtons');
+  if (menuToggle && navCategories) {
+    menuToggle.addEventListener('click', () => {
+      navCategories.classList.toggle('show');
+    });
+  }
 };
+
 document.getElementById('searchInput').addEventListener('keydown', function(event) {
   if (event.key === 'Enter') {
     event.preventDefault();
