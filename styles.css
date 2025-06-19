@@ -9,7 +9,7 @@ html, body {
   overflow-x: hidden;
 }
 
-/* רקע גרדיאנט */
+/* Sticky Header כל החלק העליון כולל שורת קטגוריות */
 .sticky-header {
   position: sticky;
   top: 0;
@@ -20,11 +20,13 @@ html, body {
   box-shadow: 0 6px 15px rgba(161, 145, 207, 0.1);
 }
 
-/* שורה עליונה: לוגו + כותרת + המבורגר */
+/* שורה עליונה */
 .top-header {
   display: flex;
-  justify-content: space-between;
+  justify-content: center; /* ממרכז הכל */
   align-items: center;
+  flex-wrap: wrap;
+  gap: 20px;
   padding: 10px 20px;
   color: white;
 }
@@ -45,6 +47,7 @@ html, body {
   font-weight: 700;
   text-shadow: 0 1px 4px rgba(0,0,0,0.3);
   margin: 0;
+  text-align: center;
 }
 
 .menu-toggle {
@@ -54,9 +57,11 @@ html, body {
   border: none;
   color: white;
   cursor: pointer;
+  position: absolute;
+  left: 20px;
 }
 
-/* קטגוריות בשורה נפרדת במחשב */
+/* קטגוריות בשורה נפרדת */
 .nav-categories {
   display: flex;
   justify-content: center;
@@ -97,7 +102,7 @@ html, body {
   font-size: 18px;
 }
 
-/* ברוכים הבאים */
+/* טקסטים */
 .welcome-text {
   text-align: center;
   font-size: 1.2rem;
@@ -159,8 +164,6 @@ html, body {
 }
 
 .grid-item {
-  max-width: 300px;
-  width: 100%;
   background: white;
   border-radius: 12px;
   box-shadow: 0 4px 12px rgba(0,0,0,0.08);
@@ -186,7 +189,7 @@ html, body {
   font-weight: 600;
 }
 
-/* אייקונים של רשתות */
+/* רשתות חברתיות */
 .social-links {
   display: flex;
   justify-content: center;
@@ -224,9 +227,11 @@ html, body {
   transform: scale(1.2);
 }
 
-/* מובייל: הקטגוריות נסתרות, המבורגר מוצג */
+/* מובייל */
 @media (max-width: 767px) {
-  .menu-toggle { display: block; }
+  .menu-toggle {
+    display: block;
+  }
 
   .nav-categories {
     display: none;
@@ -241,5 +246,13 @@ html, body {
     z-index: 999;
   }
 
-  .nav-categories.show { display: flex; }
+  .nav-categories.show {
+    display: flex;
+  }
+
+  .grid-container {
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px;
+    padding: 0 10px;
+  }
 }
