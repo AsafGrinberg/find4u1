@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="he">
+<head>
+  <meta charset="UTF-8" />
+  <title>Find4U - קטגוריות מוצרים</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="logo-container">
+    <img src="/assets/images/FIND4ULOGGO.png" alt="Find4U Logo" class="logo" />
+  </div>
+  <p class="subtitle">אנחנו מוצאים עבורכם את המוצרים השווים ביותר אחרי שבדקנו אותם</p>
+
+  <div class="categories" id="categoryButtons">
+    <button class="active" onclick="showCategory('all', this)">כל המוצרים</button>
+    <button onclick="showCategory('home', this)">לבית ולגינה</button>
+    <button onclick="showCategory('bedroom', this)">לחדר שינה</button>
+    <button onclick="showCategory('car', this)">לרכב</button>
+    <button onclick="showCategory('kids', this)">לילדים</button>
+  </div>
+
+  <div class="search-container">
+    <input
+      id="searchInput"
+      type="text"
+      placeholder="חפש מוצר..."
+      oninput="filterProducts()"
+      dir="rtl"
+    />
+  </div>
+
+  <div id="productsGrid" class="grid-container">
+    <!-- כאן ייטענו המוצרים דינמית -->
+  </div>
+
+  <script src="products.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>
