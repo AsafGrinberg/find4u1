@@ -1,32 +1,45 @@
 let activeCategory = 'all';
+let fuse;
 
 function displayProducts(items) {
   const container = document.getElementById('productsGrid');
-  container.innerHTML = '';
 
-  if (items.length === 0) {
-    container.innerHTML = '<p>לא נמצאו מוצרים</p>';
-    return;
-  }
+  container.classList.add('fade-out');
 
-  items.forEach(product => {
-    const a = document.createElement('a');
-    a.href = product.link;
-    a.target = '_blank';
-    a.className = 'grid-item';
-    a.dataset.category = product.category.join(','); // לשם נוחות, אך לא חובה
+  setTimeout(() => {
+    container.innerHTML = '';
 
-    const img = document.createElement('img');
-    img.src = product.image;
-    img.alt = product.alt;
+    if (items.length === 0) {
+      container.innerHTML = '<p>לא נמצאו מוצרים</p>';
+    } else {
+      items.forEach(product => {
+        const a = document.createElement('a');
+        a.href = product.link;
+        a.target = '_blank';
+        a.className = 'grid-item';
+        a.dataset.category = product.category.join(',');
 
-    const p = document.createElement('p');
-    p.textContent = product.text;
+        const img = document.createElement('img');
+        img.src = product.image;
+        img.alt = product.alt;
 
-    a.appendChild(img);
-    a.appendChild(p);
-    container.appendChild(a);
-  });
+        const p = document.createElement('p');
+        p.textContent = product.text;
+
+        a.appendChild(img);
+        a.appendChild(p);
+        container.appendChild(a);
+      });
+    }
+
+    container.classList.remove('fade-out');
+    container.classList.add('fade-in');
+
+    setTimeout(() => {
+      container.classList.remove('fade-in');
+    }, 400);
+
+  }, 400);
 }
 
 function showCategory(category, button) {
@@ -40,7 +53,7 @@ function showCategory(category, button) {
 }
 
 function filterProducts() {
-  const input = document.getElementById('searchInput').value.toLowerCase();
+  const input = document.getElementById('searchInput').value.trim();
 
   let filtered = products;
 
@@ -48,8 +61,20 @@ function filterProducts() {
     filtered = filtered.filter(p => p.category.includes(activeCategory));
   }
 
-  if (input) {
-    filtered = filtered.filter(p => p.text.toLowerCase().includes(input));
+  if (input.length > 0) {
+    if (!fuse) {
+      fuse = new Fuse(filtered, {
+        keys: ['text'],
+        threshold: 0.4,
+        ignoreLocation: true,
+        isCaseSensitive: false,
+      });
+    } else {
+      fuse.setCollection(filtered);
+    }
+
+    const result = fuse.search(input);
+    filtered = result.map(r => r.item);
   }
 
   displayProducts(filtered);

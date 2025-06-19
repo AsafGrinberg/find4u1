@@ -6,36 +6,43 @@
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <div class="logo-container">
-    <img src="assets/images/FIND4ULOGGO.png" alt="Find4U Logo" class="logo" />
+  <header class="top-header">
+    <div class="logo-wrapper">
+      <img src="assets/images/FIND4ULOGGO.png" alt="Find4U Logo" class="logo" />
+      <h1 class="site-title">Find4U - כל המוצרים במקום אחד</h1>
+    </div>
+    <nav class="nav-categories" id="categoryButtons">
+      <button class="active" data-emoji="🛋️" onclick="showCategory('all', this)">כל המוצרים</button>
+      <button data-emoji="🏠" onclick="showCategory('home', this)">לבית ולגינה</button>
+      <button data-emoji="🛏️" onclick="showCategory('bedroom', this)">לחדר שינה</button>
+      <button data-emoji="🚗" onclick="showCategory('car', this)">לרכב</button>
+      <button data-emoji="👶" onclick="showCategory('kids', this)">לילדים</button>
+    </nav>
+  </header>
+
+  <div class="hero-banner">
+    🎉 ברוכים הבאים ל-Find4U - כל מה שחיפשתם במקום אחד 🎉
   </div>
+
   <p class="subtitle">אנחנו מוצאים עבורכם את המוצרים השווים ביותר אחרי שבדקנו אותם</p>
 
-<div class="social-links" style="margin-bottom: 20px; text-align: center;">
-  <a href="https://www.instagram.com/FIND4U_IL#/" target="_blank" aria-label="Instagram" class="social-icon" style="margin: 0 10px;">
-    <svg viewBox="0 0 24 24" width="32" height="32" fill="#007acc" xmlns="http://www.w3.org/2000/svg">
-      <path d="M7.75 2h8.5A5.75 5.75 0 0 1 22 7.75v8.5A5.75 5.75 0 0 1 16.25 22h-8.5A5.75 5.75 0 0 1 2 16.25v-8.5A5.75 5.75 0 0 1 7.75 2zm0 1.5A4.25 4.25 0 0 0 3.5 7.75v8.5A4.25 4.25 0 0 0 7.75 20.5h8.5A4.25 4.25 0 0 0 20.5 16.25v-8.5A4.25 4.25 0 0 0 16.25 3.5h-8.5zm8.75 2a1 1 0 1 1 0 2 1 1 0 0 1 0-2zM12 7a5 5 0 1 1 0 10 5 5 0 0 1 0-10zm0 1.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7z"/>
-    </svg>
-  </a>
-  <a href="https://www.facebook.com/Find4UShopping" target="_blank" aria-label="Facebook" class="social-icon" style="margin: 0 10px;">
-    <svg viewBox="0 0 24 24" width="32" height="32" fill="#007acc" xmlns="http://www.w3.org/2000/svg">
-      <path d="M22 12a10 10 0 1 0-11.5 9.95V14.9h-2.5v-3h2.5V9.84c0-2.46 1.46-3.84 3.7-3.84 1.07 0 2.18.19 2.18.19v2.4h-1.23c-1.22 0-1.6.76-1.6 1.54v1.88h2.72l-.43 3h-2.29v7.05A10 10 0 0 0 22 12z"/>
-    </svg>
-  </a>
-  <a href="https://www.tiktok.com/@find4u_il" target="_blank" aria-label="TikTok" class="social-icon" style="margin: 0 10px;">
-    <svg viewBox="0 0 48 48" width="32" height="32" fill="#007acc" xmlns="http://www.w3.org/2000/svg">
-      <path d="M30,4v7.4c2.2,1.5,4.7,2.4,7.4,2.4v6.7c-3.2,0-6.2-0.8-8.9-2.2V30c0,6.6-5.4,12-12,12S4,36.6,4,30 s5.4-12,12-12c0.7,0,1.5,0.1,2.2,0.2v7.1C17.5,25.1,17,25,16.5,25c-2.8,0-5,2.2-5,5s2.2,5,5,5s5-2.2,5-5V4H30z"/>
-    </svg>
-  </a>
-</div>
-
-  <div class="categories" id="categoryButtons">
-  <button class="active" data-emoji="🛋️" onclick="showCategory('all', this)">כל המוצרים</button>
-  <button data-emoji="🏠" onclick="showCategory('home', this)">לבית ולגינה</button>
-  <button data-emoji="🛏️" onclick="showCategory('bedroom', this)">לחדר שינה</button>
-  <button data-emoji="🚗" onclick="showCategory('car', this)">לרכב</button>
-  <button data-emoji="👶" onclick="showCategory('kids', this)">לילדים</button>
-</div>
+  <div class="social-links">
+    <a href="https://www.instagram.com/FIND4U_IL#/" target="_blank" aria-label="Instagram" class="social-icon">
+      <svg viewBox="0 0 24 24" width="28" height="28" fill="#4364f7" xmlns="http://www.w3.org/2000/svg">
+        <path d="M7.75 2h8.5A5.75 5.75 0 0 1 22 7.75v8.5A5.75 5.75 0 0 1 16.25 22h-8.5A5.75 5.75 0 0 1 2 16.25v-8.5A5.75 5.75 0 0 1 7.75 2zm0 1.5A4.25 4.25 0 0 0 3.5 7.75v8.5A4.25 4.25 0 0 0 7.75 20.5h8.5A4.25 4.25 0 0 0 20.5 16.25v-8.5A4.25 4.25 0 0 0 16.25 3.5h-8.5zm8.75 2a1 1 0 1 1 0 2 1 1 0 0 1 0-2zM12 7a5 5 0 1 1 0 10 5 5 0 0 1 0-10zm0 1.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7z"/>
+      </svg>
+    </a>
+    <a href="https://www.facebook.com/Find4UShopping" target="_blank" aria-label="Facebook" class="social-icon">
+      <svg viewBox="0 0 24 24" width="28" height="28" fill="#4364f7" xmlns="http://www.w3.org/2000/svg">
+        <path d="M22 12a10 10 0 1 0-11.5 9.95V14.9h-2.5v-3h2.5V9.84c0-2.46 1.46-3.84 3.7-3.84 1.07 0 2.18.19 2.18.19v2.4h-1.23c-1.22 0-1.6.76-1.6 1.54v1.88h2.72l-.43 3h-2.29v7.05A10 10 0 0 0 22 12z"/>
+      </svg>
+    </a>
+    <a href="https://www.tiktok.com/@find4u_il" target="_blank" aria-label="TikTok" class="social-icon">
+      <svg viewBox="0 0 48 48" width="28" height="28" fill="#4364f7" xmlns="http://www.w3.org/2000/svg">
+        <path d="M30,4v7.4c2.2,1.5,4.7,2.4,7.4,2.4v6.7c-3.2,0-6.2-0.8-8.9-2.2V30c0,6.6-5.4,12-12,12S4,36.6,4,30 s5.4-12,12-12c0.7,0,1.5,0.1,2.2,0.2v7.1C17.5,25.1,17,25,16.5,25c-2.8,0-5,2.2-5,5s2.2,5,5,5s5-2.2,5-5V4H30z"/>
+      </svg>
+    </a>
+  </div>
 
   <div class="search-container">
     <input
@@ -47,9 +54,7 @@
     />
   </div>
 
-  <div id="productsGrid" class="grid-container">
-    <!-- כאן ייטענו המוצרים דינמית -->
-  </div>
+  <div id="productsGrid" class="grid-container"></div>
 
   <script src="products.js"></script>
   <script src="script.js"></script>
