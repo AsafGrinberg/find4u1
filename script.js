@@ -50,6 +50,8 @@ function showCategory(category, button) {
   button.classList.add('active');
 
   filterProducts();
+
+  // אין כאן גלילה לראש הדף
 }
 
 function filterProducts() {
@@ -83,3 +85,9 @@ function filterProducts() {
 window.onload = () => {
   displayProducts(products);
 };
+document.getElementById('searchInput').addEventListener('keydown', function(event) {
+  if (event.key === 'Enter') {
+    event.preventDefault();
+    filterProducts();
+  }
+});
