@@ -248,7 +248,7 @@ header.sticky-header {
   }
 
   .grid-container {
-    grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
     gap: 5px;
     padding: 2px;
   }
