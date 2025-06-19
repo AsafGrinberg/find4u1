@@ -9,8 +9,8 @@ html, body {
   overflow-x: hidden;
 }
 
-/* Sticky Header כל החלק העליון כולל שורת קטגוריות */
-.sticky-header {
+/* Sticky Header */
+header.sticky-header {
   position: sticky;
   top: 0;
   z-index: 1000;
@@ -23,10 +23,8 @@ html, body {
 /* שורה עליונה */
 .top-header {
   display: flex;
-  justify-content: center; /* ממרכז הכל */
+  justify-content: space-between;
   align-items: center;
-  flex-wrap: wrap;
-  gap: 20px;
   padding: 10px 20px;
   color: white;
 }
@@ -47,7 +45,6 @@ html, body {
   font-weight: 700;
   text-shadow: 0 1px 4px rgba(0,0,0,0.3);
   margin: 0;
-  text-align: center;
 }
 
 .menu-toggle {
@@ -57,8 +54,6 @@ html, body {
   border: none;
   color: white;
   cursor: pointer;
-  position: absolute;
-  left: 20px;
 }
 
 /* קטגוריות בשורה נפרדת */
@@ -102,7 +97,7 @@ html, body {
   font-size: 18px;
 }
 
-/* טקסטים */
+/* ברוכים הבאים */
 .welcome-text {
   text-align: center;
   font-size: 1.2rem;
@@ -164,6 +159,8 @@ html, body {
 }
 
 .grid-item {
+  max-width: 300px;
+  width: 100%;
   background: white;
   border-radius: 12px;
   box-shadow: 0 4px 12px rgba(0,0,0,0.08);
@@ -189,7 +186,7 @@ html, body {
   font-weight: 600;
 }
 
-/* רשתות חברתיות */
+/* אייקונים של רשתות */
 .social-links {
   display: flex;
   justify-content: center;
@@ -227,7 +224,7 @@ html, body {
   transform: scale(1.2);
 }
 
-/* מובייל */
+/* מובייל: קטגוריות נסתרות + גריד מותאם */
 @media (max-width: 767px) {
   .menu-toggle {
     display: block;
@@ -251,8 +248,8 @@ html, body {
   }
 
   .grid-container {
-    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-    gap: 12px;
-    padding: 0 10px;
+    grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+    gap: 0px;
+    padding: 0 5px;
   }
 }
