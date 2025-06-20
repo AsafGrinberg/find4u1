@@ -361,9 +361,12 @@ main {
 }
 /* פרופיל עגול */
 .profile-menu {
-  position: relative;
-  display: inline-block;
+  position: absolute;
+  right: 20px;
+  top: 50%;
+  transform: translateY(-50%);
 }
+
 
 .profile-avatar {
   width: 40px;
