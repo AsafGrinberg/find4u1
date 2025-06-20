@@ -359,6 +359,43 @@ main {
     margin-top: 10px;
   }
 }
+/* פרופיל עגול */
+.profile-menu {
+  position: relative;
+  display: inline-block;
+}
+
+.profile-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.profile-dropdown {
+  display: none;
+  position: absolute;
+  top: 50px; /* מרחק מהתמונה */
+  right: 0;
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+  z-index: 1000;
+}
+
+.profile-dropdown button {
+  background: none;
+  border: none;
+  padding: 10px 20px;
+  width: 100%;
+  text-align: right;
+  cursor: pointer;
+}
+
+.profile-dropdown button:hover {
+  background: #f0f0f0;
+}
 
 
 

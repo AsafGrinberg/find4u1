@@ -45,6 +45,8 @@ function showCategory(category, button) {
   const buttons = document.querySelectorAll('#categoryButtons button');
   buttons.forEach(btn => btn.classList.remove('active'));
   button.classList.add('active');
+
+  // סגור את התפריט אם פתוח (רק במובייל)
   document.getElementById('categoryButtons').classList.remove('show');
 
   filterProducts();
