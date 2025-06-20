@@ -369,13 +369,14 @@ main {
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  background: #fff;
+  background: white;
   color: #4364f7;
   display: flex;
   justify-content: center;
   align-items: center;
   font-weight: bold;
   cursor: pointer;
+  box-shadow: 0 0 0 2px #4364f7;
 }
 
 .profile-dropdown {
