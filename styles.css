@@ -322,10 +322,7 @@ main {
     align-items: center;
     padding: 10px 15px;
   }
-  .profile-dropdown {
-    right: auto; /* לא מימין */
-    left: 0;     /* כן משמאל */
-  }
+
   .logo-wrapper {
     flex: 1;
     justify-content: center;
@@ -336,6 +333,7 @@ main {
     position: static;
     transform: none;
     margin-left: auto;
+    order: 2;
   }
 
   #googleLoginBtn,
@@ -346,6 +344,17 @@ main {
     padding: 6px 15px;
     font-size: 14px;
     margin-left: auto;
+  }
+
+  .profile-menu {
+    position: relative; /* חשוב כדי למקם נכון את dropdown */
+  }
+
+  .profile-dropdown {
+    right: auto;
+    left: 50%;
+    transform: translateX(-50%);
+    top: 50px;
   }
 
   .site-title {
