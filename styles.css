@@ -336,8 +336,7 @@ main {
     order: 2;
   }
 
-  #googleLoginBtn,
-  .profile-menu {
+  #googleLoginBtn {
     order: 1;
     position: static;
     transform: none;
@@ -347,8 +346,11 @@ main {
   }
 
   .profile-menu {
-    position: relative;
-    margin-right: 60px; /* הזזה קצת ימינה */
+    order: 1;
+    position: static;
+    transform: none;
+    padding: 6px 15px;
+    margin-left: 15px; /* הזזה ברורה ימינה מההמבורגר */
   }
 
   .profile-dropdown {
