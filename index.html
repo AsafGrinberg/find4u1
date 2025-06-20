@@ -82,8 +82,14 @@
   };
 
   window.app = initializeApp(firebaseConfig);
-  window.auth = getAuth(app);
-  window.provider = new GoogleAuthProvider();
+window.auth = getAuth(app);
+window.provider = new GoogleAuthProvider();
+
+// הוסף את הפונקציות הגלובליות גם:
+window.signInWithPopup = signInWithPopup;
+window.signOut = signOut;
+window.onAuthStateChanged = onAuthStateChanged;
+
 </script>
 
 
