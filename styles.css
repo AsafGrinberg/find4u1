@@ -71,7 +71,7 @@ header.sticky-header {
   animation: gradientBG 10s ease infinite;
   border: none;
   border-radius: 50px;
-  padding: 10px 45px;
+  padding: 10px 12px;
   cursor: pointer;
   transition: transform 0.2s;
 }
@@ -121,7 +121,7 @@ header.sticky-header {
 .profile-dropdown button {
   background: none;
   border: none;
-  padding: 10px 20px;
+  padding: 10px 12px;
   width: 100%;
   text-align: right;
   cursor: pointer;
