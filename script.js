@@ -1,22 +1,19 @@
 let activeCategory = 'all';
 let fuse;
 
-// פונקציה שמציגה את המוצרים בדף
 function displayProducts(items) {
   const container = document.getElementById('productsGrid');
-
   container.classList.add('fade-out');
 
   setTimeout(() => {
     container.innerHTML = '';
 
     if (items.length === 0) {
-      container.innerHTML = '<p>לא נמצאו מוצרים</p>';
+      container.innerHTML = '<p class="no-results">לא נמצאו מוצרים</p>';
     } else {
       items.forEach(product => {
         const a = document.createElement('a');
-        a.href = product.link;
-        a.target = '_blank';
+        a.href = `product.html?id=${product.id}`; // כאן הקישור לדף מוצר
         a.className = 'grid-item';
         a.dataset.category = product.category.join(',');
 
@@ -39,11 +36,9 @@ function displayProducts(items) {
     setTimeout(() => {
       container.classList.remove('fade-in');
     }, 400);
-
   }, 400);
 }
 
-// פונקציה לבחירת קטגוריה
 function showCategory(category, button) {
   activeCategory = category;
 
@@ -52,11 +47,9 @@ function showCategory(category, button) {
   button.classList.add('active');
   document.getElementById('categoryButtons').classList.remove('show');
 
-
   filterProducts();
 }
 
-// פונקציה לסינון לפי חיפוש וקטגוריה
 function filterProducts() {
   const input = document.getElementById('searchInput').value.trim();
 
@@ -83,13 +76,36 @@ function filterProducts() {
   }
 
   displayProducts(filtered);
+  showSuggestions(input, filtered);
 }
 
-// קוד שמריץ הכל בהעלאת הדף
+function showSuggestions(input, items) {
+  let list = document.querySelector('.autocomplete-list');
+  if (!list) {
+    list = document.createElement('ul');
+    list.className = 'autocomplete-list';
+    document.querySelector('.search-container').appendChild(list);
+  }
+  list.innerHTML = '';
+
+  if (input.length === 0) return;
+
+  const suggestions = items.slice(0, 5);
+  suggestions.forEach(item => {
+    const li = document.createElement('li');
+    li.textContent = item.text;
+    li.onclick = () => {
+      document.getElementById('searchInput').value = item.text;
+      filterProducts();
+      list.innerHTML = '';
+    };
+    list.appendChild(li);
+  });
+}
+
 window.onload = () => {
   displayProducts(products);
 
-  // פתיחת תפריט המבורגר במובייל
   const menuToggle = document.querySelector('.menu-toggle');
   const navCategories = document.getElementById('categoryButtons');
 
@@ -100,10 +116,18 @@ window.onload = () => {
   }
 };
 
-// אפשרות לחיפוש גם עם אנטר
-document.getElementById('searchInput').addEventListener('keydown', function(event) {
+document.getElementById('searchInput').addEventListener('input', filterProducts);
+document.getElementById('searchInput').addEventListener('keydown', function (event) {
   if (event.key === 'Enter') {
     event.preventDefault();
     filterProducts();
+    document.querySelector('.autocomplete-list').innerHTML = '';
   }
 });
+// כבר יש לך את כל הפונקציות... ואז בסוף:
+document.getElementById('googleLoginBtn').addEventListener('click', function(e) {
+  e.preventDefault();
+  alert("כאן תפעיל התחברות עם Google דרך Firebase או OAuth שלך");
+});
+
+

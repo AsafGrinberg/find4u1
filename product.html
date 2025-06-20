@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="he">
+<head>
+  <meta charset="UTF-8" />
+  <title>Find4U - פרטי מוצר</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="styles.css" />
+  <style>
+    /* עיצוב ביקורות בסגנון SHEIN */
+    .review-card {
+      background: #fff;
+      border: 1px solid #ddd;
+      border-radius: 10px;
+      padding: 15px;
+      margin-bottom: 15px;
+      text-align: right;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+    }
+    .review-header {
+      font-weight: bold;
+      color: #333;
+      margin-bottom: 5px;
+      font-size: 0.95rem;
+    }
+    .review-date {
+      font-size: 0.8rem;
+      color: #888;
+    }
+    .review-text {
+      margin-top: 8px;
+      font-size: 1rem;
+      line-height: 1.5;
+    }
+    .review-form {
+      max-width: 500px;
+      margin: 0 auto;
+      text-align: right;
+    }
+    .review-form input, .review-form textarea {
+      width: 100%;
+      margin-bottom: 10px;
+      padding: 10px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+    }
+    .review-form button {
+      background: #4364f7;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 30px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    @media (max-width: 600px) {
+      .review-card {
+        font-size: 0.95rem;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<header class="sticky-header">
+  <div class="top-bar">
+    <div class="logo-wrapper">
+      <a href="index.html">
+        <img src="assets/images/FIND4ULOGGO.png" alt="Find4U Logo" class="logo" />
+      </a>
+      <h1 class="site-title"> כל מה שחיפשתם במקום אחד</h1>
+    </div>
+    <button class="menu-toggle" aria-label="תפריט">☰</button>
+  </div>
+  <nav class="nav-categories" id="categoryButtons">
+    <button class="active" onclick="location.href='index.html'">כל המוצרים</button>
+    <button onclick="location.href='index.html#home'">לבית ולגינה</button>
+    <button onclick="location.href='index.html#bedroom'">לחדר שינה</button>
+    <button onclick="location.href='index.html#car'">לרכב</button>
+    <button onclick="location.href='index.html#kids'">לילדים</button>
+    <a href="guides.html" class="nav-link">מדריכים</a>
+  </nav>
+</header>
+
+<main style="padding-top: 160px; max-width: 1120px; margin: auto; text-align: center;">
+  <h1 id="productTitle"></h1>
+  <div id="imageGallery" style="display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin: 20px 0;"></div>
+  <p id="productDescription" style="max-width: 800px; margin: 20px auto;"></p>
+  <a id="buyButton" href="#" target="_blank" style="display: inline-block; padding: 15px 25px; background: #4364f7; color: white; font-weight: bold; border-radius: 30px; text-decoration: none; box-shadow: 0 4px 12px rgba(67,100,247,0.6); transition: background 0.3s;">קנה עכשיו</a>
+
+  <section style="margin-top: 50px; text-align: center;">
+    <h2>ביקורות</h2>
+    <div id="reviewsContainer" style="margin-top: 20px;"></div>
+
+    <h3 style="margin-top: 30px;">הוסף ביקורת משלך</h3>
+    <form id="reviewForm" class="review-form">
+      <input id="reviewName" type="text" placeholder="השם שלך" required>
+      <textarea id="reviewText" placeholder="כתוב ביקורת..." rows="4" required></textarea>
+      <button type="submit">שלח ביקורת</button>
+    </form>
+  </section>
+</main>
+
+<script src="products.js"></script>
+<script src="product.js"></script>
+<script>
+  // תפריט ניווט
+  const menuToggle = document.querySelector('.menu-toggle');
+  const navCategories = document.getElementById('categoryButtons');
+  if (menuToggle && navCategories) {
+    menuToggle.addEventListener('click', () => {
+      navCategories.classList.toggle('show');
+    });
+  }
+
+  // מערכת ביקורות בסגנון SHEIN
+  const reviewsContainer = document.getElementById('reviewsContainer');
+  const reviewForm = document.getElementById('reviewForm');
+  const reviewName = document.getElementById('reviewName');
+  const reviewText = document.getElementById('reviewText');
+  const urlParams = new URLSearchParams(window.location.search);
+  const productId = urlParams.get('id');
+
+  function loadReviews() {
+    const reviews = JSON.parse(localStorage.getItem('reviews_' + productId)) || [];
+    reviewsContainer.innerHTML = '';
+
+    if (reviews.length === 0) {
+      reviewsContainer.innerHTML = '<p>עדיין אין ביקורות. תהיה הראשון!</p>';
+    } else {
+      reviews.forEach(r => {
+        const div = document.createElement('div');
+        div.className = 'review-card';
+
+        div.innerHTML = `
+          <div class="review-header">${r.name} <span class="review-date">${r.date}</span></div>
+          <div class="review-text">${r.text}</div>
+        `;
+        reviewsContainer.appendChild(div);
+      });
+    }
+  }
+
+  reviewForm.addEventListener('submit', function(e) {
+    e.preventDefault();
+    const name = reviewName.value.trim();
+    const text = reviewText.value.trim();
+    if (name && text) {
+      const reviews = JSON.parse(localStorage.getItem('reviews_' + productId)) || [];
+      const date = new Date().toLocaleDateString('he-IL');
+      reviews.unshift({ name, text, date }); // הכי חדשה למעלה
+      localStorage.setItem('reviews_' + productId, JSON.stringify(reviews));
+      reviewName.value = '';
+      reviewText.value = '';
+      loadReviews();
+    }
+  });
+
+  loadReviews();
+</script>
+
+</body>
+</html>
