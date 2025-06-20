@@ -124,10 +124,5 @@ document.getElementById('searchInput').addEventListener('keydown', function (eve
     document.querySelector('.autocomplete-list').innerHTML = '';
   }
 });
-// כבר יש לך את כל הפונקציות... ואז בסוף:
-document.getElementById('googleLoginBtn').addEventListener('click', function(e) {
-  e.preventDefault();
-  alert("כאן תפעיל התחברות עם Google דרך Firebase או OAuth שלך");
-});
 
 

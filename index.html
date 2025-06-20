@@ -21,18 +21,15 @@
     <button class="menu-toggle" aria-label="תפריט">☰</button>
 
     <!-- כפתור התחברות -->
-<button id="googleLoginBtn" aria-label="התחבר עם גוגל">
-  <img src="assets/images/google-Logo.png" alt="Google Logo">
-  <span>התחבר</span>
-</button>
-
-
-
+    <button id="googleLoginBtn" aria-label="התחבר עם גוגל">
+      <img src="assets/images/google-Logo.png" alt="Google Logo">
+      <span>התחבר</span>
+    </button>
   </div>
 
   <nav class="nav-categories" id="categoryButtons">
     <!-- הקטגוריות -->
-<button class="active" data-emoji="🛋️" onclick="showCategory('all', this)">כל המוצרים</button>
+    <button class="active" data-emoji="🛋️" onclick="showCategory('all', this)">כל המוצרים</button>
     <button data-emoji="🏠" onclick="showCategory('home', this)">לבית ולגינה</button>
     <button data-emoji="🛏️" onclick="showCategory('bedroom', this)">לחדר שינה</button>
     <button data-emoji="🚗" onclick="showCategory('car', this)">לרכב</button>
@@ -40,7 +37,6 @@
     <a href="guides.html" class="nav-link">מדריכים</a>
   </nav>
 </header>
-
 
 <main>
   <p class="welcome-text">🎉 ברוכים הבאים ל-Find4U 🎉</p>
@@ -57,7 +53,47 @@
   <div id="productsGrid" class="grid-container"></div>
 </main>
 
+<!-- Fuse.js לחיפוש -->
 <script src="https://cdn.jsdelivr.net/npm/fuse.js@6.6.2"></script>
+
+<!-- Firebase מה-CDN -->
+<script type="module">
+  // ייבוא מה-CDN
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
+  import { getAuth, signInWithPopup, GoogleAuthProvider } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
+
+  // ההגדרות שלך
+  const firebaseConfig = {
+    apiKey: "AIzaSyD6o0oDX5ahIw-7E0tUy76ImJDCFWbv4x8",
+    authDomain: "find4u-il.firebaseapp.com",
+    projectId: "find4u-il",
+    storageBucket: "find4u-il.appspot.com",
+    messagingSenderId: "1063243167726",
+    appId: "1:1063243167726:web:16a8bbaf73ed8181e680ff",
+    measurementId: "G-SYR49CZGZZ"
+  };
+
+  // אתחול
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const provider = new GoogleAuthProvider();
+
+  // התחברות בלחיצה
+  document.getElementById("googleLoginBtn").addEventListener("click", () => {
+    signInWithPopup(auth, provider)
+      .then((result) => {
+        const user = result.user;
+        alert(`ברוך הבא ${user.displayName}`);
+        console.log("התחברות מוצלחת:", user);
+      })
+      .catch((error) => {
+        console.error(error);
+        alert("שגיאה: " + error.message);
+      });
+  });
+</script>
+
+<!-- הקבצים שלך -->
 <script src="products.js"></script>
 <script src="script.js"></script>
 </body>
