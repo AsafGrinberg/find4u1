@@ -348,7 +348,7 @@ main {
 
   .profile-menu {
     position: relative;
-    margin-right: 10px; /* הזזה קצת ימינה */
+    margin-right: 20px; /* הזזה קצת ימינה */
   }
 
   .profile-dropdown {
