@@ -116,14 +116,33 @@ window.onload = () => {
     });
   }
 
+  // התחברות/התנתקות/פרופיל
   const googleLoginBtn = document.getElementById("googleLoginBtn");
   const profileMenu = document.getElementById("profileMenu");
   const profileAvatar = document.getElementById("profileAvatar");
   const profileDropdown = document.getElementById("profileDropdown");
   const logoutBtn = document.getElementById("logoutBtn");
 
-  // התנהגות לפי מצב התחברות
-  onAuthStateChanged(auth, (user) => {
+  googleLoginBtn.addEventListener("click", () => {
+    signInWithPopup(window.auth, window.provider)
+      .then((result) => {
+        console.log("משתמש התחבר:", result.user);
+      })
+      .catch((error) => {
+        console.error(error);
+        alert("שגיאה: " + error.message);
+      });
+  });
+
+  logoutBtn.addEventListener("click", () => {
+    signOut(window.auth)
+      .then(() => {
+        console.log("התנתקת");
+      })
+      .catch((error) => console.error(error));
+  });
+
+  onAuthStateChanged(window.auth, (user) => {
     if (user) {
       googleLoginBtn.style.display = "none";
       profileMenu.style.display = "inline-block";
@@ -132,10 +151,10 @@ window.onload = () => {
     } else {
       googleLoginBtn.style.display = "flex";
       profileMenu.style.display = "none";
+      profileDropdown.style.display = "none";
     }
   });
 
-  // פתיחה/סגירה של dropdown
   profileAvatar.addEventListener("click", () => {
     profileDropdown.style.display = 
       profileDropdown.style.display === "block" ? "none" : "block";
@@ -145,12 +164,6 @@ window.onload = () => {
     if (!profileMenu.contains(e.target) && e.target.id !== "googleLoginBtn") {
       profileDropdown.style.display = "none";
     }
-  });
-
-  logoutBtn.addEventListener("click", () => {
-    signOut(auth)
-      .then(() => console.log("התנתקת"))
-      .catch((error) => console.error(error));
   });
 };
 

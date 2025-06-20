@@ -70,6 +70,7 @@
   import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
   import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
 
+  // אתחול Firebase גלובלי ל- window כדי ש script.js יוכל להשתמש בזה:
   const firebaseConfig = {
     apiKey: "AIzaSyD6o0oDX5ahIw-7E0tUy76ImJDCFWbv4x8",
     authDomain: "find4u-il.firebaseapp.com",
@@ -80,44 +81,11 @@
     measurementId: "G-SYR49CZGZZ"
   };
 
-  const app = initializeApp(firebaseConfig);
-  const auth = getAuth(app);
-  const provider = new GoogleAuthProvider();
-
-  const googleLoginBtn = document.getElementById("googleLoginBtn");
-  const logoutBtn = document.getElementById("logoutBtn");
-
-  googleLoginBtn.addEventListener("click", () => {
-    signInWithPopup(auth, provider)
-      .then((result) => {
-        console.log("משתמש התחבר:", result.user);
-      })
-      .catch((error) => {
-        console.error(error);
-        alert("שגיאה: " + error.message);
-      });
-  });
-
-  logoutBtn.addEventListener("click", () => {
-    signOut(auth)
-      .then(() => {
-        console.log("התנתקת בהצלחה");
-      })
-      .catch((error) => {
-        console.error(error);
-      });
-  });
-
-  onAuthStateChanged(auth, (user) => {
-    if (user) {
-      googleLoginBtn.style.display = "none";
-      logoutBtn.style.display = "block";
-    } else {
-      googleLoginBtn.style.display = "flex";
-      logoutBtn.style.display = "none";
-    }
-  });
+  window.app = initializeApp(firebaseConfig);
+  window.auth = getAuth(app);
+  window.provider = new GoogleAuthProvider();
 </script>
+
 
 <!-- הקבצים שלך -->
 <script src="products.js"></script>
