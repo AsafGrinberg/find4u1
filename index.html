@@ -27,11 +27,16 @@
     </button>
 
     <!-- כפתור התנתקות -->
-    <button id="logoutBtn" style="display: none;">התנתק</button>
+<div class="profile-menu" id="profileMenu" style="display: none;">
+  <div class="profile-avatar" id="profileAvatar"></div>
+  <div class="profile-dropdown" id="profileDropdown">
+    <button id="logoutBtn">התנתק</button>
+  </div>
+</div>
   </div>
 
-  <!-- הקטגוריות - בשורה נפרדת תמיד -->
   <nav class="nav-categories" id="categoryButtons">
+    <!-- הקטגוריות -->
     <button class="active" data-emoji="🛋️" onclick="showCategory('all', this)">כל המוצרים</button>
     <button data-emoji="🏠" onclick="showCategory('home', this)">לבית ולגינה</button>
     <button data-emoji="🛏️" onclick="showCategory('bedroom', this)">לחדר שינה</button>
@@ -59,7 +64,7 @@
 <!-- Fuse.js -->
 <script src="https://cdn.jsdelivr.net/npm/fuse.js@6.6.2"></script>
 
-<!-- Firebase Auth -->
+<!-- Firebase Auth דרך CDN -->
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
   import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
@@ -113,6 +118,7 @@
   });
 </script>
 
+<!-- הקבצים שלך -->
 <script src="products.js"></script>
 <script src="script.js"></script>
 </body>

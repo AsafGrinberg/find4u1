@@ -108,6 +108,7 @@ function showSuggestions(input, items) {
 window.onload = () => {
   displayProducts(products);
 
+  // כפתור המבורגר
   const menuToggle = document.querySelector('.menu-toggle');
   const navCategories = document.getElementById('categoryButtons');
 
@@ -116,8 +117,41 @@ window.onload = () => {
       navCategories.classList.toggle('show');
     });
   }
+
+  // פרופיל
+  const profileMenu = document.getElementById("profileMenu");
+  const profileAvatar = document.getElementById("profileAvatar");
+  const profileDropdown = document.getElementById("profileDropdown");
+  const googleLoginBtn = document.getElementById("googleLoginBtn");
+
+  // טען מצב התחברות
+  onAuthStateChanged(auth, (user) => {
+    if (user) {
+      googleLoginBtn.style.display = "none";
+      profileMenu.style.display = "inline-block";
+
+      const displayName = user.displayName || "U";
+      profileAvatar.textContent = displayName.charAt(0).toUpperCase();
+    } else {
+      googleLoginBtn.style.display = "flex";
+      profileMenu.style.display = "none";
+    }
+  });
+
+  // toggle dropdown
+  profileAvatar.addEventListener("click", () => {
+    profileDropdown.style.display = profileDropdown.style.display === "block" ? "none" : "block";
+  });
+
+  // סגור dropdown בלחיצה מחוץ
+  window.addEventListener("click", function(e) {
+    if (!profileMenu.contains(e.target) && !googleLoginBtn.contains(e.target)) {
+      profileDropdown.style.display = "none";
+    }
+  });
 };
 
+// חיפוש
 document.getElementById('searchInput').addEventListener('input', filterProducts);
 document.getElementById('searchInput').addEventListener('keydown', function (event) {
   if (event.key === 'Enter') {
