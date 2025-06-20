@@ -347,7 +347,8 @@ main {
   }
 
   .profile-menu {
-    position: relative; /* חשוב כדי למקם נכון את dropdown */
+    position: relative;
+    margin-right: 10px; /* הזזה קצת ימינה */
   }
 
   .profile-dropdown {
