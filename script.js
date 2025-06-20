@@ -13,7 +13,7 @@ function displayProducts(items) {
     } else {
       items.forEach(product => {
         const a = document.createElement('a');
-        a.href = `product.html?id=${product.id}`; // כאן הקישור לדף מוצר
+        a.href = `product.html?id=${product.id}`;
         a.className = 'grid-item';
         a.dataset.category = product.category.join(',');
 
@@ -124,5 +124,3 @@ document.getElementById('searchInput').addEventListener('keydown', function (eve
     document.querySelector('.autocomplete-list').innerHTML = '';
   }
 });
-
-

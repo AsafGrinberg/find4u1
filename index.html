@@ -25,6 +25,9 @@
       <img src="assets/images/google-Logo.png" alt="Google Logo">
       <span>התחבר</span>
     </button>
+
+    <!-- כפתור התנתקות -->
+    <button id="logoutBtn" style="display: none;">התנתק</button>
   </div>
 
   <nav class="nav-categories" id="categoryButtons">
@@ -53,16 +56,14 @@
   <div id="productsGrid" class="grid-container"></div>
 </main>
 
-<!-- Fuse.js לחיפוש -->
+<!-- Fuse.js -->
 <script src="https://cdn.jsdelivr.net/npm/fuse.js@6.6.2"></script>
 
-<!-- Firebase מה-CDN -->
+<!-- Firebase Auth דרך CDN -->
 <script type="module">
-  // ייבוא מה-CDN
   import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
-  import { getAuth, signInWithPopup, GoogleAuthProvider } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
+  import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
 
-  // ההגדרות שלך
   const firebaseConfig = {
     apiKey: "AIzaSyD6o0oDX5ahIw-7E0tUy76ImJDCFWbv4x8",
     authDomain: "find4u-il.firebaseapp.com",
@@ -73,23 +74,42 @@
     measurementId: "G-SYR49CZGZZ"
   };
 
-  // אתחול
   const app = initializeApp(firebaseConfig);
   const auth = getAuth(app);
   const provider = new GoogleAuthProvider();
 
-  // התחברות בלחיצה
-  document.getElementById("googleLoginBtn").addEventListener("click", () => {
+  const googleLoginBtn = document.getElementById("googleLoginBtn");
+  const logoutBtn = document.getElementById("logoutBtn");
+
+  googleLoginBtn.addEventListener("click", () => {
     signInWithPopup(auth, provider)
       .then((result) => {
-        const user = result.user;
-        alert(`ברוך הבא ${user.displayName}`);
-        console.log("התחברות מוצלחת:", user);
+        console.log("משתמש התחבר:", result.user);
       })
       .catch((error) => {
         console.error(error);
         alert("שגיאה: " + error.message);
       });
+  });
+
+  logoutBtn.addEventListener("click", () => {
+    signOut(auth)
+      .then(() => {
+        console.log("התנתקת בהצלחה");
+      })
+      .catch((error) => {
+        console.error(error);
+      });
+  });
+
+  onAuthStateChanged(auth, (user) => {
+    if (user) {
+      googleLoginBtn.style.display = "none";
+      logoutBtn.style.display = "block";
+    } else {
+      googleLoginBtn.style.display = "flex";
+      logoutBtn.style.display = "none";
+    }
   });
 </script>
 
