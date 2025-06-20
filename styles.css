@@ -46,19 +46,18 @@ header.sticky-header {
 
 .menu-toggle {
   display: none;
-  position: absolute;
-  left: 20px;
-  top: 50%;
-  transform: translateY(-50%);
   background: none;
   border: none;
   font-size: 32px;
   color: white;
   cursor: pointer;
+  position: absolute;
+  left: 20px;
+  top: 50%;
+  transform: translateY(-50%);
 }
 
-#googleLoginBtn,
-.profile-menu {
+#googleLoginBtn {
   position: absolute;
   right: 20px;
   top: 50%;
@@ -71,25 +70,32 @@ header.sticky-header {
   animation: gradientBG 10s ease infinite;
   border: none;
   border-radius: 50px;
-  padding: 10px 12px;
+  padding: 6px 20px;
   cursor: pointer;
   transition: transform 0.2s;
+  font-size: 14px;
 }
 
-#googleLoginBtn:hover,
-.profile-menu:hover {
+#googleLoginBtn:hover {
   transform: translateY(-50%) scale(1.05);
 }
 
 #googleLoginBtn img {
-  width: 24px;
-  height: 24px;
+  width: 18px;
+  height: 18px;
 }
 
 #googleLoginBtn span {
   color: white;
   font-weight: 600;
-  font-size: 15px;
+  font-size: 14px;
+}
+
+.profile-menu {
+  position: absolute;
+  right: 20px;
+  top: 50%;
+  transform: translateY(-50%);
 }
 
 .profile-avatar {
@@ -104,9 +110,8 @@ header.sticky-header {
   font-weight: bold;
   cursor: pointer;
   box-shadow: 0 0 0 2px #4364f7;
-  padding: 0; /* אין padding! */
-  border: none; /* אין גבול */
-  background: white; /* רקע עיגול */
+  padding: 0;
+  border: none;
 }
 
 .profile-dropdown {
@@ -124,7 +129,7 @@ header.sticky-header {
 .profile-dropdown button {
   background: none;
   border: none;
-  padding: 7px 7px;
+  padding: 7px 12px;
   width: 100%;
   text-align: right;
   cursor: pointer;
@@ -175,7 +180,7 @@ header.sticky-header {
 }
 
 main {
-  padding-top: 140px;
+  padding-top: 90px;
 }
 
 .welcome-text {
@@ -308,37 +313,40 @@ main {
   100% { background-position: 0% 50%; }
 }
 
+/* מובייל */
 @media (max-width: 767px) {
   .top-bar {
-    flex-direction: column;
+    flex-direction: row;
+    justify-content: space-between;
     align-items: center;
-    gap: 10px;
+    padding: 10px 15px;
   }
 
-  .logo {
-    max-height: 50px;
-  }
-
-  .site-title {
-    font-size: 1rem;
-    white-space: normal;
-    text-align: center;
-    padding: 0 40px;
+  .logo-wrapper {
+    flex: 1;
+    justify-content: center;
   }
 
   .menu-toggle {
     display: block;
-    position: absolute;
-    left: 20px;
-    top: 15px;
+    position: static;
     transform: none;
+    margin-left: auto;
   }
 
   #googleLoginBtn,
   .profile-menu {
     position: static;
     transform: none;
-    margin-top: 10px;
+    padding: 6px 15px;
+    font-size: 14px;
+    margin-left: auto;
+  }
+
+  .site-title {
+    font-size: 1rem;
+    padding: 0 10px;
+    text-align: center;
   }
 
   .nav-categories {
@@ -357,5 +365,9 @@ main {
     grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
     gap: 5px;
     padding: 2px;
+  }
+
+  main {
+    padding-top: 80px;
   }
 }
