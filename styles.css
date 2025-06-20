@@ -21,18 +21,11 @@ header.sticky-header {
 }
 
 .top-bar {
-  position: relative; /* חובה כי הכפתור אבסולוטי אליו */
+  position: relative;
   display: flex;
-  justify-content: center; /* כל התוכן במרכז */
+  justify-content: center;
   align-items: center;
   padding: 10px 15px;
-}
-
-.logo-title {
-  display: flex;
-  align-items: center;
-  gap: 15px;
-  text-decoration: none;
 }
 
 .logo-wrapper {
@@ -45,7 +38,6 @@ header.sticky-header {
   max-height: 70px;
 }
 
-
 .site-title {
   font-size: 1.4rem;
   color: white;
@@ -54,15 +46,90 @@ header.sticky-header {
 
 .menu-toggle {
   display: none;
+  position: absolute;
+  left: 20px;
+  top: 50%;
+  transform: translateY(-50%);
   background: none;
   border: none;
   font-size: 32px;
   color: white;
   cursor: pointer;
-  position: absolute;
-  left: 20px; /* צד שמאל */
 }
 
+#googleLoginBtn,
+.profile-menu {
+  position: absolute;
+  right: 20px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: linear-gradient(135deg, #4364f7, #a0c1f7, #b18fcf);
+  background-size: 400% 400%;
+  animation: gradientBG 10s ease infinite;
+  border: none;
+  border-radius: 50px;
+  padding: 10px 45px;
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+#googleLoginBtn:hover,
+.profile-menu:hover {
+  transform: translateY(-50%) scale(1.05);
+}
+
+#googleLoginBtn img {
+  width: 24px;
+  height: 24px;
+}
+
+#googleLoginBtn span {
+  color: white;
+  font-weight: 600;
+  font-size: 15px;
+}
+
+.profile-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: white;
+  color: #4364f7;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-weight: bold;
+  cursor: pointer;
+  box-shadow: 0 0 0 2px #4364f7;
+}
+
+.profile-dropdown {
+  display: none;
+  position: absolute;
+  top: 50px;
+  right: 0;
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+  z-index: 1000;
+}
+
+.profile-dropdown button {
+  background: none;
+  border: none;
+  padding: 10px 20px;
+  width: 100%;
+  text-align: right;
+  cursor: pointer;
+}
+
+.profile-dropdown button:hover {
+  background: #f0f0f0;
+}
 
 .nav-categories {
   display: flex;
@@ -124,12 +191,6 @@ main {
   max-width: 1120px;
 }
 
-@keyframes gradientBG {
-  0% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
-  100% { background-position: 0% 50%; }
-}
-
 .search-text {
   text-align: center;
   font-weight: 600;
@@ -143,7 +204,7 @@ main {
   max-width: 1120px;
   margin-left: auto;
   margin-right: auto;
-  position: relative; /* חשוב */
+  position: relative;
 }
 
 .search-container input {
@@ -154,10 +215,9 @@ main {
   max-width: 90%;
   font-size: 1rem;
   direction: rtl;
-  text-align: right; /* חשוב */
+  text-align: right;
 }
 
-/* סגנון לרשימת ההשלמות */
 .autocomplete-list {
   list-style: none;
   padding: 0;
@@ -168,15 +228,14 @@ main {
   max-height: 200px;
   overflow-y: auto;
   position: absolute;
-  top: 100%; /* צמוד מתחת ל-input */
-  left: 50%;  /* במרכז */
-  transform: translateX(-50%);  /* מקבע למרכז */
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
   width: 300px;
   z-index: 999;
   direction: rtl;
   text-align: right;
 }
-
 
 .autocomplete-list li {
   padding: 10px;
@@ -225,38 +284,6 @@ main {
   font-weight: 600;
 }
 
-@media (max-width: 767px) {
-  .top-bar {
-    flex-direction: column;
-  }
-  .logo {
-    max-height: 50px;
-  }
-  .site-title {
-    font-size: 1rem;
-    white-space: normal;
-    text-align: center;
-    padding: 0 40px;
-  }
-  .menu-toggle {
-    display: block;
-  }
-  .nav-categories {
-    display: none;
-    flex-direction: column;
-    gap: 10px;
-    background: linear-gradient(135deg, #4364f7, #a0c1f7, #b18fcf);
-    padding: 15px 20px;
-  }
-  .nav-categories.show {
-    display: flex;
-  }
-  .grid-container {
-    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-    gap: 5px;
-    padding: 2px;
-  }
-}
 .no-results {
   text-align: center;
   font-size: 1.2rem;
@@ -266,146 +293,66 @@ main {
   opacity: 0;
   animation: fadeIn 0.4s forwards;
 }
+
 @keyframes fadeIn {
   from { opacity: 0; }
   to { opacity: 1; }
 }
-#googleLoginBtn {
-  position: absolute;
-  right: 20px; /* צד ימין קבוע */
-  top: 50%;
-  transform: translateY(-50%);
-  background: white;
-  border: 2px solid #4364f7;
-  border-radius: 50%;
-  width: 40px;
-  height: 40px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  cursor: pointer;
-  transition: transform 0.2s;
+
+@keyframes gradientBG {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
 }
 
-#googleLoginBtn:hover {
-  transform: translateY(-50%) scale(1.05);
-}
-
-#googleLoginBtn img {
-  width: 20px;
-  height: 20px;
-}
-
-/* מובייל */
 @media (max-width: 767px) {
+  .top-bar {
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+  }
+
   .logo {
     max-height: 50px;
   }
+
   .site-title {
     font-size: 1rem;
+    white-space: normal;
     text-align: center;
+    padding: 0 40px;
   }
+
   .menu-toggle {
     display: block;
+    position: absolute;
+    left: 20px;
+    top: 15px;
+    transform: none;
   }
-  #googleLoginBtn {
+
+  #googleLoginBtn,
+  .profile-menu {
     position: static;
     transform: none;
     margin-top: 10px;
   }
-  .top-bar {
+
+  .nav-categories {
+    display: none;
     flex-direction: column;
     gap: 10px;
+    background: linear-gradient(135deg, #4364f7, #a0c1f7, #b18fcf);
+    padding: 15px 20px;
+  }
+
+  .nav-categories.show {
+    display: flex;
+  }
+
+  .grid-container {
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 5px;
+    padding: 2px;
   }
 }
-#googleLoginBtn {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  background: linear-gradient(135deg, #4364f7, #a0c1f7, #b18fcf);
-  background-size: 400% 400%;
-  animation: gradientBG 10s ease infinite;
-  border: none; /* אין גבול */
-  border-radius: 50px;
-  padding: 10px 45px; /* יותר גדול */
-  cursor: pointer;
-  transition: transform 0.2s;
-  position: absolute;
-  right: 20px;
-  top: 50%;
-  transform: translateY(-50%);
-}
-
-#googleLoginBtn:hover {
-  transform: translateY(-50%) scale(1.05);
-}
-
-#googleLoginBtn img {
-  width: 24px; /* קצת יותר גדול */
-  height: 24px;
-}
-
-#googleLoginBtn span {
-  color: white; /* מתאים לגרדיאנט */
-  font-weight: 600;
-  font-size: 15px;
-}
-
-/* מובייל */
-@media (max-width: 767px) {
-  #googleLoginBtn {
-    position: static;
-    transform: none;
-    margin-top: 10px;
-  }
-}
-/* פרופיל עגול */
-.profile-menu {
-  position: absolute;
-  right: 20px;
-  top: 50%;
-  transform: translateY(-50%);
-}
-
-
-.profile-avatar {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  background: white;
-  color: #4364f7;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  font-weight: bold;
-  cursor: pointer;
-  box-shadow: 0 0 0 2px #4364f7;
-}
-
-.profile-dropdown {
-  display: none;
-  position: absolute;
-  top: 50px;
-  right: 0;
-  background: white;
-  border: 1px solid #ddd;
-  border-radius: 6px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-  z-index: 1000;
-}
-
-.profile-dropdown button {
-  background: none;
-  border: none;
-  padding: 10px 20px;
-  width: 100%;
-  text-align: right;
-  cursor: pointer;
-}
-
-.profile-dropdown button:hover {
-  background: #f0f0f0;
-}
-
-
-
