@@ -46,7 +46,6 @@ function showCategory(category, button) {
   buttons.forEach(btn => btn.classList.remove('active'));
   button.classList.add('active');
 
-  // סגור את התפריט אם פתוח (רק במובייל)
   document.getElementById('categoryButtons').classList.remove('show');
 
   filterProducts();
@@ -108,7 +107,6 @@ function showSuggestions(input, items) {
 window.onload = () => {
   displayProducts(products);
 
-  // כפתור המבורגר
   const menuToggle = document.querySelector('.menu-toggle');
   const navCategories = document.getElementById('categoryButtons');
 
@@ -118,13 +116,13 @@ window.onload = () => {
     });
   }
 
-  // פרופיל
+  // פרופיל כמו WINZONE
+  const googleLoginBtn = document.getElementById("googleLoginBtn");
   const profileMenu = document.getElementById("profileMenu");
   const profileAvatar = document.getElementById("profileAvatar");
   const profileDropdown = document.getElementById("profileDropdown");
-  const googleLoginBtn = document.getElementById("googleLoginBtn");
+  const logoutBtn = document.getElementById("logoutBtn");
 
-  // טען מצב התחברות
   onAuthStateChanged(auth, (user) => {
     if (user) {
       googleLoginBtn.style.display = "none";
@@ -138,20 +136,33 @@ window.onload = () => {
     }
   });
 
-  // toggle dropdown
   profileAvatar.addEventListener("click", () => {
-    profileDropdown.style.display = profileDropdown.style.display === "block" ? "none" : "block";
+    if (profileDropdown.style.display === "block") {
+      profileDropdown.style.display = "none";
+    } else {
+      profileDropdown.style.display = "block";
+    }
   });
 
-  // סגור dropdown בלחיצה מחוץ
-  window.addEventListener("click", function(e) {
-    if (!profileMenu.contains(e.target) && !googleLoginBtn.contains(e.target)) {
+  // סגור dropdown כשמקליקים בחוץ
+  window.addEventListener("click", (event) => {
+    if (!profileMenu.contains(event.target) && event.target.id !== "googleLoginBtn") {
       profileDropdown.style.display = "none";
     }
   });
+
+  // התנתקות
+  logoutBtn.addEventListener("click", () => {
+    signOut(auth)
+      .then(() => {
+        console.log("התנתקת בהצלחה");
+      })
+      .catch((error) => {
+        console.error(error);
+      });
+  });
 };
 
-// חיפוש
 document.getElementById('searchInput').addEventListener('input', filterProducts);
 document.getElementById('searchInput').addEventListener('keydown', function (event) {
   if (event.key === 'Enter') {

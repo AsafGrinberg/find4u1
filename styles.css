@@ -369,13 +369,19 @@ main {
   width: 40px;
   height: 40px;
   border-radius: 50%;
+  background: #fff;
+  color: #4364f7;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-weight: bold;
   cursor: pointer;
 }
 
 .profile-dropdown {
   display: none;
   position: absolute;
-  top: 50px; /* מרחק מהתמונה */
+  top: 50px;
   right: 0;
   background: white;
   border: 1px solid #ddd;
