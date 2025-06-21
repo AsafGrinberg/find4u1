@@ -120,34 +120,20 @@ header.sticky-header {
   z-index: 1000;
 }
 
-.profile-dropdown button {
-  background: white;
-  border: none;
-  padding: 10px 20px;
-  width: 100%;
-  text-align: right;
-  cursor: pointer;
-  border-top: 1px solid #eee;
-}
-
-.profile-dropdown button:hover {
-  background: #f5f5f5;
-}
-
+.profile-dropdown button,
 #logoutBtn {
-  /* אותו דבר כמו שאר הכפתורים בתפריט */
   background: white;
   border: none;
-  color: inherit;
-  font: inherit;
   padding: 10px 20px;
-  display: block;
   width: 100%;
   text-align: right;
   cursor: pointer;
   border-top: 1px solid #eee;
+  box-sizing: border-box;
+  display: block;
 }
 
+.profile-dropdown button:hover,
 #logoutBtn:hover {
   background: #f5f5f5;
 }
@@ -326,7 +312,7 @@ main {
   100% { background-position: 0% 50%; }
 }
 
-/* ✅ מובייל בלבד */
+/* === מובייל בלבד === */
 @media (max-width: 767px) {
   .top-bar {
     display: flex;
@@ -370,7 +356,6 @@ main {
     position: relative !important;
     order: 2;
     margin: 0 8px;
-    margin-right: 0;
     margin-left: 26px;
     transform: none;
   }
