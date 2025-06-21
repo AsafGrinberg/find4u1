@@ -343,7 +343,7 @@ main {
     position: relative !important;
     order: 2;
     margin: 0 8px;
-    margin-right: 16px; /* זה מוסיף דחיפה קטנה ימינה */
+    margin-right: 50px; /* זה מוסיף דחיפה קטנה ימינה */
     transform: none;
   }
   .nav-categories {
