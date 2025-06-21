@@ -24,47 +24,54 @@
   </div>
 
   <nav class="nav-categories" id="categoryButtons">
-    <button data-emoji="🛋️" onclick="showCategory('all', this)">כל המוצרים</button>
-    <button data-emoji="🏠" onclick="showCategory('home', this)">לבית ולגינה</button>
-    <button data-emoji="🛏️" onclick="showCategory('bedroom', this)">לחדר שינה</button>
-    <button data-emoji="🚗" onclick="showCategory('car', this)">לרכב</button>
-    <button data-emoji="👶" onclick="showCategory('kids', this)">לילדים</button>
-    <button data-emoji="📚" onclick="showCategory('guides', this)">מדריכים</button>
+    <button data-emoji="🛋️" onclick="showCategory('all', this)"> כל המוצרים</button>
+    <button data-emoji="🏠" onclick="showCategory('home', this)"> לבית ולגינה</button>
+    <button data-emoji="🛏️" onclick="showCategory('bedroom', this)"> לחדר שינה</button>
+    <button data-emoji="🚗" onclick="showCategory('car', this)"> לרכב</button>
+    <button data-emoji="👶" onclick="showCategory('kids', this)"> לילדים</button>
+    <button data-emoji="📚" onclick="showCategory('guides', this)"> מדריכים</button>
   </nav>
 </header>
+
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
   import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
 
   const firebaseConfig = {
-    apiKey: "XXXX",
-    authDomain: "XXXX",
-    // ...
+    apiKey: "YOUR_API_KEY",
+    authDomain: "YOUR_AUTH_DOMAIN",
+    projectId: "YOUR_PROJECT_ID",
+    // מלא את הערכים שלך כאן
   };
+
   const app = initializeApp(firebaseConfig);
   const auth = getAuth(app);
   const provider = new GoogleAuthProvider();
 
-  const googleLoginBtn = document.getElementById("googleLoginBtn");
-  if (googleLoginBtn) {
-    googleLoginBtn.addEventListener("click", () => {
-      signInWithPopup(auth, provider)
-        .then((result) => {
-          console.log("התחברת בהצלחה", result);
-        })
-        .catch((error) => {
-          console.error("שגיאה בהתחברות:", error);
-        });
-    });
-  }
+  window.auth = auth;
+  window.provider = provider;
 
-  // אם יש התנתקות:
+  const googleLoginBtn = document.getElementById("googleLoginBtn");
   const logoutBtn = document.getElementById("logoutBtn");
-  if (logoutBtn) {
-    logoutBtn.addEventListener("click", () => {
-      signOut(auth).then(() => {
-        console.log("התנתקת בהצלחה");
-      });
-    });
-  }
+  const profileMenu = document.getElementById("profileMenu");
+  const profileAvatar = document.getElementById("profileAvatar");
+
+  googleLoginBtn.addEventListener("click", () => {
+    signInWithPopup(auth, provider).catch(console.error);
+  });
+
+  logoutBtn.addEventListener("click", () => {
+    signOut(auth).catch(console.error);
+  });
+
+  onAuthStateChanged(auth, (user) => {
+    if (user) {
+      googleLoginBtn.style.display = "none";
+      profileMenu.style.display = "block";
+      profileAvatar.style.backgroundImage = `url(${user.photoURL})`;
+    } else {
+      googleLoginBtn.style.display = "block";
+      profileMenu.style.display = "none";
+    }
+  });
 </script>
