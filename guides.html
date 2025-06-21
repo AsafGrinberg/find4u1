@@ -1,8 +1,9 @@
+<!-- index.html או guides.html -->
 <!DOCTYPE html>
 <html lang="he">
 <head>
   <meta charset="UTF-8" />
-  <title>Find4U - קטגוריות מוצרים</title>
+  <title>Find4U</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="stylesheet" href="styles.css" />
 </head>
@@ -24,10 +25,12 @@
       <p>כל מה שצריך לדעת כדי לצפות בתכנים ב-STREMIO.</p>
     </article>
   </main>
-<script src="https://cdn.jsdelivr.net/npm/fuse.js@6.6.2"></script>
+<!-- ספריות וקבצים נוספים -->
+  <script src="https://cdn.jsdelivr.net/npm/fuse.js@6.6.2"></script>
   <script src="products.js"></script>
   <script src="script.js"></script>
 
+  <!-- כל ההתחברות וההפעלה -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
     import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
@@ -46,7 +49,7 @@
     window.auth = getAuth(app);
     window.provider = new GoogleAuthProvider();
 
-    // טען header ואז הפעל
+    // טען את ההדר ואז הפעל את כל האירועים
     fetch('header.html')
       .then(r => r.text())
       .then(data => {
