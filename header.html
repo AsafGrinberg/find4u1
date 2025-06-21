@@ -24,12 +24,12 @@
   </div>
 
   <nav class="nav-categories" id="categoryButtons">
-    <button data-emoji="🛋️" onclick="showCategory('all', this)"> כל המוצרים</button>
-    <button data-emoji="🏠" onclick="showCategory('home', this)"> לבית ולגינה</button>
-    <button data-emoji="🛏️" onclick="showCategory('bedroom', this)"> לחדר שינה</button>
-    <button data-emoji="🚗" onclick="showCategory('car', this)"> לרכב</button>
-    <button data-emoji="👶" onclick="showCategory('kids', this)"> לילדים</button>
-    <button data-emoji="📚" onclick="showCategory('guides', this)"> מדריכים</button>
+    <button onclick="showCategory('all', this)">🛋️ כל המוצרים</button>
+    <button onclick="showCategory('home', this)">🏠 לבית ולגינה</button>
+    <button onclick="showCategory('bedroom', this)">🛏️ לחדר שינה</button>
+    <button onclick="showCategory('car', this)">🚗 לרכב</button>
+    <button onclick="showCategory('kids', this)">👶 לילדים</button>
+    <button onclick="showCategory('guides', this)">📚 מדריכים</button>
   </nav>
 </header>
 
@@ -38,23 +38,20 @@
   import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
 
   const firebaseConfig = {
-    apiKey: "YOUR_API_KEY",
-    authDomain: "YOUR_AUTH_DOMAIN",
-    projectId: "YOUR_PROJECT_ID",
-    // מלא את הערכים שלך כאן
+    apiKey: "AIzaSyD6o0oDX5ahIw-7E0tUy76ImJDCFWbv4x8",
+    authDomain: "find4u-il.firebaseapp.com",
+    projectId: "find4u-il"
   };
 
   const app = initializeApp(firebaseConfig);
   const auth = getAuth(app);
   const provider = new GoogleAuthProvider();
 
-  window.auth = auth;
-  window.provider = provider;
-
   const googleLoginBtn = document.getElementById("googleLoginBtn");
   const logoutBtn = document.getElementById("logoutBtn");
   const profileMenu = document.getElementById("profileMenu");
   const profileAvatar = document.getElementById("profileAvatar");
+  const profileDropdown = document.getElementById("profileDropdown");
 
   googleLoginBtn.addEventListener("click", () => {
     signInWithPopup(auth, provider).catch(console.error);
@@ -64,14 +61,77 @@
     signOut(auth).catch(console.error);
   });
 
+  profileAvatar.addEventListener("click", () => {
+    profileDropdown.classList.toggle("show");
+  });
+
   onAuthStateChanged(auth, (user) => {
     if (user) {
       googleLoginBtn.style.display = "none";
       profileMenu.style.display = "block";
-      profileAvatar.style.backgroundImage = `url(${user.photoURL})`;
+
+      if (user.photoURL) {
+        profileAvatar.style.backgroundImage = `url(${user.photoURL})`;
+        profileAvatar.textContent = "";
+      } else {
+        profileAvatar.style.backgroundImage = "";
+        profileAvatar.textContent = user.displayName ? user.displayName.charAt(0).toUpperCase() : "?";
+      }
     } else {
       googleLoginBtn.style.display = "block";
       profileMenu.style.display = "none";
     }
   });
+
+  // סגור dropdown אם לוחצים מחוץ
+  window.addEventListener("click", (e) => {
+    if (!profileMenu.contains(e.target)) {
+      profileDropdown.classList.remove("show");
+    }
+  });
 </script>
+
+<style>
+  .profile-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background-size: cover;
+    background-position: center;
+    background-color: #ccc;
+    color: #fff;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .profile-dropdown {
+    display: none;
+    position: absolute;
+    background: white;
+    box-shadow: 0 0 5px rgba(0,0,0,0.3);
+    right: 0;
+    margin-top: 5px;
+    z-index: 1000;
+  }
+
+  .profile-dropdown.show {
+    display: block;
+  }
+
+  .profile-dropdown button {
+    background: none;
+    border: none;
+    padding: 10px;
+    width: 100%;
+    cursor: pointer;
+    text-align: right;
+  }
+
+  .profile-dropdown button:hover {
+    background: #eee;
+  }
+</style>
