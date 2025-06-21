@@ -34,18 +34,8 @@
 </header>
 
 <script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
-  import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
-
-  const firebaseConfig = {
-    apiKey: "AIzaSyD6o0oDX5ahIw-7E0tUy76ImJDCFWbv4x8",
-    authDomain: "find4u-il.firebaseapp.com",
-    projectId: "find4u-il"
-  };
-
-  const app = initializeApp(firebaseConfig);
-  const auth = getAuth(app);
-  const provider = new GoogleAuthProvider();
+  import { auth, provider } from "./firebase-config.js";
+  import { signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
 
   const googleLoginBtn = document.getElementById("googleLoginBtn");
   const logoutBtn = document.getElementById("logoutBtn");
@@ -83,7 +73,6 @@
     }
   });
 
-  // סגור dropdown אם לוחצים מחוץ
   window.addEventListener("click", (e) => {
     if (!profileMenu.contains(e.target)) {
       profileDropdown.classList.remove("show");
