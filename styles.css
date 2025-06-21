@@ -1,3 +1,4 @@
+/* === בסיס === */
 html, body {
   direction: rtl;
   margin: 0;
@@ -21,17 +22,16 @@ header.sticky-header {
 }
 
 .top-bar {
-  position: relative;
   display: flex;
-  justify-content: center;
   align-items: center;
+  justify-content: space-between;
   padding: 10px 15px;
 }
 
 .logo-wrapper {
   display: flex;
   align-items: center;
-  gap: 15px;
+  gap: 10px;
 }
 
 .logo {
@@ -51,25 +51,15 @@ header.sticky-header {
   font-size: 32px;
   color: white;
   cursor: pointer;
-  position: absolute;
-  left: 20px;
-  top: 50%;
-  transform: translateY(-50%);
 }
 
-/* מצב ברירת מחדל: מחשב */
 #googleLoginBtn,
 .profile-menu {
-  position: absolute;
-  right: 20px;
-  top: 50%;
-  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
 }
 
 #googleLoginBtn {
-  display: flex;
-  align-items: center;
-  gap: 8px;
   background: linear-gradient(135deg, #4364f7, #a0c1f7, #b18fcf);
   background-size: 400% 400%;
   animation: gradientBG 10s ease infinite;
@@ -79,10 +69,11 @@ header.sticky-header {
   cursor: pointer;
   transition: transform 0.2s;
   font-size: 14px;
+  gap: 8px;
 }
 
 #googleLoginBtn:hover {
-  transform: translateY(-50%) scale(1.05);
+  transform: scale(1.05);
 }
 
 #googleLoginBtn img {
@@ -115,7 +106,7 @@ header.sticky-header {
 .profile-dropdown {
   display: none;
   position: absolute;
-  top: 50px;
+  top: 100%;
   right: 0;
   background: white;
   border: 1px solid #ddd;
@@ -311,25 +302,22 @@ main {
   100% { background-position: 0% 50%; }
 }
 
-/* === מובייל בלבד === */
+/* === מובייל === */
 @media (max-width: 767px) {
   .top-bar {
     display: flex;
-    justify-content: space-between;
     align-items: center;
+    justify-content: space-between;
     padding: 10px 15px;
   }
 
   .logo-wrapper {
-    flex: 1;
-    justify-content: center;
     order: 1;
   }
 
   .profile-menu {
-    position: relative; /* ✅ הפתרון */
-    transform: none;
     order: 2;
+    position: static; /* חשוב מאוד! */
     margin: 0 10px;
   }
 
@@ -337,22 +325,18 @@ main {
     display: block;
     order: 3;
     position: static;
-    transform: none;
   }
 
   .profile-dropdown {
+    position: absolute;
     top: 100%;
     right: 0;
   }
 
   .site-title {
     font-size: 1rem;
-    text-align: center;
+    text-align: right;
   }
-
-  /* שאר הקוד שלך למובייל כרגיל */
-}
-
 
   .nav-categories {
     display: none;
