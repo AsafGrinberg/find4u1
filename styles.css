@@ -309,6 +309,7 @@ main {
 
 /* ✅ מובייל בלבד */
 @media (max-width: 767px) {
+  
   .top-bar {
     display: flex;
     justify-content: space-between;
@@ -342,6 +343,7 @@ main {
     position: relative !important;
     order: 2;
     margin: 0 8px;
+    margin-right: 16px; /* זה מוסיף דחיפה קטנה ימינה */
     transform: none;
   }
   .nav-categories {
@@ -356,3 +358,14 @@ main {
     padding-bottom: 10px;
   }
 }
+@media (max-width: 767px) {
+  .grid-container {
+    grid-template-columns: repeat(2, 1fr); /* קובע 2 קבוע */
+  }
+}
+@media (max-width: 480px) {
+  .grid-container {
+    grid-template-columns: 1fr; /* רק עמודה אחת בצפוף ממש */
+  }
+}
+
