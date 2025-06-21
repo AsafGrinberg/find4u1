@@ -326,9 +326,8 @@ main {
     order: 1;
   }
 
-  .profile-menu,
-  #googleLoginBtn {
-    position: static; /* מבטל absolute במובייל */
+  .profile-menu {
+    position: relative; /* ✅ הפתרון */
     transform: none;
     order: 2;
     margin: 0 10px;
@@ -350,6 +349,10 @@ main {
     font-size: 1rem;
     text-align: center;
   }
+
+  /* שאר הקוד שלך למובייל כרגיל */
+}
+
 
   .nav-categories {
     display: none;
