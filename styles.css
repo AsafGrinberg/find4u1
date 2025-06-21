@@ -339,7 +339,7 @@ main {
     order: 3;
   }
  .profile-menu {
-    position: static !important;
+    position: relative !important;
     order: 2;
     margin: 0 8px;
     transform: none;
