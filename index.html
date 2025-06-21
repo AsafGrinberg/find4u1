@@ -7,74 +7,121 @@
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-<body>
-  <!-- יטען אוטומטית -->
+
+  <!-- מכניס את ההדר -->
   <div id="header-placeholder"></div>
 
-  <!-- כאן שאר הדף הרגיל שלך -->
+  <!-- התוכן הרגיל של הדף -->
   <main>
-    ...
+    <p class="welcome-text">🎉 ברוכים הבאים ל-Find4U 🎉</p>
+    <p class="subtitle">אנחנו מוצאים עבורכם את המוצרים השווים ביותר אחרי שבדקנו אותם</p>
+
+    <div class="social-links"></div>
+
+    <p class="subtitle search-text">חפש מוצר:</p>
+    <div class="search-container">
+      <input id="searchInput" type="text" placeholder="חפש מוצר..." dir="rtl" autocomplete="off" />
+      <ul id="autocomplete-list" class="autocomplete-list"></ul>
+    </div>
+
+    <div id="productsGrid" class="grid-container"></div>
   </main>
-</body>
 
+  <!-- ספריות נוספות -->
+  <script src="https://cdn.jsdelivr.net/npm/fuse.js@6.6.2"></script>
+  <script src="products.js"></script>
+  <script src="script.js"></script>
 
-<main>
-  <p class="welcome-text">🎉 ברוכים הבאים ל-Find4U 🎉</p>
-  <p class="subtitle">אנחנו מוצאים עבורכם את המוצרים השווים ביותר אחרי שבדקנו אותם</p>
+  <!-- הסקריפט הנכון והיחיד שמנהל גם את ההדר וגם את Firebase -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
+    import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
 
-  <div class="social-links"></div>
+    const firebaseConfig = {
+      apiKey: "AIzaSyD6o0oDX5ahIw-7E0tUy76ImJDCFWbv4x8",
+      authDomain: "find4u-il.firebaseapp.com",
+      projectId: "find4u-il",
+      storageBucket: "find4u-il.appspot.com",
+      messagingSenderId: "1063243167726",
+      appId: "1:1063243167726:web:16a8bbaf73ed8181e680ff",
+      measurementId: "G-SYR49CZGZZ"
+    };
 
-  <p class="subtitle search-text">חפש מוצר:</p>
-  <div class="search-container">
-    <input id="searchInput" type="text" placeholder="חפש מוצר..." dir="rtl" autocomplete="off" />
-    <ul id="autocomplete-list" class="autocomplete-list"></ul>
-  </div>
+    window.app = initializeApp(firebaseConfig);
+    window.auth = getAuth(app);
+    window.provider = new GoogleAuthProvider();
+    window.signInWithPopup = signInWithPopup;
+    window.signOut = signOut;
+    window.onAuthStateChanged = onAuthStateChanged;
 
-  <div id="productsGrid" class="grid-container"></div>
-</main>
+    // טען HEADER ואז אתחל אירועים
+    fetch('header.html')
+      .then(response => response.text())
+      .then(data => {
+        document.getElementById('header-placeholder').innerHTML = data;
+        initHeaderEvents();
+      });
 
-<!-- Fuse.js -->
-<script src="https://cdn.jsdelivr.net/npm/fuse.js@6.6.2"></script>
+    function initHeaderEvents() {
+      const menuToggle = document.querySelector('.menu-toggle');
+      const navCategories = document.getElementById('categoryButtons');
 
-<!-- Firebase Auth דרך CDN -->
-<script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
-  import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
+      if (menuToggle && navCategories) {
+        menuToggle.addEventListener('click', () => {
+          navCategories.classList.toggle('show');
+        });
+      }
 
-  // אתחול Firebase גלובלי ל- window כדי ש script.js יוכל להשתמש בזה:
-  const firebaseConfig = {
-    apiKey: "AIzaSyD6o0oDX5ahIw-7E0tUy76ImJDCFWbv4x8",
-    authDomain: "find4u-il.firebaseapp.com",
-    projectId: "find4u-il",
-    storageBucket: "find4u-il.appspot.com",
-    messagingSenderId: "1063243167726",
-    appId: "1:1063243167726:web:16a8bbaf73ed8181e680ff",
-    measurementId: "G-SYR49CZGZZ"
-  };
+      const googleLoginBtn = document.getElementById("googleLoginBtn");
+      const profileMenu = document.getElementById("profileMenu");
+      const profileAvatar = document.getElementById("profileAvatar");
+      const profileDropdown = document.getElementById("profileDropdown");
+      const logoutBtn = document.getElementById("logoutBtn");
 
-  window.app = initializeApp(firebaseConfig);
-window.auth = getAuth(app);
-window.provider = new GoogleAuthProvider();
+      googleLoginBtn.addEventListener("click", () => {
+        signInWithPopup(window.auth, window.provider)
+          .then((result) => {
+            console.log("משתמש התחבר:", result.user);
+          })
+          .catch((error) => {
+            console.error(error);
+            alert("שגיאה: " + error.message);
+          });
+      });
 
-// הוסף את הפונקציות הגלובליות גם:
-window.signInWithPopup = signInWithPopup;
-window.signOut = signOut;
-window.onAuthStateChanged = onAuthStateChanged;
+      logoutBtn.addEventListener("click", () => {
+        signOut(window.auth)
+          .then(() => {
+            console.log("התנתקת");
+          })
+          .catch((error) => console.error(error));
+      });
 
-</script>
+      onAuthStateChanged(window.auth, (user) => {
+        if (user) {
+          googleLoginBtn.style.display = "none";
+          profileMenu.style.display = "inline-block";
+          const displayName = user.displayName || "U";
+          profileAvatar.textContent = displayName.charAt(0).toUpperCase();
+        } else {
+          googleLoginBtn.style.display = "flex";
+          profileMenu.style.display = "none";
+          profileDropdown.style.display = "none";
+        }
+      });
 
+      profileAvatar.addEventListener("click", () => {
+        profileDropdown.style.display =
+          profileDropdown.style.display === "block" ? "none" : "block";
+      });
 
-<!-- הקבצים שלך -->
-<script src="products.js"></script>
-<script src="script.js"></script>
-<script>
-  // טען את header.html לכל דף
-  fetch('header.html')
-    .then(response => response.text())
-    .then(data => {
-      document.getElementById('header-placeholder').innerHTML = data;
-    });
-</script>
+      window.addEventListener("click", (e) => {
+        if (!profileMenu.contains(e.target) && e.target.id !== "googleLoginBtn") {
+          profileDropdown.style.display = "none";
+        }
+      });
+    }
+  </script>
 
 </body>
 </html>
