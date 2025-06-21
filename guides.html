@@ -6,19 +6,16 @@
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <header class="top-header">
-    <div class="logo-wrapper">
-      <a href="index.html">
-        <img src="assets/images/FIND4ULOGGO.png" alt="Find4U Logo" class="logo" />
-      </a>
-      <h1 class="site-title">Find4U - מדריכים והסברים</h1>
-    </div>
+<body>
+  <!-- יטען אוטומטית -->
+  <div id="header-placeholder"></div>
 
-    <nav class="nav-categories" id="categoryButtons">
-      <a href="index.html">חזרה לחנות</a>
-      <a href="guides.html" class="active">מדריכים</a>
-    </nav>
-  </header>
+  <!-- כאן שאר הדף הרגיל שלך -->
+  <main>
+    ...
+  </main>
+</body>
+
 
   <main class="guides-section">
     <h2>מדריכים מומלצים</h2>
@@ -36,5 +33,14 @@
     </article>
 
   </main>
+  <script>
+  // טען את header.html לכל דף
+  fetch('header.html')
+    .then(response => response.text())
+    .then(data => {
+      document.getElementById('header-placeholder').innerHTML = data;
+    });
+</script>
+
 </body>
 </html>

@@ -62,25 +62,16 @@
 </head>
 <body>
 
-<header class="sticky-header">
-  <div class="top-bar">
-    <div class="logo-wrapper">
-      <a href="index.html">
-        <img src="assets/images/FIND4ULOGGO.png" alt="Find4U Logo" class="logo" />
-      </a>
-      <h1 class="site-title"> כל מה שחיפשתם במקום אחד</h1>
-    </div>
-    <button class="menu-toggle" aria-label="תפריט">☰</button>
-  </div>
-  <nav class="nav-categories" id="categoryButtons">
-    <button class="active" onclick="location.href='index.html'">כל המוצרים</button>
-    <button onclick="location.href='index.html#home'">לבית ולגינה</button>
-    <button onclick="location.href='index.html#bedroom'">לחדר שינה</button>
-    <button onclick="location.href='index.html#car'">לרכב</button>
-    <button onclick="location.href='index.html#kids'">לילדים</button>
-    <a href="guides.html" class="nav-link">מדריכים</a>
-  </nav>
-</header>
+<body>
+  <!-- יטען אוטומטית -->
+  <div id="header-placeholder"></div>
+
+  <!-- כאן שאר הדף הרגיל שלך -->
+  <main>
+    ...
+  </main>
+</body>
+
 
 <main style="padding-top: 160px; max-width: 1120px; margin: auto; text-align: center;">
   <h1 id="productTitle"></h1>
@@ -157,6 +148,14 @@
   });
 
   loadReviews();
+</script>
+<script>
+  // טען את header.html לכל דף
+  fetch('header.html')
+    .then(response => response.text())
+    .then(data => {
+      document.getElementById('header-placeholder').innerHTML = data;
+    });
 </script>
 
 </body>

@@ -1,0 +1,38 @@
+<!-- header.html -->
+<header class="sticky-header">
+  <div class="top-bar">
+    <!-- לוגו וכותרת -->
+    <div class="logo-wrapper">
+      <a href="index.html">
+        <img src="assets/images/FIND4ULOGGO.png" alt="Find4U Logo" class="logo" />
+      </a>
+      <h1 class="site-title">כל מה שחיפשתם במקום אחד</h1>
+    </div>
+
+    <!-- כפתור המבורגר -->
+    <button class="menu-toggle" aria-label="תפריט">☰</button>
+
+    <!-- כפתור התחברות -->
+    <button id="googleLoginBtn" aria-label="התחבר עם גוגל">
+      <img src="assets/images/google-Logo.png" alt="Google Logo">
+      <span>התחבר</span>
+    </button>
+
+    <!-- פרופיל עם תפריט נפתח -->
+    <div class="profile-menu" id="profileMenu" style="display: none;">
+      <div class="profile-avatar" id="profileAvatar"></div>
+      <div class="profile-dropdown" id="profileDropdown">
+        <button id="logoutBtn">התנתק</button>
+      </div>
+    </div>
+  </div>
+
+  <nav class="nav-categories" id="categoryButtons">
+    <button class="active" data-emoji="🛋️" onclick="showCategory('all', this)">כל המוצרים</button>
+    <button data-emoji="🏠" onclick="showCategory('home', this)">לבית ולגינה</button>
+    <button data-emoji="🛏️" onclick="showCategory('bedroom', this)">לחדר שינה</button>
+    <button data-emoji="🚗" onclick="showCategory('car', this)">לרכב</button>
+    <button data-emoji="👶" onclick="showCategory('kids', this)">לילדים</button>
+    <a href="guides.html" class="nav-link">מדריכים</a>
+  </nav>
+</header>
