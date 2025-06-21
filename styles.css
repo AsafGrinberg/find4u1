@@ -340,10 +340,10 @@ main {
     order: 3;
   }
  .profile-menu {
-    position: relative !important;
+    position: static !important;
     order: 2;
     margin: 0 8px;
-    margin-right: 20px; /* 👈 זה מגדיר מרחק ימינה - אפשר לשחק במספר */
+    margin-right: 30px; /* 👈 זה מגדיר מרחק ימינה - אפשר לשחק במספר */
     transform: none;
   }
   .nav-categories {
@@ -359,6 +359,9 @@ main {
   }
   .grid-container {
     grid-template-columns: repeat(2, 1fr); /* ✅ 2 מוצרים בעמודה במובייל */
+  }
+  .grid-item {
+    max-width: 100%; /* 👈 אין הגבלת גודל - יתפוס יפה את התא */
   }
 }
 
