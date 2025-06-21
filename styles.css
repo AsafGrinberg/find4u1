@@ -343,7 +343,7 @@ main {
     position: relative !important;
     order: 2;
     margin: 0 8px;
-    margin-right: 50px; /* זה מוסיף דחיפה קטנה ימינה */
+    margin-right: 20px; /* 👈 זה מגדיר מרחק ימינה - אפשר לשחק במספר */
     transform: none;
   }
   .nav-categories {
@@ -357,15 +357,13 @@ main {
     background: rgba(255, 255, 255, 0.1);
     padding-bottom: 10px;
   }
-}
-@media (max-width: 767px) {
   .grid-container {
-    grid-template-columns: repeat(2, 1fr); /* קובע 2 קבוע */
-  }
-}
-@media (max-width: 480px) {
-  .grid-container {
-    grid-template-columns: 1fr; /* רק עמודה אחת בצפוף ממש */
+    grid-template-columns: repeat(2, 1fr); /* ✅ 2 מוצרים בעמודה במובייל */
   }
 }
 
+@media (max-width: 480px) {
+  .grid-container {
+    grid-template-columns: 1fr; /* ✅ עמודה אחת במסכים צרים במיוחד */
+  }
+}
