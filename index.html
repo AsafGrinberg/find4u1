@@ -8,9 +8,7 @@
 </head>
 <body>
 
-  <!-- מכניס את ההדר -->
   <div id="header-placeholder"></div>
-
   <!-- התוכן הרגיל של הדף -->
   <main>
     <p class="welcome-text">🎉 ברוכים הבאים ל-Find4U 🎉</p>
@@ -27,12 +25,10 @@
     <div id="productsGrid" class="grid-container"></div>
   </main>
 
-  <!-- ספריות נוספות -->
-  <script src="https://cdn.jsdelivr.net/npm/fuse.js@6.6.2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/fuse.js@6.6.2"></script>
   <script src="products.js"></script>
   <script src="script.js"></script>
 
-  <!-- הסקריפט הנכון והיחיד שמנהל גם את ההדר וגם את Firebase -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
     import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
@@ -50,28 +46,16 @@
     window.app = initializeApp(firebaseConfig);
     window.auth = getAuth(app);
     window.provider = new GoogleAuthProvider();
-    window.signInWithPopup = signInWithPopup;
-    window.signOut = signOut;
-    window.onAuthStateChanged = onAuthStateChanged;
 
-    // טען HEADER ואז אתחל אירועים
+    // טען header ואז הפעל
     fetch('header.html')
-      .then(response => response.text())
+      .then(r => r.text())
       .then(data => {
         document.getElementById('header-placeholder').innerHTML = data;
         initHeaderEvents();
       });
 
     function initHeaderEvents() {
-      const menuToggle = document.querySelector('.menu-toggle');
-      const navCategories = document.getElementById('categoryButtons');
-
-      if (menuToggle && navCategories) {
-        menuToggle.addEventListener('click', () => {
-          navCategories.classList.toggle('show');
-        });
-      }
-
       const googleLoginBtn = document.getElementById("googleLoginBtn");
       const profileMenu = document.getElementById("profileMenu");
       const profileAvatar = document.getElementById("profileAvatar");
@@ -90,11 +74,9 @@
       });
 
       logoutBtn.addEventListener("click", () => {
-        signOut(window.auth)
-          .then(() => {
-            console.log("התנתקת");
-          })
-          .catch((error) => console.error(error));
+        signOut(window.auth).then(() => {
+          console.log("התנתקת");
+        }).catch(console.error);
       });
 
       onAuthStateChanged(window.auth, (user) => {

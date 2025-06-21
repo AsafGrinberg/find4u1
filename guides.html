@@ -2,14 +2,13 @@
 <html lang="he">
 <head>
   <meta charset="UTF-8" />
-  <title>Find4U - מדריכים</title>
+  <title>Find4U - קטגוריות מוצרים</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
 
   <div id="header-placeholder"></div>
-
   <main class="guides-section">
     <h2>מדריכים מומלצים</h2>
 
@@ -25,47 +24,85 @@
       <p>כל מה שצריך לדעת כדי לצפות בתכנים ב-STREMIO.</p>
     </article>
   </main>
+<script src="https://cdn.jsdelivr.net/npm/fuse.js@6.6.2"></script>
+  <script src="products.js"></script>
+  <script src="script.js"></script>
 
-<script>
-  let activeCategory = 'guides';
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
+    import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
 
-  fetch('header.html')
-    .then(r => r.text())
-    .then(data => {
-      document.getElementById('header-placeholder').innerHTML = data;
-      initHeaderEvents();
-    });
+    const firebaseConfig = {
+      apiKey: "AIzaSyD6o0oDX5ahIw-7E0tUy76ImJDCFWbv4x8",
+      authDomain: "find4u-il.firebaseapp.com",
+      projectId: "find4u-il",
+      storageBucket: "find4u-il.appspot.com",
+      messagingSenderId: "1063243167726",
+      appId: "1:1063243167726:web:16a8bbaf73ed8181e680ff",
+      measurementId: "G-SYR49CZGZZ"
+    };
 
-  function initHeaderEvents() {
-    const menuToggle = document.querySelector('.menu-toggle');
-    const navCategories = document.getElementById('categoryButtons');
-    if (menuToggle && navCategories) {
-      menuToggle.addEventListener('click', () => {
-        navCategories.classList.toggle('show');
+    window.app = initializeApp(firebaseConfig);
+    window.auth = getAuth(app);
+    window.provider = new GoogleAuthProvider();
+
+    // טען header ואז הפעל
+    fetch('header.html')
+      .then(r => r.text())
+      .then(data => {
+        document.getElementById('header-placeholder').innerHTML = data;
+        initHeaderEvents();
+      });
+
+    function initHeaderEvents() {
+      const googleLoginBtn = document.getElementById("googleLoginBtn");
+      const profileMenu = document.getElementById("profileMenu");
+      const profileAvatar = document.getElementById("profileAvatar");
+      const profileDropdown = document.getElementById("profileDropdown");
+      const logoutBtn = document.getElementById("logoutBtn");
+
+      googleLoginBtn.addEventListener("click", () => {
+        signInWithPopup(window.auth, window.provider)
+          .then((result) => {
+            console.log("משתמש התחבר:", result.user);
+          })
+          .catch((error) => {
+            console.error(error);
+            alert("שגיאה: " + error.message);
+          });
+      });
+
+      logoutBtn.addEventListener("click", () => {
+        signOut(window.auth).then(() => {
+          console.log("התנתקת");
+        }).catch(console.error);
+      });
+
+      onAuthStateChanged(window.auth, (user) => {
+        if (user) {
+          googleLoginBtn.style.display = "none";
+          profileMenu.style.display = "inline-block";
+          const displayName = user.displayName || "U";
+          profileAvatar.textContent = displayName.charAt(0).toUpperCase();
+        } else {
+          googleLoginBtn.style.display = "flex";
+          profileMenu.style.display = "none";
+          profileDropdown.style.display = "none";
+        }
+      });
+
+      profileAvatar.addEventListener("click", () => {
+        profileDropdown.style.display =
+          profileDropdown.style.display === "block" ? "none" : "block";
+      });
+
+      window.addEventListener("click", (e) => {
+        if (!profileMenu.contains(e.target) && e.target.id !== "googleLoginBtn") {
+          profileDropdown.style.display = "none";
+        }
       });
     }
-    activateCategoryButton();
-  }
-
-  function activateCategoryButton() {
-    const buttons = document.querySelectorAll('#categoryButtons button');
-    buttons.forEach(btn => {
-      btn.classList.remove('active');
-      const btnCategory = btn.getAttribute('onclick').match(/'([^']+)'/)[1];
-      if (btnCategory === activeCategory) {
-        btn.classList.add('active');
-      }
-    });
-  }
-
-  function showCategory(category) {
-    if (category === 'guides') {
-      window.location.href = 'guides.html';
-    } else {
-      window.location.href = `index.html?category=${category}`;
-    }
-  }
-</script>
+  </script>
 
 </body>
 </html>
