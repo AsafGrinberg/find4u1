@@ -250,7 +250,7 @@ main {
 
 .grid-container {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   gap: 22px;
   max-width: 1120px;
   margin: 20px auto 60px;
@@ -339,11 +339,19 @@ main {
     transform: none;
     order: 3;
   }
- .profile-menu {
-    position: static !important;
+
+  .profile-dropdown {
+    position: absolute;
+    right: auto;
+    left: 0;
+    top: 100%;
+    transform: none;
+  }
+.profile-menu {
+    position: relative !important;
     order: 2;
     margin: 0 8px;
-    margin-right: 30px; /* 👈 זה מגדיר מרחק ימינה - אפשר לשחק במספר */
+    margin-right: 30px;
     transform: none;
   }
   .nav-categories {
@@ -361,7 +369,16 @@ main {
     grid-template-columns: repeat(2, 1fr); /* ✅ 2 מוצרים בעמודה במובייל */
   }
   .grid-item {
-    max-width: 100%; /* 👈 אין הגבלת גודל - יתפוס יפה את התא */
+    max-width: 100%;
+    width: 100%;
+  }
+    .grid-item img {
+    width: 100%;
+    height: auto;
+  }
+    .grid-item p {
+    font-size: 14px;
+    padding: 8px;
   }
 }
 
