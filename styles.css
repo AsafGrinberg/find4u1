@@ -121,16 +121,35 @@ header.sticky-header {
 }
 
 .profile-dropdown button {
-  background: none;
+  background: white;
   border: none;
-  padding: 7px 12px;
+  padding: 10px 20px;
   width: 100%;
   text-align: right;
   cursor: pointer;
+  border-top: 1px solid #eee;
 }
 
 .profile-dropdown button:hover {
-  background: #f0f0f0;
+  background: #f5f5f5;
+}
+
+#logoutBtn {
+  /* אותו דבר כמו שאר הכפתורים בתפריט */
+  background: white;
+  border: none;
+  color: inherit;
+  font: inherit;
+  padding: 10px 20px;
+  display: block;
+  width: 100%;
+  text-align: right;
+  cursor: pointer;
+  border-top: 1px solid #eee;
+}
+
+#logoutBtn:hover {
+  background: #f5f5f5;
 }
 
 .nav-categories {
@@ -309,7 +328,6 @@ main {
 
 /* ✅ מובייל בלבד */
 @media (max-width: 767px) {
-  
   .top-bar {
     display: flex;
     justify-content: space-between;
@@ -334,7 +352,7 @@ main {
 
   .menu-toggle {
     display: block;
-      position: static;
+    position: static;
     margin: 0 8px;
     transform: none;
     order: 3;
@@ -347,13 +365,16 @@ main {
     top: 100%;
     transform: none;
   }
-.profile-menu {
+
+  .profile-menu {
     position: relative !important;
     order: 2;
     margin: 0 8px;
- margin-right: 0; /* מבטל את ה-margin-right ששמת */
-    margin-left: 26px; /* 👈 זה מוסיף רווח שמאלי קטן מההמבורגר */    transform: none;
+    margin-right: 0;
+    margin-left: 26px;
+    transform: none;
   }
+
   .nav-categories {
     display: none;
   }
@@ -365,18 +386,22 @@ main {
     background: rgba(255, 255, 255, 0.1);
     padding-bottom: 10px;
   }
+
   .grid-container {
-    grid-template-columns: repeat(2, 1fr); /* ✅ 2 מוצרים בעמודה במובייל */
+    grid-template-columns: repeat(2, 1fr);
   }
+
   .grid-item {
     max-width: 100%;
     width: 100%;
   }
-    .grid-item img {
+
+  .grid-item img {
     width: 100%;
     height: auto;
   }
-    .grid-item p {
+
+  .grid-item p {
     font-size: 14px;
     padding: 8px;
   }
@@ -384,27 +409,7 @@ main {
 
 @media (max-width: 480px) {
   .grid-container {
-    grid-template-columns: 1fr; /* ✅ עמודה אחת במסכים צרים במיוחד */
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 15px;
   }
-
-  .grid-container {
-    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); 
-    gap: 15px; /* אפשר טיפה להקטין רווח */
-  }
-  #logoutBtn {
-  background: none;
-  border: none;
-  color: inherit;
-  font: inherit;
-  padding: 10px 20px;
-  display: block;
-  width: 100%;
-  text-align: right;
-  cursor: pointer;
-}
-
-#logoutBtn:hover {
-  background: #f5f5f5;
-}
-
 }
