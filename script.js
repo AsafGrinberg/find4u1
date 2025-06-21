@@ -39,18 +39,6 @@ function displayProducts(items) {
   }, 400);
 }
 
-function showCategory(category, button) {
-  activeCategory = category;
-
-  const buttons = document.querySelectorAll('#categoryButtons button');
-  buttons.forEach(btn => btn.classList.remove('active'));
-  button.classList.add('active');
-
-  document.getElementById('categoryButtons').classList.remove('show');
-
-  filterProducts();
-}
-
 function filterProducts() {
   const input = document.getElementById('searchInput').value.trim();
 
@@ -104,9 +92,33 @@ function showSuggestions(input, items) {
   });
 }
 
-window.onload = () => {
-  displayProducts(products);
+function activateCategoryButton() {
+  const buttons = document.querySelectorAll('#categoryButtons button');
+  buttons.forEach(btn => {
+    btn.classList.remove('active');
+    const btnCategory = btn.getAttribute('onclick').match(/'([^']+)'/)[1];
+    if (btnCategory === activeCategory) {
+      btn.classList.add('active');
+    }
+  });
+}
 
+window.onload = () => {
+  // קח את הקטגוריה מה-URL
+  const params = new URLSearchParams(window.location.search);
+  activeCategory = params.get("category") || "all";
+
+  // הטעינה של ההדר (כמו ב-guides) אם צריך
+  fetch('header.html')
+    .then(response => response.text())
+    .then(data => {
+      document.getElementById('header-placeholder').innerHTML = data;
+      initHeaderEvents(); // פה נקרא ל-activateCategoryButton גם
+      filterProducts();
+    });
+};
+
+function initHeaderEvents() {
   const menuToggle = document.querySelector('.menu-toggle');
   const navCategories = document.getElementById('categoryButtons');
 
@@ -116,62 +128,42 @@ window.onload = () => {
     });
   }
 
-  // התחברות/התנתקות/פרופיל
-  const googleLoginBtn = document.getElementById("googleLoginBtn");
-  const profileMenu = document.getElementById("profileMenu");
-  const profileAvatar = document.getElementById("profileAvatar");
-  const profileDropdown = document.getElementById("profileDropdown");
-  const logoutBtn = document.getElementById("logoutBtn");
+  // אחרי שההדר נטען => סמן כפתור
+  activateCategoryButton();
+}
 
-  googleLoginBtn.addEventListener("click", () => {
-    signInWithPopup(window.auth, window.provider)
-      .then((result) => {
-        console.log("משתמש התחבר:", result.user);
-      })
-      .catch((error) => {
-        console.error(error);
-        alert("שגיאה: " + error.message);
-      });
-  });
-
-  logoutBtn.addEventListener("click", () => {
-    signOut(window.auth)
-      .then(() => {
-        console.log("התנתקת");
-      })
-      .catch((error) => console.error(error));
-  });
-
-  onAuthStateChanged(window.auth, (user) => {
-    if (user) {
-      googleLoginBtn.style.display = "none";
-      profileMenu.style.display = "inline-block";
-      const displayName = user.displayName || "U";
-      profileAvatar.textContent = displayName.charAt(0).toUpperCase();
-    } else {
-      googleLoginBtn.style.display = "flex";
-      profileMenu.style.display = "none";
-      profileDropdown.style.display = "none";
-    }
-  });
-
-  profileAvatar.addEventListener("click", () => {
-    profileDropdown.style.display = 
-      profileDropdown.style.display === "block" ? "none" : "block";
-  });
-
-  window.addEventListener("click", (e) => {
-    if (!profileMenu.contains(e.target) && e.target.id !== "googleLoginBtn") {
-      profileDropdown.style.display = "none";
-    }
-  });
-};
-
-document.getElementById('searchInput').addEventListener('input', filterProducts);
-document.getElementById('searchInput').addEventListener('keydown', function (event) {
-  if (event.key === 'Enter') {
-    event.preventDefault();
+document.addEventListener('input', function (event) {
+  if (event.target.id === 'searchInput') {
     filterProducts();
-    document.querySelector('.autocomplete-list').innerHTML = '';
   }
 });
+
+document.addEventListener('keydown', function (event) {
+  if (event.target.id === 'searchInput' && event.key === 'Enter') {
+    event.preventDefault();
+    filterProducts();
+    const list = document.querySelector('.autocomplete-list');
+    if (list) list.innerHTML = '';
+  }
+});
+
+function showCategory(category, button) {
+  const isGuidesPage = window.location.pathname.includes('guides.html');
+
+  if (category === 'guides') {
+    if (!isGuidesPage) {
+      window.location.href = 'guides.html';
+    }
+    return;
+  }
+
+  if (isGuidesPage) {
+    window.location.href = `index.html?category=${category}`;
+    return;
+  }
+
+  activeCategory = category;
+  activateCategoryButton();
+  document.getElementById('categoryButtons').classList.remove('show');
+  filterProducts();
+}
