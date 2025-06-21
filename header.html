@@ -32,3 +32,39 @@
     <button data-emoji="📚" onclick="showCategory('guides', this)">מדריכים</button>
   </nav>
 </header>
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
+  import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
+
+  const firebaseConfig = {
+    apiKey: "XXXX",
+    authDomain: "XXXX",
+    // ...
+  };
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const provider = new GoogleAuthProvider();
+
+  const googleLoginBtn = document.getElementById("googleLoginBtn");
+  if (googleLoginBtn) {
+    googleLoginBtn.addEventListener("click", () => {
+      signInWithPopup(auth, provider)
+        .then((result) => {
+          console.log("התחברת בהצלחה", result);
+        })
+        .catch((error) => {
+          console.error("שגיאה בהתחברות:", error);
+        });
+    });
+  }
+
+  // אם יש התנתקות:
+  const logoutBtn = document.getElementById("logoutBtn");
+  if (logoutBtn) {
+    logoutBtn.addEventListener("click", () => {
+      signOut(auth).then(() => {
+        console.log("התנתקת בהצלחה");
+      });
+    });
+  }
+</script>

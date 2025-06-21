@@ -114,6 +114,21 @@ window.onload = () => {
     .then(data => {
       document.getElementById('header-placeholder').innerHTML = data;
       initHeaderEvents(); // פה נקרא ל-activateCategoryButton גם
+          const googleLoginBtn = document.getElementById("googleLoginBtn");
+    if (googleLoginBtn) {
+      googleLoginBtn.addEventListener("click", () => {
+        signInWithPopup(auth, provider)
+          .then(result => console.log(result))
+          .catch(error => console.error(error));
+      });
+    }
+
+    const logoutBtn = document.getElementById("logoutBtn");
+    if (logoutBtn) {
+      logoutBtn.addEventListener("click", () => {
+        signOut(auth).then(() => console.log("התנתקת"));
+      });
+    }
       filterProducts();
     });
 };
