@@ -317,7 +317,7 @@ main {
 /* מובייל */
 @media (max-width: 767px) {
   .top-bar {
-    flex-direction: row;
+    display: flex;
     justify-content: space-between;
     align-items: center;
     padding: 10px 15px;
@@ -326,43 +326,40 @@ main {
   .logo-wrapper {
     flex: 1;
     justify-content: center;
+    order: 1; /* מרכז */
+  }
+
+  .profile-menu {
+    position: relative; /* נדרש כדי שה-dropdown ייפתח יחסית לעיגול */
+    order: 2; /* מיד אחרי הכיתוב ולפני ההמבורגר */
+    margin: 0 10px; /* רווח מימין ומשמאל */
   }
 
   .menu-toggle {
     display: block;
+    order: 3; /* אחרון — קיצוני שמאל */
     position: static;
     transform: none;
-    margin-left: auto;
-    order: 2;
   }
 
   #googleLoginBtn {
-    order: 1;
+    order: 2; /* אותו סדר כמו העיגול — רק אחד מהם יוצג */
     position: static;
     transform: none;
+    margin: 0 10px;
     padding: 6px 15px;
     font-size: 14px;
-    margin-left: auto;
-  }
-
-  .profile-menu {
-    order: 1;
-    position: relative; /* ✔ שמור על מיקום יחסי לעיגול */
-    transform: none;
-    padding: 0; /* אין צורך ברווח נוסף */
-    margin-left: 0; /* אל תזיז שמאלה */
   }
 
   .profile-dropdown {
-    top: 100%; /* ✔ מתחת לעיגול */
-    right: 0;  /* ✔ יישר לימין של ההורה */
-    left: auto; 
-    transform: none; /* אין translateX יותר */
+    top: 100%; /* ייפתח מתחת לעיגול */
+    right: 0;
+    left: auto;
+    transform: none;
   }
 
   .site-title {
     font-size: 1rem;
-    padding: 0 10px;
     text-align: center;
   }
 
