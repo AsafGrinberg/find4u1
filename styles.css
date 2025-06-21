@@ -346,18 +346,15 @@ main {
   }
 
   .profile-menu {
-    order: 1;
-    position: static;
-    transform: none;
-    padding: 6px 15px;
-    margin-left: 15px; /* הזזה ברורה ימינה מההמבורגר */
+    position: relative;
+    margin-right: 60px;
   }
 
   .profile-dropdown {
-    right: auto;
-    left: 50%;
-    transform: translateX(-50%);
-    top: 50px;
+    right: 0;
+    left: auto;
+    top: 100%; /* במקום top: 50px */
+    transform: none; /* לא צריך translateX */
   }
 
   .site-title {
