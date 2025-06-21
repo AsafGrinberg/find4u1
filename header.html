@@ -33,53 +33,6 @@
   </nav>
 </header>
 
-<script type="module">
-  import { auth, provider } from "./firebase-config.js";
-  import { signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
-
-  const googleLoginBtn = document.getElementById("googleLoginBtn");
-  const logoutBtn = document.getElementById("logoutBtn");
-  const profileMenu = document.getElementById("profileMenu");
-  const profileAvatar = document.getElementById("profileAvatar");
-  const profileDropdown = document.getElementById("profileDropdown");
-
-  googleLoginBtn.addEventListener("click", () => {
-    signInWithPopup(auth, provider).catch(console.error);
-  });
-
-  logoutBtn.addEventListener("click", () => {
-    signOut(auth).catch(console.error);
-  });
-
-  profileAvatar.addEventListener("click", () => {
-    profileDropdown.classList.toggle("show");
-  });
-
-  onAuthStateChanged(auth, (user) => {
-    if (user) {
-      googleLoginBtn.style.display = "none";
-      profileMenu.style.display = "block";
-
-      if (user.photoURL) {
-        profileAvatar.style.backgroundImage = `url(${user.photoURL})`;
-        profileAvatar.textContent = "";
-      } else {
-        profileAvatar.style.backgroundImage = "";
-        profileAvatar.textContent = user.displayName ? user.displayName.charAt(0).toUpperCase() : "?";
-      }
-    } else {
-      googleLoginBtn.style.display = "block";
-      profileMenu.style.display = "none";
-    }
-  });
-
-  window.addEventListener("click", (e) => {
-    if (!profileMenu.contains(e.target)) {
-      profileDropdown.classList.remove("show");
-    }
-  });
-</script>
-
 <style>
   .profile-avatar {
     width: 40px;
