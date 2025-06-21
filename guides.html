@@ -3,19 +3,13 @@
 <head>
   <meta charset="UTF-8" />
   <title>Find4U - מדריכים</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-<body>
-  <!-- יטען אוטומטית -->
+
+  <!-- כאן ההדר ייכנס אוטומטית -->
   <div id="header-placeholder"></div>
-
-  <!-- כאן שאר הדף הרגיל שלך -->
-  <main>
-    ...
-  </main>
-</body>
-
 
   <main class="guides-section">
     <h2>מדריכים מומלצים</h2>
@@ -31,16 +25,100 @@
       <iframe width="320" height="180" src="https://www.tiktok.com/embed/VIDEO_ID_2" frameborder="0" allowfullscreen></iframe>
       <p>כל מה שצריך לדעת כדי לצפות בתכנים ב-STREMIO.</p>
     </article>
-
   </main>
-  <script>
-  // טען את header.html לכל דף
-  fetch('header.html')
-    .then(response => response.text())
-    .then(data => {
-      document.getElementById('header-placeholder').innerHTML = data;
-    });
-</script>
+
+  <!-- הקבצים שלך (אם יש, למשל products.js לא דרוש כאן) -->
+
+  <!-- סקריפט לטעינת ההדר + Firebase + ניהול התחברות -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
+    import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyD6o0oDX5ahIw-7E0tUy76ImJDCFWbv4x8",
+      authDomain: "find4u-il.firebaseapp.com",
+      projectId: "find4u-il",
+      storageBucket: "find4u-il.appspot.com",
+      messagingSenderId: "1063243167726",
+      appId: "1:1063243167726:web:16a8bbaf73ed8181e680ff",
+      measurementId: "G-SYR49CZGZZ"
+    };
+
+    window.app = initializeApp(firebaseConfig);
+    window.auth = getAuth(app);
+    window.provider = new GoogleAuthProvider();
+    window.signInWithPopup = signInWithPopup;
+    window.signOut = signOut;
+    window.onAuthStateChanged = onAuthStateChanged;
+
+    // טען HEADER ואז אתחל אירועים
+    fetch('header.html')
+      .then(response => response.text())
+      .then(data => {
+        document.getElementById('header-placeholder').innerHTML = data;
+        initHeaderEvents();
+      });
+
+    function initHeaderEvents() {
+      const menuToggle = document.querySelector('.menu-toggle');
+      const navCategories = document.getElementById('categoryButtons');
+
+      if (menuToggle && navCategories) {
+        menuToggle.addEventListener('click', () => {
+          navCategories.classList.toggle('show');
+        });
+      }
+
+      const googleLoginBtn = document.getElementById("googleLoginBtn");
+      const profileMenu = document.getElementById("profileMenu");
+      const profileAvatar = document.getElementById("profileAvatar");
+      const profileDropdown = document.getElementById("profileDropdown");
+      const logoutBtn = document.getElementById("logoutBtn");
+
+      googleLoginBtn.addEventListener("click", () => {
+        signInWithPopup(window.auth, window.provider)
+          .then((result) => {
+            console.log("משתמש התחבר:", result.user);
+          })
+          .catch((error) => {
+            console.error(error);
+            alert("שגיאה: " + error.message);
+          });
+      });
+
+      logoutBtn.addEventListener("click", () => {
+        signOut(window.auth)
+          .then(() => {
+            console.log("התנתקת");
+          })
+          .catch((error) => console.error(error));
+      });
+
+      onAuthStateChanged(window.auth, (user) => {
+        if (user) {
+          googleLoginBtn.style.display = "none";
+          profileMenu.style.display = "inline-block";
+          const displayName = user.displayName || "U";
+          profileAvatar.textContent = displayName.charAt(0).toUpperCase();
+        } else {
+          googleLoginBtn.style.display = "flex";
+          profileMenu.style.display = "none";
+          profileDropdown.style.display = "none";
+        }
+      });
+
+      profileAvatar.addEventListener("click", () => {
+        profileDropdown.style.display =
+          profileDropdown.style.display === "block" ? "none" : "block";
+      });
+
+      window.addEventListener("click", (e) => {
+        if (!profileMenu.contains(e.target) && e.target.id !== "googleLoginBtn") {
+          profileDropdown.style.display = "none";
+        }
+      });
+    }
+  </script>
 
 </body>
 </html>
