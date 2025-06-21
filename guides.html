@@ -49,14 +49,6 @@
     window.auth = getAuth(app);
     window.provider = new GoogleAuthProvider();
 
-    // טען את ההדר ואז הפעל את כל האירועים
-    fetch('header.html')
-      .then(r => r.text())
-      .then(data => {
-        document.getElementById('header-placeholder').innerHTML = data;
-        initHeaderEvents();
-      });
-
     function initHeaderEvents() {
       const googleLoginBtn = document.getElementById("googleLoginBtn");
       const profileMenu = document.getElementById("profileMenu");
@@ -106,6 +98,8 @@
       });
     }
   </script>
+<script src="products.js"></script>
+<script type="module" src="script.js"></script>
 
 </body>
 </html>

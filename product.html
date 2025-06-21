@@ -171,14 +171,6 @@
   window.signOut = signOut;
   window.onAuthStateChanged = onAuthStateChanged;
 
-  // טען HEADER ואז אתחל את ההאזנה
-  fetch('header.html')
-    .then(response => response.text())
-    .then(data => {
-      document.getElementById('header-placeholder').innerHTML = data;
-      initHeaderEvents(); // הפעל רישום מאזינים אחרי שה-HEADER נטען
-    });
-
   // פונקציה שמאזינה לכפתורים (תמיד אחרי טעינה!)
   function initHeaderEvents() {
     const menuToggle = document.querySelector('.menu-toggle');
