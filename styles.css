@@ -333,6 +333,9 @@ main {
 
   .menu-toggle {
     display: block;
+      position: static;
+    margin: 0 8px;
+    transform: none;
     order: 3;
   }
  .profile-menu {
