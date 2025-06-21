@@ -51,6 +51,19 @@ header.sticky-header {
   font-size: 32px;
   color: white;
   cursor: pointer;
+  position: absolute;
+  left: 20px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+/* מצב ברירת מחדל: מחשב */
+#googleLoginBtn,
+.profile-menu {
+  position: absolute;
+  right: 20px;
+  top: 50%;
+  transform: translateY(-50%);
 }
 
 #googleLoginBtn {
@@ -69,7 +82,7 @@ header.sticky-header {
 }
 
 #googleLoginBtn:hover {
-  transform: scale(1.05);
+  transform: translateY(-50%) scale(1.05);
 }
 
 #googleLoginBtn img {
@@ -81,10 +94,6 @@ header.sticky-header {
   color: white;
   font-weight: 600;
   font-size: 14px;
-}
-
-.profile-menu {
-  position: relative;
 }
 
 .profile-avatar {
@@ -99,12 +108,14 @@ header.sticky-header {
   font-weight: bold;
   cursor: pointer;
   box-shadow: 0 0 0 2px #4364f7;
+  padding: 0;
+  border: none;
 }
 
 .profile-dropdown {
   display: none;
   position: absolute;
-  top: 100%;
+  top: 50px;
   right: 0;
   background: white;
   border: 1px solid #ddd;
@@ -300,7 +311,7 @@ main {
   100% { background-position: 0% 50%; }
 }
 
-/* מובייל */
+/* === מובייל בלבד === */
 @media (max-width: 767px) {
   .top-bar {
     display: flex;
@@ -310,29 +321,24 @@ main {
   }
 
   .logo-wrapper {
-    order: 1;
     flex: 1;
     justify-content: center;
+    order: 1;
   }
 
-  .profile-menu {
-    order: 2;
-    position: relative;
-    margin-right: 10px;
-  }
-
+  .profile-menu,
   #googleLoginBtn {
+    position: static; /* מבטל absolute במובייל */
+    transform: none;
     order: 2;
-    position: relative;
-    margin-right: 10px;
-    padding: 6px 15px;
-    font-size: 14px;
+    margin: 0 10px;
   }
 
   .menu-toggle {
     display: block;
     order: 3;
-    position: relative;
+    position: static;
+    transform: none;
   }
 
   .profile-dropdown {
