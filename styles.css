@@ -351,8 +351,8 @@ main {
     position: relative !important;
     order: 2;
     margin: 0 8px;
-    margin-right: 30px;
-    transform: none;
+ margin-right: 0; /* מבטל את ה-margin-right ששמת */
+    margin-left: 12px; /* 👈 זה מוסיף רווח שמאלי קטן מההמבורגר */    transform: none;
   }
   .nav-categories {
     display: none;
