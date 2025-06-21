@@ -335,7 +335,11 @@ main {
     display: block;
     order: 3;
   }
-
+ .profile-menu {
+    position: static !important;
+    order: 2;
+    margin: 0 8px;
+  }
   .nav-categories {
     display: none;
   }
