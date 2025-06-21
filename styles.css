@@ -386,4 +386,9 @@ main {
   .grid-container {
     grid-template-columns: 1fr; /* ✅ עמודה אחת במסכים צרים במיוחד */
   }
+
+  .grid-container {
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); 
+    gap: 15px; /* אפשר טיפה להקטין רווח */
+  }
 }
