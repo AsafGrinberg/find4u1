@@ -62,177 +62,83 @@
 </head>
 <body>
 
+</head>
 <body>
-  <!-- יטען אוטומטית -->
+
+  <!-- ✅ זה יטען אוטומטית -->
   <div id="header-placeholder"></div>
 
-  <!-- כאן שאר הדף הרגיל שלך -->
-  <main>
-    ...
+  <main style="padding-top: 160px; max-width: 1120px; margin: auto; text-align: center;">
+    <h1 id="productTitle"></h1>
+    <div id="imageGallery" style="display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin: 20px 0;"></div>
+    <p id="productDescription" style="max-width: 800px; margin: 20px auto;"></p>
+    <a id="buyButton" href="#" target="_blank" style="display: inline-block; padding: 15px 25px; background: #4364f7; color: white; font-weight: bold; border-radius: 30px; text-decoration: none; box-shadow: 0 4px 12px rgba(67,100,247,0.6); transition: background 0.3s;">קנה עכשיו</a>
+
+    <section style="margin-top: 50px; text-align: center;">
+      <h2>ביקורות</h2>
+      <div id="reviewsContainer" style="margin-top: 20px;"></div>
+
+      <h3 style="margin-top: 30px;">הוסף ביקורת משלך</h3>
+      <form id="reviewForm" class="review-form">
+        <input id="reviewName" type="text" placeholder="השם שלך" required>
+        <textarea id="reviewText" placeholder="כתוב ביקורת..." rows="4" required></textarea>
+        <button type="submit">שלח ביקורת</button>
+      </form>
+    </section>
   </main>
-</body>
 
+  <!-- ✅ רק הסקריפטים הנדרשים -->
+  <script src="products.js"></script>
+  <script src="product.js"></script>
 
-<main style="padding-top: 160px; max-width: 1120px; margin: auto; text-align: center;">
-  <h1 id="productTitle"></h1>
-  <div id="imageGallery" style="display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin: 20px 0;"></div>
-  <p id="productDescription" style="max-width: 800px; margin: 20px auto;"></p>
-  <a id="buyButton" href="#" target="_blank" style="display: inline-block; padding: 15px 25px; background: #4364f7; color: white; font-weight: bold; border-radius: 30px; text-decoration: none; box-shadow: 0 4px 12px rgba(67,100,247,0.6); transition: background 0.3s;">קנה עכשיו</a>
+  <!-- מערכת ביקורות בלבד (רק מה שייחודי למוצר) -->
+  <script>
+    const reviewsContainer = document.getElementById('reviewsContainer');
+    const reviewForm = document.getElementById('reviewForm');
+    const reviewName = document.getElementById('reviewName');
+    const reviewText = document.getElementById('reviewText');
+    const urlParams = new URLSearchParams(window.location.search);
+    const productId = urlParams.get('id');
 
-  <section style="margin-top: 50px; text-align: center;">
-    <h2>ביקורות</h2>
-    <div id="reviewsContainer" style="margin-top: 20px;"></div>
-
-    <h3 style="margin-top: 30px;">הוסף ביקורת משלך</h3>
-    <form id="reviewForm" class="review-form">
-      <input id="reviewName" type="text" placeholder="השם שלך" required>
-      <textarea id="reviewText" placeholder="כתוב ביקורת..." rows="4" required></textarea>
-      <button type="submit">שלח ביקורת</button>
-    </form>
-  </section>
-</main>
-
-<script src="products.js"></script>
-<script src="product.js"></script>
-<script>
-  // תפריט ניווט
-  const menuToggle = document.querySelector('.menu-toggle');
-  const navCategories = document.getElementById('categoryButtons');
-  if (menuToggle && navCategories) {
-    menuToggle.addEventListener('click', () => {
-      navCategories.classList.toggle('show');
-    });
-  }
-
-  // מערכת ביקורות בסגנון SHEIN
-  const reviewsContainer = document.getElementById('reviewsContainer');
-  const reviewForm = document.getElementById('reviewForm');
-  const reviewName = document.getElementById('reviewName');
-  const reviewText = document.getElementById('reviewText');
-  const urlParams = new URLSearchParams(window.location.search);
-  const productId = urlParams.get('id');
-
-  function loadReviews() {
-    const reviews = JSON.parse(localStorage.getItem('reviews_' + productId)) || [];
-    reviewsContainer.innerHTML = '';
-
-    if (reviews.length === 0) {
-      reviewsContainer.innerHTML = '<p>עדיין אין ביקורות. תהיה הראשון!</p>';
-    } else {
-      reviews.forEach(r => {
-        const div = document.createElement('div');
-        div.className = 'review-card';
-
-        div.innerHTML = `
-          <div class="review-header">${r.name} <span class="review-date">${r.date}</span></div>
-          <div class="review-text">${r.text}</div>
-        `;
-        reviewsContainer.appendChild(div);
-      });
-    }
-  }
-
-  reviewForm.addEventListener('submit', function(e) {
-    e.preventDefault();
-    const name = reviewName.value.trim();
-    const text = reviewText.value.trim();
-    if (name && text) {
+    function loadReviews() {
       const reviews = JSON.parse(localStorage.getItem('reviews_' + productId)) || [];
-      const date = new Date().toLocaleDateString('he-IL');
-      reviews.unshift({ name, text, date }); // הכי חדשה למעלה
-      localStorage.setItem('reviews_' + productId, JSON.stringify(reviews));
-      reviewName.value = '';
-      reviewText.value = '';
-      loadReviews();
-    }
-  });
+      reviewsContainer.innerHTML = '';
 
-  loadReviews();
-</script>
-<script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
-  import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
-
-  const firebaseConfig = {
-    apiKey: "AIzaSyD6o0oDX5ahIw-7E0tUy76ImJDCFWbv4x8",
-    authDomain: "find4u-il.firebaseapp.com",
-    projectId: "find4u-il",
-    storageBucket: "find4u-il.appspot.com",
-    messagingSenderId: "1063243167726",
-    appId: "1:1063243167726:web:16a8bbaf73ed8181e680ff",
-    measurementId: "G-SYR49CZGZZ"
-  };
-
-  window.app = initializeApp(firebaseConfig);
-  window.auth = getAuth(app);
-  window.provider = new GoogleAuthProvider();
-
-  window.signInWithPopup = signInWithPopup;
-  window.signOut = signOut;
-  window.onAuthStateChanged = onAuthStateChanged;
-
-  // פונקציה שמאזינה לכפתורים (תמיד אחרי טעינה!)
-  function initHeaderEvents() {
-    const menuToggle = document.querySelector('.menu-toggle');
-    const navCategories = document.getElementById('categoryButtons');
-
-    if (menuToggle && navCategories) {
-      menuToggle.addEventListener('click', () => {
-        navCategories.classList.toggle('show');
-      });
-    }
-
-    const googleLoginBtn = document.getElementById("googleLoginBtn");
-    const profileMenu = document.getElementById("profileMenu");
-    const profileAvatar = document.getElementById("profileAvatar");
-    const profileDropdown = document.getElementById("profileDropdown");
-    const logoutBtn = document.getElementById("logoutBtn");
-
-    googleLoginBtn.addEventListener("click", () => {
-      signInWithPopup(window.auth, window.provider)
-        .then((result) => {
-          console.log("משתמש התחבר:", result.user);
-        })
-        .catch((error) => {
-          console.error(error);
-          alert("שגיאה: " + error.message);
-        });
-    });
-
-    logoutBtn.addEventListener("click", () => {
-      signOut(window.auth)
-        .then(() => {
-          console.log("התנתקת");
-        })
-        .catch((error) => console.error(error));
-    });
-
-    onAuthStateChanged(window.auth, (user) => {
-      if (user) {
-        googleLoginBtn.style.display = "none";
-        profileMenu.style.display = "inline-block";
-        const displayName = user.displayName || "U";
-        profileAvatar.textContent = displayName.charAt(0).toUpperCase();
+      if (reviews.length === 0) {
+        reviewsContainer.innerHTML = '<p>עדיין אין ביקורות. תהיה הראשון!</p>';
       } else {
-        googleLoginBtn.style.display = "flex";
-        profileMenu.style.display = "none";
-        profileDropdown.style.display = "none";
+        reviews.forEach(r => {
+          const div = document.createElement('div');
+          div.className = 'review-card';
+
+          div.innerHTML = `
+            <div class="review-header">${r.name} <span class="review-date">${r.date}</span></div>
+            <div class="review-text">${r.text}</div>
+          `;
+          reviewsContainer.appendChild(div);
+        });
+      }
+    }
+
+    reviewForm.addEventListener('submit', function(e) {
+      e.preventDefault();
+      const name = reviewName.value.trim();
+      const text = reviewText.value.trim();
+      if (name && text) {
+        const reviews = JSON.parse(localStorage.getItem('reviews_' + productId)) || [];
+        const date = new Date().toLocaleDateString('he-IL');
+        reviews.unshift({ name, text, date });
+        localStorage.setItem('reviews_' + productId, JSON.stringify(reviews));
+        reviewName.value = '';
+        reviewText.value = '';
+        loadReviews();
       }
     });
 
-    profileAvatar.addEventListener("click", () => {
-      profileDropdown.style.display =
-        profileDropdown.style.display === "block" ? "none" : "block";
-    });
+    loadReviews();
+  </script>
 
-    window.addEventListener("click", (e) => {
-      if (!profileMenu.contains(e.target) && e.target.id !== "googleLoginBtn") {
-        profileDropdown.style.display = "none";
-      }
-    });
-  }
-</script>
-
-
+  <!-- ✅ כאן אתה טוען את ההדר ואת הלוגין כמו בכל דף -->
+  <script type="module" src="script.js"></script>
 </body>
 </html>
