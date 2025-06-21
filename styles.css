@@ -342,6 +342,7 @@ main {
     position: static !important;
     order: 2;
     margin: 0 8px;
+    transform: none;
   }
   .nav-categories {
     display: none;
