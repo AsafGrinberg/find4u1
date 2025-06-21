@@ -346,15 +346,18 @@ main {
   }
 
   .profile-menu {
-    position: relative;
-    margin-right: 60px;
+    order: 1;
+    position: relative; /* ✔ שמור על מיקום יחסי לעיגול */
+    transform: none;
+    padding: 0; /* אין צורך ברווח נוסף */
+    margin-left: 0; /* אל תזיז שמאלה */
   }
 
   .profile-dropdown {
-    right: 0;
-    left: auto;
-    top: 100%; /* במקום top: 50px */
-    transform: none; /* לא צריך translateX */
+    top: 100%; /* ✔ מתחת לעיגול */
+    right: 0;  /* ✔ יישר לימין של ההורה */
+    left: auto; 
+    transform: none; /* אין translateX יותר */
   }
 
   .site-title {
