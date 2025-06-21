@@ -391,4 +391,20 @@ main {
     grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); 
     gap: 15px; /* אפשר טיפה להקטין רווח */
   }
+  #logoutBtn {
+  background: none;
+  border: none;
+  color: inherit;
+  font: inherit;
+  padding: 10px 20px;
+  display: block;
+  width: 100%;
+  text-align: right;
+  cursor: pointer;
+}
+
+#logoutBtn:hover {
+  background: #f5f5f5;
+}
+
 }
