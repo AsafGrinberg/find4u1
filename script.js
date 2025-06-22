@@ -114,6 +114,7 @@ function activateCategoryButton() {
 function showCategory(category) {
   const isGuidesPage = window.location.pathname.includes('guides.html');
   const isProductPage = window.location.pathname.includes('product.html');
+  const isIndexPage = window.location.pathname.includes('index.html') || window.location.pathname.endsWith('/');
 
   if (category === 'guides') {
     if (!isGuidesPage) {
@@ -127,11 +128,19 @@ function showCategory(category) {
     return;
   }
 
+  // אם אתה כבר בדף הראשי - תעדכן את הכתובת ואז תרענן את הפילטר
+  if (isIndexPage) {
+    const newUrl = new URL(window.location);
+    newUrl.searchParams.set('category', category);
+    window.history.pushState({}, '', newUrl);
+  }
+
   activeCategory = category;
   activateCategoryButton();
   document.getElementById('categoryButtons').classList.remove('show');
   filterProducts();
 }
+
 
 window.showCategory = showCategory; // כדי שיפעל גם בכפתורים ב-HTML
 
