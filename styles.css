@@ -126,7 +126,7 @@ header.sticky-header {
   background: white;
   border: none;
   padding: 10px 20px;
-  width: 50%; /* ✅ חדש - הכפתור ברוחב מלא */
+  width: 10%; /* ✅ חדש - הכפתור ברוחב מלא */
   text-align: right;
   cursor: pointer;
   border-top: 1px solid #eee;
