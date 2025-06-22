@@ -409,3 +409,20 @@ main {
     font-size: 14px; /* קטן יותר אם בא לך */
   }
 }
+@media (max-width: 767px) {
+  .profile-dropdown {
+    min-width: auto; /* מבטל את הרוחב המינימלי במובייל */
+    width: auto;     /* מוודא שהתיבה תתאים לכפתור */
+    left: auto;      /* שלא יתנגש במיקום */
+    right: 0;        /* מחזיר לימין אם צריך */
+  }
+
+  .profile-dropdown button,
+  #logoutBtn {
+    display: inline-block;
+    width: auto;
+    min-width: auto;
+    padding: 6px 12px;
+    font-size: 14px;
+  }
+}
