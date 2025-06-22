@@ -93,73 +93,97 @@
 
   <!-- ✅ ביקורות ב-Firestore -->
   <script type="module">
-    import { getFirestore, collection, addDoc, getDocs, query, orderBy } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
+  import { getFirestore, collection, addDoc, getDocs, query, orderBy } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
+  import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
 
-    const firebaseConfig = {
-      apiKey: "AIzaSyD6o0oDX5ahIw-7E0tUy76ImJDCFWbv4x8",
-      authDomain: "find4u-il.firebaseapp.com",
-      projectId: "find4u-il",
-      storageBucket: "find4u-il.appspot.com",
-      messagingSenderId: "1063243167726",
-      appId: "1:1063243167726:web:16a8bbaf73ed8181e680ff",
-      measurementId: "G-SYR49CZGZZ"
-    };
+  const firebaseConfig = {
+    apiKey: "AIzaSyD6o0oDX5ahIw-7E0tUy76ImJDCFWbv4x8",
+    authDomain: "find4u-il.firebaseapp.com",
+    projectId: "find4u-il",
+    storageBucket: "find4u-il.appspot.com",
+    messagingSenderId: "1063243167726",
+    appId: "1:1063243167726:web:16a8bbaf73ed8181e680ff",
+    measurementId: "G-SYR49CZGZZ"
+  };
 
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+  const auth = getAuth(app);
 
-    const reviewsContainer = document.getElementById('reviewsContainer');
-    const reviewForm = document.getElementById('reviewForm');
-    const reviewName = document.getElementById('reviewName');
-    const reviewText = document.getElementById('reviewText');
+  const reviewsContainer = document.getElementById('reviewsContainer');
+  const reviewForm = document.getElementById('reviewForm');
+  const reviewName = document.getElementById('reviewName');
+  const reviewText = document.getElementById('reviewText');
 
-    const urlParams = new URLSearchParams(window.location.search);
-    const productId = urlParams.get('id');
+  const urlParams = new URLSearchParams(window.location.search);
+  const productId = urlParams.get('id');
 
-    async function loadReviews() {
-      const q = query(collection(db, "reviews_" + productId), orderBy("timestamp", "desc"));
-      const querySnapshot = await getDocs(q);
+  async function loadReviews() {
+    const q = query(collection(db, "reviews_" + productId), orderBy("timestamp", "desc"));
+    const querySnapshot = await getDocs(q);
 
-      reviewsContainer.innerHTML = '';
+    reviewsContainer.innerHTML = '';
 
-      if (querySnapshot.empty) {
-        reviewsContainer.innerHTML = '<p>עדיין אין ביקורות. תהיה הראשון!</p>';
-      } else {
-        querySnapshot.forEach((doc) => {
-          const r = doc.data();
-          const div = document.createElement('div');
-          div.className = 'review-card';
+    if (querySnapshot.empty) {
+      reviewsContainer.innerHTML = '<p>עדיין אין ביקורות. תהיה הראשון!</p>';
+    } else {
+      querySnapshot.forEach((doc) => {
+        const r = doc.data();
+        const div = document.createElement('div');
+        div.className = 'review-card';
 
-          div.innerHTML = `
-            <div class="review-header">${r.name} <span class="review-date">${r.date}</span></div>
-            <div class="review-text">${r.text}</div>
-          `;
-          reviewsContainer.appendChild(div);
-        });
-      }
+        div.innerHTML = `
+          <div class="review-header">${r.name} <span class="review-date">${r.date}</span></div>
+          <div class="review-text">${r.text}</div>
+        `;
+        reviewsContainer.appendChild(div);
+      });
+    }
+  }
+
+  onAuthStateChanged(auth, (user) => {
+    if (user) {
+      // אם מחובר - לאפשר שליחה
+      reviewForm.style.display = 'block';
+      reviewName.value = user.displayName || '';
+    } else {
+      // אם לא מחובר - להסתיר את הטופס
+      reviewForm.style.display = 'none';
+      const msg = document.createElement('p');
+      msg.textContent = 'עליך להתחבר עם Google כדי להוסיף ביקורת.';
+      msg.style.color = 'red';
+      msg.style.marginTop = '20px';
+      reviewForm.parentElement.appendChild(msg);
+    }
+  });
+
+  reviewForm.addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const user = auth.currentUser;
+    if (!user) {
+      alert('אנא התחבר קודם.');
+      return;
     }
 
-    reviewForm.addEventListener('submit', async function(e) {
-      e.preventDefault();
-      const name = reviewName.value.trim();
-      const text = reviewText.value.trim();
-      if (name && text) {
-        const date = new Date().toLocaleDateString('he-IL');
-        await addDoc(collection(db, "reviews_" + productId), {
-          name,
-          text,
-          date,
-          timestamp: Date.now()
-        });
-        reviewName.value = '';
-        reviewText.value = '';
-        loadReviews();
-      }
-    });
+    const name = user.displayName || 'משתמש';
+    const text = reviewText.value.trim();
+    if (text) {
+      const date = new Date().toLocaleDateString('he-IL');
+      await addDoc(collection(db, "reviews_" + productId), {
+        name,
+        text,
+        date,
+        timestamp: Date.now()
+      });
+      reviewText.value = '';
+      loadReviews();
+    }
+  });
 
-    loadReviews();
-  </script>
+  loadReviews();
+</script>
+
 
 </body>
 </html>
