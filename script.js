@@ -109,17 +109,19 @@ function activateCategoryButton() {
   });
 }
 
-function showCategory(category, button) {
+function showCategory(category) {
   const isGuidesPage = window.location.pathname.includes('guides.html');
+  const isProductPage = window.location.pathname.includes('product.html');
 
   if (category === 'guides') {
     if (!isGuidesPage) {
-window.location.href = 'guides.html?category=guides';
+      window.location.href = 'guides.html?category=guides';
     }
     return;
   }
 
-  if (isGuidesPage) {
+  if (isGuidesPage || isProductPage) {
+    // אם אתה במדריכים או במוצר - לך חזרה לדף הראשי עם הקטגוריה
     window.location.href = `index.html?category=${category}`;
     return;
   }
@@ -129,6 +131,7 @@ window.location.href = 'guides.html?category=guides';
   document.getElementById('categoryButtons').classList.remove('show');
   filterProducts();
 }
+
 
 window.showCategory = showCategory; // כדי שיפעל גם בכפתורים ב-HTML
 
