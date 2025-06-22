@@ -5,6 +5,8 @@ let fuse;
 // --- Firebase
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
 import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
+import { getFirestore, collection, addDoc, getDocs, query, orderBy } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+
 
 const firebaseConfig = {
   apiKey: "AIzaSyD6o0oDX5ahIw-7E0tUy76ImJDCFWbv4x8",
@@ -19,6 +21,7 @@ const firebaseConfig = {
 window.app = initializeApp(firebaseConfig);
 window.auth = getAuth(app);
 window.provider = new GoogleAuthProvider();
+window.db = getFirestore(app);
 
 // --- טעינת header והפעלת האירועים
 window.onload = () => {
