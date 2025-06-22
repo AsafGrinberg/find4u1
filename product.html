@@ -13,6 +13,10 @@
 
   <main style="padding-top: 160px; max-width: 1120px; margin: auto; text-align: center;">
     <h1 id="productTitle"></h1>
+
+    <!-- ✅ כפתור לייק -->
+    <button id="productLikeBtn" class="like-btn"></button>
+
     <div id="imageGallery" style="display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin: 20px 0;"></div>
     <p id="productDescription" style="max-width: 800px; margin: 20px auto;"></p>
     <a id="buyButton" href="#" target="_blank" style="display: inline-block; padding: 15px 25px; background: #4364f7; color: white; font-weight: bold; border-radius: 30px; text-decoration: none; box-shadow: 0 4px 12px rgba(67,100,247,0.6); transition: background 0.3s;">קנה עכשיו</a>
@@ -46,114 +50,28 @@
   <script type="module" src="script.js"></script>
 
   <script type="module">
-    import { getFirestore, collection, addDoc, getDocs, query, orderBy } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
-    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
+    import { setupLikeButton } from "./script.js";
 
-    const firebaseConfig = {
-      apiKey: "AIzaSyD6o0oDX5ahIw-7E0tUy76ImJDCFWbv4x8",
-      authDomain: "find4u-il.firebaseapp.com",
-      projectId: "find4u-il",
-      storageBucket: "find4u-il.appspot.com",
-      messagingSenderId: "1063243167726",
-      appId: "1:1063243167726:web:16a8bbaf73ed8181e680ff",
-      measurementId: "G-SYR49CZGZZ"
-    };
-
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
-    const auth = getAuth(app);
-
-    const reviewsContainer = document.getElementById('reviewsContainer');
-    const reviewForm = document.getElementById('reviewForm');
-    const reviewText = document.getElementById('reviewText');
-    const loginReminder = document.getElementById('loginReminder');
     const urlParams = new URLSearchParams(window.location.search);
     const productId = urlParams.get('id');
 
-    async function loadReviews() {
-      const q = query(collection(db, "reviews_" + productId), orderBy("timestamp", "desc"));
-      const querySnapshot = await getDocs(q);
+    const product = products.find(p => p.id == productId);
+    if (product) {
+      document.getElementById('productTitle').textContent = product.text;
+      document.getElementById('productDescription').textContent = product.description || '';
+      document.getElementById('buyButton').href = product.link || '#';
 
-      reviewsContainer.innerHTML = '';
+      const gallery = document.getElementById('imageGallery');
+      gallery.innerHTML = '';
+      const img = document.createElement('img');
+      img.src = product.image;
+      img.style.maxWidth = '100%';
+      gallery.appendChild(img);
 
-      const reviews = [];
-      querySnapshot.forEach((doc) => {
-        reviews.push(doc.data());
-      });
-
-      let avgRating = 0;
-      if (reviews.length > 0) {
-        avgRating = reviews.reduce((sum, r) => sum + (r.rating || 5), 0) / reviews.length;
-        avgRating = avgRating.toFixed(2);
-      }
-
-      document.getElementById('averageRating').innerHTML =
-        reviews.length > 0 
-          ? `⭐ ${avgRating} | ${reviews.length} ביקורות`
-          : 'עדיין אין ביקורות';
-
-      if (reviews.length === 0) {
-        reviewsContainer.innerHTML = '<p>עדיין אין ביקורות. תהיה הראשון!</p>';
-      } else {
-        reviews.forEach((r) => {
-          const div = document.createElement('div');
-          div.className = 'review-card';
-
-          div.innerHTML = `
-            <div class="review-header">
-              ${r.name} <span class="review-date">${r.date}</span><br>
-              <span class="review-rating">${'★'.repeat(r.rating || 5)}</span>
-            </div>
-            <div class="review-text">${r.text}</div>
-          `;
-          reviewsContainer.appendChild(div);
-        });
-      }
+      window.currentProduct = product;
+      const likeBtn = document.getElementById('productLikeBtn');
+      setupLikeButton(product, likeBtn);
     }
-
-    loadReviews();
-
-    onAuthStateChanged(auth, (user) => {
-      if (user) {
-        reviewForm.style.display = 'block';
-        loginReminder.style.display = 'none';
-      } else {
-        reviewForm.style.display = 'none';
-        loginReminder.style.display = 'block';
-      }
-    });
-
-    reviewForm.addEventListener('submit', async function(e) {
-      e.preventDefault();
-      const user = auth.currentUser;
-      if (!user) {
-        alert('אנא התחבר קודם.');
-        return;
-      }
-
-      const text = reviewText.value.trim();
-      const rating = parseInt(document.querySelector('input[name="rating"]:checked').value, 10);
-
-      if (!text || !rating) return;
-
-      reviewForm.querySelector('button').disabled = true;
-
-      const name = user.displayName || 'משתמש';
-      const date = new Date().toLocaleDateString('he-IL');
-
-      await addDoc(collection(db, "reviews_" + productId), {
-        name,
-        text,
-        rating,
-        date,
-        timestamp: Date.now()
-      });
-
-      reviewText.value = '';
-      reviewForm.querySelector('button').disabled = false;
-      loadReviews();
-    });
   </script>
 
 </body>

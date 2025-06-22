@@ -1,7 +1,6 @@
 // --- הגדר קטגוריה פעילה והחיפוש
 let activeCategory = 'all';
 let fuse;
-window.pendingLikeProduct = null; // ✅ לשמור מוצר לחיצה אם לא מחובר
 
 // --- Firebase
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
@@ -36,6 +35,9 @@ window.onload = () => {
       if (document.getElementById('productsGrid')) {
         filterProducts();
       }
+      if (document.getElementById('productLikeBtn')) {
+        setupLikeButton(window.currentProduct, document.getElementById('productLikeBtn'));
+      }
     });
 };
 
@@ -57,9 +59,30 @@ function initHeaderEvents() {
 
   googleLoginBtn?.addEventListener("click", () => {
     signInWithPopup(window.auth, window.provider)
-      .then((result) => {
+      .then(async (result) => {
         console.log("משתמש התחבר:", result.user);
         filterProducts();
+if (window.pendingLikeProduct && window.pendingLikeButton) {
+  await setupLikeButton(window.pendingLikeProduct, window.pendingLikeButton);
+
+  const user = window.auth.currentUser;
+  const docRef = doc(window.db, `likes_${user.uid}`, `${window.pendingLikeProduct.id}`);
+  const docSnap = await getDoc(docRef);
+
+  if (!docSnap.exists()) {
+    // אם אין לייק עדיין - צור אחד חדש
+    await setDoc(docRef, {
+      id: window.pendingLikeProduct.id,
+      title: window.pendingLikeProduct.text,
+      image: window.pendingLikeProduct.image
+    });
+    window.pendingLikeButton.innerHTML = '❤️'; // עדכן אייקון
+  }
+
+  window.pendingLikeProduct = null;
+  window.pendingLikeButton = null;
+}
+
       })
       .catch((error) => {
         console.error(error);
@@ -74,26 +97,12 @@ function initHeaderEvents() {
     }).catch(console.error);
   });
 
-  onAuthStateChanged(window.auth, async (user) => {
+  onAuthStateChanged(window.auth, (user) => {
     if (user) {
       googleLoginBtn.style.display = "none";
       profileMenu.style.display = "inline-block";
       const displayName = user.displayName || "U";
       profileAvatar.textContent = displayName.charAt(0).toUpperCase();
-
-      // ✅ אם יש מוצר לחיץ — שמור את הלייק עכשיו ורוקן את המשתנה
-      if (window.pendingLikeProduct) {
-        const p = window.pendingLikeProduct;
-        const docRef = doc(window.db, `likes_${user.uid}`, `${p.id}`);
-        await setDoc(docRef, {
-          id: p.id,
-          title: p.text,
-          image: p.image
-        });
-        window.pendingLikeProduct = null;
-        filterProducts(); // רענן הלבבות
-      }
-
     } else {
       googleLoginBtn.style.display = "flex";
       profileMenu.style.display = "none";
@@ -187,29 +196,78 @@ function filterProducts() {
   showSuggestions(input, filtered);
 }
 
+// ✅ פונקציה אוניברסלית ללייק — מתוקנת
+export async function setupLikeButton(product, likeBtn) {
+  const auth = window.auth;
+  const db = window.db;
+
+  const updateIcon = (liked) => {
+    likeBtn.innerHTML = liked ? '❤️' : '🤍';
+  };
+
+  const refreshLikeStatus = async () => {
+    const user = auth.currentUser;
+    if (user) {
+      const docRef = doc(db, `likes_${user.uid}`, `${product.id}`);
+      const docSnap = await getDoc(docRef);
+      updateIcon(docSnap.exists());
+    } else {
+      updateIcon(false);
+    }
+  };
+
+  onAuthStateChanged(auth, () => {
+    refreshLikeStatus();
+  });
+
+  likeBtn.onclick = async (e) => {
+    e.preventDefault();
+    const user = auth.currentUser;
+   if (!user) {
+  window.pendingLikeProduct = product;
+  window.pendingLikeButton = likeBtn;
+  const loginBtn = document.getElementById("googleLoginBtn");
+  if (loginBtn) {
+    loginBtn.click();
+  } else {
+    alert("אנא התחבר דרך התפריט למעלה :)");
+  }
+  return;
+}
+
+
+    const docRef = doc(db, `likes_${user.uid}`, `${product.id}`);
+    const docSnap = await getDoc(docRef);
+
+    if (docSnap.exists()) {
+      await deleteDoc(docRef);
+      updateIcon(false);
+    } else {
+      await setDoc(docRef, {
+        id: product.id,
+        title: product.text,
+        image: product.image
+      });
+      updateIcon(true);
+    }
+  };
+
+  await refreshLikeStatus();
+}
+
 async function displayProducts(items) {
   const container = document.getElementById('productsGrid');
   if (!container) return;
 
   container.classList.add('fade-out');
 
-  const user = window.auth.currentUser;
-
-  let likedMap = {};
-  if (user) {
-    const likesSnapshot = await getDocs(collection(window.db, `likes_${user.uid}`));
-    likesSnapshot.forEach(doc => {
-      likedMap[doc.id] = true;
-    });
-  }
-
-  setTimeout(() => {
+  setTimeout(async () => {
     container.innerHTML = '';
 
     if (items.length === 0) {
       container.innerHTML = '<p class="no-results">לא נמצאו מוצרים</p>';
     } else {
-      items.forEach(product => {
+      for (const product of items) {
         const a = document.createElement('a');
         a.href = `product.html?id=${product.id}`;
         a.className = 'grid-item';
@@ -224,36 +282,15 @@ async function displayProducts(items) {
 
         const likeBtn = document.createElement('button');
         likeBtn.className = 'like-btn';
-        likeBtn.innerHTML = likedMap[product.id] ? '❤️' : '🤍';
 
-        likeBtn.onclick = async (e) => {
-          e.preventDefault();
-          if (!user) {
-            window.pendingLikeProduct = product;
-            const googleLoginBtn = document.getElementById("googleLoginBtn");
-            if (googleLoginBtn) googleLoginBtn.click();
-            return;
-          }
-
-          const docRef = doc(window.db, `likes_${user.uid}`, `${product.id}`);
-          if (likeBtn.innerHTML === '🤍') {
-            await setDoc(docRef, {
-              id: product.id,
-              title: product.text,
-              image: product.image
-            });
-            likeBtn.innerHTML = '❤️';
-          } else {
-            await deleteDoc(docRef);
-            likeBtn.innerHTML = '🤍';
-          }
-        };
+        await setupLikeButton(product, likeBtn);
 
         a.appendChild(img);
         a.appendChild(p);
         a.appendChild(likeBtn);
+
         container.appendChild(a);
-      });
+      }
     }
 
     container.classList.remove('fade-out');
@@ -266,11 +303,14 @@ async function displayProducts(items) {
 }
 
 function showSuggestions(input, items) {
+  const container = document.querySelector('.search-container');
+  if (!container) return; // ✅ אין חיפוש? צא מייד
+
   let list = document.querySelector('.autocomplete-list');
   if (!list) {
     list = document.createElement('ul');
     list.className = 'autocomplete-list';
-    document.querySelector('.search-container').appendChild(list);
+    container.appendChild(list);
   }
   list.innerHTML = '';
 
@@ -288,6 +328,7 @@ function showSuggestions(input, items) {
     list.appendChild(li);
   });
 }
+
 
 document.addEventListener('input', function (event) {
   if (event.target.id === 'searchInput') {
