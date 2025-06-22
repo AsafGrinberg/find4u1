@@ -5,8 +5,7 @@ let fuse;
 // --- Firebase
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
 import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
-import { getFirestore, collection, addDoc, getDocs, query, orderBy } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
-
+import { getFirestore } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyD6o0oDX5ahIw-7E0tUy76ImJDCFWbv4x8",
@@ -19,9 +18,9 @@ const firebaseConfig = {
 };
 
 window.app = initializeApp(firebaseConfig);
-window.auth = getAuth(app);
+window.auth = getAuth(window.app);
 window.provider = new GoogleAuthProvider();
-window.db = getFirestore(app);
+window.db = getFirestore(window.app);
 
 // --- טעינת header והפעלת האירועים
 window.onload = () => {
@@ -124,7 +123,6 @@ function showCategory(category) {
   }
 
   if (isGuidesPage || isProductPage) {
-    // אם אתה במדריכים או במוצר - לך חזרה לדף הראשי עם הקטגוריה
     window.location.href = `index.html?category=${category}`;
     return;
   }
@@ -134,7 +132,6 @@ function showCategory(category) {
   document.getElementById('categoryButtons').classList.remove('show');
   filterProducts();
 }
-
 
 window.showCategory = showCategory; // כדי שיפעל גם בכפתורים ב-HTML
 
