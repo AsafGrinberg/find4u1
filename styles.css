@@ -402,9 +402,10 @@ main {
 @media (max-width: 767px) {
   .profile-dropdown button,
   #logoutBtn {
-    display: inline-block;  /* לא block - רק סביב הטקסט */
-    width: auto;            /* לא לרוחב מלא */
-    min-width: auto;        /* ביטול רוחב מינימום */
-    padding: 8px 12px;      /* אם בא לך לצמצם רווחים */
+    display: inline-block;
+    width: auto;
+    min-width: auto;
+    padding: 6px 12px;
+    font-size: 5px; /* קטן יותר אם בא לך */
   }
 }
