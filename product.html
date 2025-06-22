@@ -5,60 +5,6 @@
   <title>Find4U - פרטי מוצר</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="stylesheet" href="styles.css" />
-  <style>
-    /* עיצוב ביקורות בסגנון SHEIN */
-    .review-card {
-      background: #fff;
-      border: 1px solid #ddd;
-      border-radius: 10px;
-      padding: 15px;
-      margin-bottom: 15px;
-      text-align: right;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.05);
-    }
-    .review-header {
-      font-weight: bold;
-      color: #333;
-      margin-bottom: 5px;
-      font-size: 0.95rem;
-    }
-    .review-date {
-      font-size: 0.8rem;
-      color: #888;
-    }
-    .review-text {
-      margin-top: 8px;
-      font-size: 1rem;
-      line-height: 1.5;
-    }
-    .review-form {
-      max-width: 500px;
-      margin: 0 auto;
-      text-align: right;
-    }
-    .review-form textarea {
-      width: 100%;
-      margin-bottom: 10px;
-      padding: 10px;
-      border: 1px solid #ccc;
-      border-radius: 8px;
-    }
-    .review-form button {
-      background: #4364f7;
-      color: white;
-      border: none;
-      padding: 10px 20px;
-      border-radius: 30px;
-      font-weight: bold;
-      cursor: pointer;
-    }
-
-    @media (max-width: 600px) {
-      .review-card {
-        font-size: 0.95rem;
-      }
-    }
-  </style>
 </head>
 <body>
 
@@ -73,25 +19,32 @@
 
     <section style="margin-top: 50px; text-align: center;">
       <h2>ביקורות</h2>
+      <div id="averageRating" style="font-size: 1.2rem; margin: 10px 0; display: flex; align-items: center; justify-content: center;"></div>
       <div id="reviewsContainer" style="margin-top: 20px;"></div>
 
       <h3 style="margin-top: 30px;">הוסף ביקורת משלך</h3>
       <form id="reviewForm" class="review-form">
-        <!-- 🔑 אין שדה שם יותר -->
+        <div class="star-rating">
+          <input type="radio" id="star5" name="rating" value="5" checked><label for="star5">★</label>
+          <input type="radio" id="star4" name="rating" value="4"><label for="star4">★</label>
+          <input type="radio" id="star3" name="rating" value="3"><label for="star3">★</label>
+          <input type="radio" id="star2" name="rating" value="2"><label for="star2">★</label>
+          <input type="radio" id="star1" name="rating" value="1"><label for="star1">★</label>
+        </div>
         <textarea id="reviewText" placeholder="כתוב ביקורת..." rows="4" required></textarea>
         <button type="submit">שלח ביקורת</button>
       </form>
+
+      <p id="loginReminder" style="color:red; display:none; margin-top:20px;">
+        עליך להתחבר עם Google כדי להוסיף ביקורת.
+      </p>
     </section>
   </main>
 
-  <!-- ✅ מוצרים -->
   <script src="products.js"></script>
   <script src="product.js"></script>
-
-  <!-- ✅ HEADER + LOGIN + FIRESTORE -->
   <script type="module" src="script.js"></script>
 
-  <!-- ✅ ביקורות Firestore -->
   <script type="module">
     import { getFirestore, collection, addDoc, getDocs, query, orderBy } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
@@ -114,6 +67,7 @@
     const reviewsContainer = document.getElementById('reviewsContainer');
     const reviewForm = document.getElementById('reviewForm');
     const reviewText = document.getElementById('reviewText');
+    const loginReminder = document.getElementById('loginReminder');
     const urlParams = new URLSearchParams(window.location.search);
     const productId = urlParams.get('id');
 
@@ -123,16 +77,34 @@
 
       reviewsContainer.innerHTML = '';
 
-      if (querySnapshot.empty) {
+      const reviews = [];
+      querySnapshot.forEach((doc) => {
+        reviews.push(doc.data());
+      });
+
+      let avgRating = 0;
+      if (reviews.length > 0) {
+        avgRating = reviews.reduce((sum, r) => sum + (r.rating || 5), 0) / reviews.length;
+        avgRating = avgRating.toFixed(2);
+      }
+
+      document.getElementById('averageRating').innerHTML =
+        reviews.length > 0 
+          ? `⭐ ${avgRating} | ${reviews.length} ביקורות`
+          : 'עדיין אין ביקורות';
+
+      if (reviews.length === 0) {
         reviewsContainer.innerHTML = '<p>עדיין אין ביקורות. תהיה הראשון!</p>';
       } else {
-        querySnapshot.forEach((doc) => {
-          const r = doc.data();
+        reviews.forEach((r) => {
           const div = document.createElement('div');
           div.className = 'review-card';
 
           div.innerHTML = `
-            <div class="review-header">${r.name} <span class="review-date">${r.date}</span></div>
+            <div class="review-header">
+              ${r.name} <span class="review-date">${r.date}</span><br>
+              <span class="review-rating">${'★'.repeat(r.rating || 5)}</span>
+            </div>
             <div class="review-text">${r.text}</div>
           `;
           reviewsContainer.appendChild(div);
@@ -140,24 +112,18 @@
       }
     }
 
-    // טען תמיד את הביקורות ישר
     loadReviews();
 
-    // בדוק אם המשתמש מחובר כדי להציג/להסתיר את הטופס
     onAuthStateChanged(auth, (user) => {
       if (user) {
         reviewForm.style.display = 'block';
+        loginReminder.style.display = 'none';
       } else {
         reviewForm.style.display = 'none';
-        const msg = document.createElement('p');
-        msg.textContent = 'עליך להתחבר עם Google כדי להוסיף ביקורת.';
-        msg.style.color = 'red';
-        msg.style.marginTop = '20px';
-        reviewForm.parentElement.appendChild(msg);
+        loginReminder.style.display = 'block';
       }
     });
 
-    // הגנה על שליחה כפולה
     reviewForm.addEventListener('submit', async function(e) {
       e.preventDefault();
       const user = auth.currentUser;
@@ -167,7 +133,9 @@
       }
 
       const text = reviewText.value.trim();
-      if (!text) return;
+      const rating = parseInt(document.querySelector('input[name="rating"]:checked').value, 10);
+
+      if (!text || !rating) return;
 
       reviewForm.querySelector('button').disabled = true;
 
@@ -177,6 +145,7 @@
       await addDoc(collection(db, "reviews_" + productId), {
         name,
         text,
+        rating,
         date,
         timestamp: Date.now()
       });
