@@ -512,3 +512,22 @@ main {
     font-size: 0.95rem;
   }
 }
+/* === עיצוב כפתור הלב === */
+.like-btn {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  background: transparent;
+  border: none;
+  font-size: 22px;
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+.like-btn:hover {
+  transform: scale(1.2);
+}
+
+.grid-item {
+  position: relative; /* הכרחי שהלב יהיה ממוקם נכון בתוך הכרטיס */
+}

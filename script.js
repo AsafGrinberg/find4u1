@@ -1,11 +1,12 @@
 // --- הגדר קטגוריה פעילה והחיפוש
 let activeCategory = 'all';
 let fuse;
+window.pendingLikeProduct = null; // ✅ לשמור מוצר לחיצה אם לא מחובר
 
 // --- Firebase
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
 import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
-import { getFirestore } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+import { getFirestore, doc, getDoc, setDoc, deleteDoc, collection, getDocs } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyD6o0oDX5ahIw-7E0tUy76ImJDCFWbv4x8",
@@ -48,7 +49,6 @@ function initHeaderEvents() {
     });
   }
 
-  // Google login events
   const googleLoginBtn = document.getElementById("googleLoginBtn");
   const profileMenu = document.getElementById("profileMenu");
   const profileAvatar = document.getElementById("profileAvatar");
@@ -59,6 +59,7 @@ function initHeaderEvents() {
     signInWithPopup(window.auth, window.provider)
       .then((result) => {
         console.log("משתמש התחבר:", result.user);
+        filterProducts();
       })
       .catch((error) => {
         console.error(error);
@@ -69,15 +70,30 @@ function initHeaderEvents() {
   logoutBtn?.addEventListener("click", () => {
     signOut(window.auth).then(() => {
       console.log("התנתקת");
+      filterProducts();
     }).catch(console.error);
   });
 
-  onAuthStateChanged(window.auth, (user) => {
+  onAuthStateChanged(window.auth, async (user) => {
     if (user) {
       googleLoginBtn.style.display = "none";
       profileMenu.style.display = "inline-block";
       const displayName = user.displayName || "U";
       profileAvatar.textContent = displayName.charAt(0).toUpperCase();
+
+      // ✅ אם יש מוצר לחיץ — שמור את הלייק עכשיו ורוקן את המשתנה
+      if (window.pendingLikeProduct) {
+        const p = window.pendingLikeProduct;
+        const docRef = doc(window.db, `likes_${user.uid}`, `${p.id}`);
+        await setDoc(docRef, {
+          id: p.id,
+          title: p.text,
+          image: p.image
+        });
+        window.pendingLikeProduct = null;
+        filterProducts(); // רענן הלבבות
+      }
+
     } else {
       googleLoginBtn.style.display = "flex";
       profileMenu.style.display = "none";
@@ -128,7 +144,6 @@ function showCategory(category) {
     return;
   }
 
-  // אם אתה כבר בדף הראשי - תעדכן את הכתובת ואז תרענן את הפילטר
   if (isIndexPage) {
     const newUrl = new URL(window.location);
     newUrl.searchParams.set('category', category);
@@ -141,8 +156,7 @@ function showCategory(category) {
   filterProducts();
 }
 
-
-window.showCategory = showCategory; // כדי שיפעל גם בכפתורים ב-HTML
+window.showCategory = showCategory;
 
 function filterProducts() {
   const input = document.getElementById('searchInput')?.value.trim() || '';
@@ -173,11 +187,21 @@ function filterProducts() {
   showSuggestions(input, filtered);
 }
 
-function displayProducts(items) {
+async function displayProducts(items) {
   const container = document.getElementById('productsGrid');
   if (!container) return;
 
   container.classList.add('fade-out');
+
+  const user = window.auth.currentUser;
+
+  let likedMap = {};
+  if (user) {
+    const likesSnapshot = await getDocs(collection(window.db, `likes_${user.uid}`));
+    likesSnapshot.forEach(doc => {
+      likedMap[doc.id] = true;
+    });
+  }
 
   setTimeout(() => {
     container.innerHTML = '';
@@ -198,8 +222,36 @@ function displayProducts(items) {
         const p = document.createElement('p');
         p.textContent = product.text;
 
+        const likeBtn = document.createElement('button');
+        likeBtn.className = 'like-btn';
+        likeBtn.innerHTML = likedMap[product.id] ? '❤️' : '🤍';
+
+        likeBtn.onclick = async (e) => {
+          e.preventDefault();
+          if (!user) {
+            window.pendingLikeProduct = product;
+            const googleLoginBtn = document.getElementById("googleLoginBtn");
+            if (googleLoginBtn) googleLoginBtn.click();
+            return;
+          }
+
+          const docRef = doc(window.db, `likes_${user.uid}`, `${product.id}`);
+          if (likeBtn.innerHTML === '🤍') {
+            await setDoc(docRef, {
+              id: product.id,
+              title: product.text,
+              image: product.image
+            });
+            likeBtn.innerHTML = '❤️';
+          } else {
+            await deleteDoc(docRef);
+            likeBtn.innerHTML = '🤍';
+          }
+        };
+
         a.appendChild(img);
         a.appendChild(p);
+        a.appendChild(likeBtn);
         container.appendChild(a);
       });
     }
