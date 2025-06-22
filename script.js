@@ -114,7 +114,7 @@ function showCategory(category, button) {
 
   if (category === 'guides') {
     if (!isGuidesPage) {
-      window.location.href = 'guides.html';
+window.location.href = 'guides.html?category=guides';
     }
     return;
   }

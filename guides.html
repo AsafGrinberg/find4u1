@@ -1,4 +1,4 @@
-<!-- index.html או guides.html -->
+<!-- guides.html -->
 <!DOCTYPE html>
 <html lang="he">
 <head>
@@ -10,6 +10,7 @@
 <body>
 
   <div id="header-placeholder"></div>
+  
   <main class="guides-section">
     <h2>מדריכים מומלצים</h2>
 
@@ -25,81 +26,10 @@
       <p>כל מה שצריך לדעת כדי לצפות בתכנים ב-STREMIO.</p>
     </article>
   </main>
-<!-- ספריות וקבצים נוספים -->
+
+  <!-- ספריות וקבצים נוספים -->
   <script src="https://cdn.jsdelivr.net/npm/fuse.js@6.6.2"></script>
   <script src="products.js"></script>
-  <script src="script.js"></script>
-
-  <!-- כל ההתחברות וההפעלה -->
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
-    import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
-
-    const firebaseConfig = {
-      apiKey: "AIzaSyD6o0oDX5ahIw-7E0tUy76ImJDCFWbv4x8",
-      authDomain: "find4u-il.firebaseapp.com",
-      projectId: "find4u-il",
-      storageBucket: "find4u-il.appspot.com",
-      messagingSenderId: "1063243167726",
-      appId: "1:1063243167726:web:16a8bbaf73ed8181e680ff",
-      measurementId: "G-SYR49CZGZZ"
-    };
-
-    window.app = initializeApp(firebaseConfig);
-    window.auth = getAuth(app);
-    window.provider = new GoogleAuthProvider();
-
-    function initHeaderEvents() {
-      const googleLoginBtn = document.getElementById("googleLoginBtn");
-      const profileMenu = document.getElementById("profileMenu");
-      const profileAvatar = document.getElementById("profileAvatar");
-      const profileDropdown = document.getElementById("profileDropdown");
-      const logoutBtn = document.getElementById("logoutBtn");
-
-      googleLoginBtn.addEventListener("click", () => {
-        signInWithPopup(window.auth, window.provider)
-          .then((result) => {
-            console.log("משתמש התחבר:", result.user);
-          })
-          .catch((error) => {
-            console.error(error);
-            alert("שגיאה: " + error.message);
-          });
-      });
-
-      logoutBtn.addEventListener("click", () => {
-        signOut(window.auth).then(() => {
-          console.log("התנתקת");
-        }).catch(console.error);
-      });
-
-      onAuthStateChanged(window.auth, (user) => {
-        if (user) {
-          googleLoginBtn.style.display = "none";
-          profileMenu.style.display = "inline-block";
-          const displayName = user.displayName || "U";
-          profileAvatar.textContent = displayName.charAt(0).toUpperCase();
-        } else {
-          googleLoginBtn.style.display = "flex";
-          profileMenu.style.display = "none";
-          profileDropdown.style.display = "none";
-        }
-      });
-
-      profileAvatar.addEventListener("click", () => {
-        profileDropdown.style.display =
-          profileDropdown.style.display === "block" ? "none" : "block";
-      });
-
-      window.addEventListener("click", (e) => {
-        if (!profileMenu.contains(e.target) && e.target.id !== "googleLoginBtn") {
-          profileDropdown.style.display = "none";
-        }
-      });
-    }
-  </script>
-<script src="products.js"></script>
-<script type="module" src="script.js"></script>
-
+  <script type="module" src="script.js"></script>
 </body>
 </html>
