@@ -406,6 +406,6 @@ main {
     width: auto;
     min-width: auto;
     padding: 6px 12px;
-    font-size: 5px; /* קטן יותר אם בא לך */
+    font-size: 14px; /* קטן יותר אם בא לך */
   }
 }
