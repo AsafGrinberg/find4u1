@@ -118,7 +118,7 @@ header.sticky-header {
   border-radius: 6px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.2);
   z-index: 1000;
-  min-width: 160px; /* ✅ חדש - מבטיח שהתפריט לא יהיה קטן מדי */
+  min-width: 60px; /* ✅ חדש - מבטיח שהתפריט לא יהיה קטן מדי */
 }
 
 .profile-dropdown button,
