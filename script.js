@@ -192,10 +192,13 @@ function filterProducts() {
 
 // ✅ פונקציה אוניברסלית ללייק — מתוקנת
 export async function setupLikeButton(product, likeBtn) {
+  console.log("setupLikeButton called for product:", product.id);
+
   const auth = window.auth;
   const db = window.db;
 
   const updateIcon = (liked) => {
+    likeBtn.innerHTML = liked ? '❤️' : '🤍';
     likeBtn.dataset.liked = liked ? 'true' : 'false';
   };
 
@@ -210,58 +213,56 @@ export async function setupLikeButton(product, likeBtn) {
     }
   };
 
+  // מאזין למצב התחברות - כל שינוי יבדוק מחדש
   onAuthStateChanged(auth, () => {
     refreshLikeStatus();
   });
 
-likeBtn.onclick = async (e) => {
-  e.preventDefault();
-
-  const user = auth.currentUser;
-  if (!user) {
-    window.pendingLikeProduct = product;
-    window.pendingLikeButton = likeBtn;
-    const loginBtn = document.getElementById("googleLoginBtn");
-    if (loginBtn) {
-      loginBtn.click();
-    } else {
-      alert("אנא התחבר דרך התפריט למעלה :)");
-    }
-    return;
-  }
-
-  const docRef = doc(db, `likes_${user.uid}`, `${product.id}`);
-  const docSnap = await getDoc(docRef);
-
-  if (docSnap.exists()) {
-    await deleteDoc(docRef);
-    updateIcon(false);
-
-    if (window.location.pathname.includes('profile.html')) {
-      const gridItem = likeBtn.closest('.grid-item');
-      if (gridItem) {
-        gridItem.remove();
+  // טיפול לחיצה (מיידי)
+  likeBtn.onclick = async (e) => {
+    e.preventDefault();
+    const user = auth.currentUser;
+    if (!user) {
+      // לא מחובר? בקש להתחבר ואז חזור
+      window.pendingLikeProduct = product;
+      window.pendingLikeButton = likeBtn;
+      const loginBtn = document.getElementById("googleLoginBtn");
+      if (loginBtn) {
+        loginBtn.click();
+      } else {
+        alert("אנא התחבר דרך התפריט למעלה :)");
       }
+      return;
     }
-  } else {
-    await setDoc(docRef, {
-      id: product.id,
-      title: product.text,
-      image: product.image
-    });
-    updateIcon(true);
-  }
-};
 
-// להוסיף מחוץ ל-onclick:
-likeBtn.addEventListener('touchend', (e) => {
-  e.preventDefault();
-  likeBtn.onclick(e); // מפעיל את אותה פונקציה גם במגע
-});
+    const docRef = doc(db, `likes_${user.uid}`, `${product.id}`);
+    const docSnap = await getDoc(docRef);
 
+    if (docSnap.exists()) {
+      // כבר קיים ➝ מחק ➝ עדכן אייקון מייד ➝ מחק מהפרופיל אם רלוונטי
+      await deleteDoc(docRef);
+      updateIcon(false);
 
+      if (window.location.pathname.includes('profile.html')) {
+        const gridItem = likeBtn.closest('.grid-item');
+        if (gridItem) gridItem.remove();
+      }
+
+    } else {
+      // לא קיים ➝ צור ➝ עדכן אייקון מייד
+      await setDoc(docRef, {
+        id: product.id,
+        title: product.text,
+        image: product.image
+      });
+      updateIcon(true);
+    }
+  };
+
+  // טען מצב התחלתי
   await refreshLikeStatus();
 }
+
 
 
 async function displayProducts(items) {

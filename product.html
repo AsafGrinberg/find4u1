@@ -15,7 +15,7 @@
     <h1 id="productTitle"></h1>
 
     <!-- ✅ כפתור לייק -->
-    <button id="productLikeBtn" class="like-btn"></button>
+<button id="productLikeBtn" class="like-btn"></button>
 
     <div id="imageGallery" style="display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin: 20px 0;"></div>
     <p id="productDescription" style="max-width: 800px; margin: 20px auto;"></p>
@@ -47,32 +47,36 @@
 
   <script src="products.js"></script>
   <script src="product.js"></script>
-  <script type="module" src="script.js"></script>
 
-  <script type="module">
-    import { setupLikeButton } from "./script.js";
+<!-- מחק או תגיב את השורה הבאה -->
+<!-- <script type="module" src="script.js"></script> -->
 
-    const urlParams = new URLSearchParams(window.location.search);
-    const productId = urlParams.get('id');
+<script type="module">
+  import { setupLikeButton } from "./script.js";
 
-    const product = products.find(p => p.id == productId);
-    if (product) {
-      document.getElementById('productTitle').textContent = product.text;
-      document.getElementById('productDescription').textContent = product.description || '';
-      document.getElementById('buyButton').href = product.link || '#';
+  const urlParams = new URLSearchParams(window.location.search);
+  const productId = urlParams.get('id');
 
-      const gallery = document.getElementById('imageGallery');
-      gallery.innerHTML = '';
-      const img = document.createElement('img');
-      img.src = product.image;
-      img.style.maxWidth = '100%';
-      gallery.appendChild(img);
+  const product = products.find(p => p.id == productId);
+  if (product) {
+    document.getElementById('productTitle').textContent = product.text;
+    document.getElementById('productDescription').textContent = product.description || '';
+    document.getElementById('buyButton').href = product.link || '#';
 
-      window.currentProduct = product;
-      const likeBtn = document.getElementById('productLikeBtn');
-      setupLikeButton(product, likeBtn);
-    }
-  </script>
+    const gallery = document.getElementById('imageGallery');
+    gallery.innerHTML = '';
+    const img = document.createElement('img');
+    img.src = product.image;
+    img.style.maxWidth = '100%';
+    gallery.appendChild(img);
+
+    window.currentProduct = product;
+    const likeBtn = document.getElementById('productLikeBtn');
+    setupLikeButton(product, likeBtn);
+  }
+</script>
+
+
 
 </body>
 </html>

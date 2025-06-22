@@ -623,15 +623,3 @@ main > .like-btn:hover {
   font-size: 24px;
   cursor: pointer;
 }
-
-.like-btn::before {
-  content: '🤍';
-}
-
-.like-btn[data-liked="true"]::before {
-  content: '❤️';
-}
-
-.like-btn:hover::before {
-  content: '💗';
-}
