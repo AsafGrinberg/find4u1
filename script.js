@@ -51,6 +51,14 @@ function initHeaderEvents() {
     });
   }
 
+  // הוספת מאזין נכון לפרופיל:
+  const myProfileBtn = document.getElementById("myProfileBtn");
+  if (myProfileBtn) {
+    myProfileBtn.addEventListener("click", () => {
+      window.location.href = "profile.html";
+    });
+  }
+
   const googleLoginBtn = document.getElementById("googleLoginBtn");
   const profileMenu = document.getElementById("profileMenu");
   const profileAvatar = document.getElementById("profileAvatar");
@@ -62,27 +70,12 @@ function initHeaderEvents() {
       .then(async (result) => {
         console.log("משתמש התחבר:", result.user);
         filterProducts();
-if (window.pendingLikeProduct && window.pendingLikeButton) {
-  await setupLikeButton(window.pendingLikeProduct, window.pendingLikeButton);
-
-  const user = window.auth.currentUser;
-  const docRef = doc(window.db, `likes_${user.uid}`, `${window.pendingLikeProduct.id}`);
-  const docSnap = await getDoc(docRef);
-
-  if (!docSnap.exists()) {
-    // אם אין לייק עדיין - צור אחד חדש
-    await setDoc(docRef, {
-      id: window.pendingLikeProduct.id,
-      title: window.pendingLikeProduct.text,
-      image: window.pendingLikeProduct.image
-    });
-    window.pendingLikeButton.innerHTML = '❤️'; // עדכן אייקון
-  }
-
-  window.pendingLikeProduct = null;
-  window.pendingLikeButton = null;
-}
-
+        if (window.pendingLikeProduct && window.pendingLikeButton) {
+          await setupLikeButton(window.pendingLikeProduct, window.pendingLikeButton);
+          window.pendingLikeButton.click();
+          window.pendingLikeProduct = null;
+          window.pendingLikeButton = null;
+        }
       })
       .catch((error) => {
         console.error(error);
@@ -123,6 +116,7 @@ if (window.pendingLikeProduct && window.pendingLikeButton) {
 
   activateCategoryButton();
 }
+
 
 // --- קטגוריות וחיפוש
 function activateCategoryButton() {
@@ -202,7 +196,7 @@ export async function setupLikeButton(product, likeBtn) {
   const db = window.db;
 
   const updateIcon = (liked) => {
-    likeBtn.innerHTML = liked ? '❤️' : '🤍';
+    likeBtn.dataset.liked = liked ? 'true' : 'false';
   };
 
   const refreshLikeStatus = async () => {
@@ -220,40 +214,55 @@ export async function setupLikeButton(product, likeBtn) {
     refreshLikeStatus();
   });
 
-  likeBtn.onclick = async (e) => {
-    e.preventDefault();
-    const user = auth.currentUser;
-   if (!user) {
-  window.pendingLikeProduct = product;
-  window.pendingLikeButton = likeBtn;
-  const loginBtn = document.getElementById("googleLoginBtn");
-  if (loginBtn) {
-    loginBtn.click();
-  } else {
-    alert("אנא התחבר דרך התפריט למעלה :)");
-  }
-  return;
-}
+likeBtn.onclick = async (e) => {
+  e.preventDefault();
 
-
-    const docRef = doc(db, `likes_${user.uid}`, `${product.id}`);
-    const docSnap = await getDoc(docRef);
-
-    if (docSnap.exists()) {
-      await deleteDoc(docRef);
-      updateIcon(false);
+  const user = auth.currentUser;
+  if (!user) {
+    window.pendingLikeProduct = product;
+    window.pendingLikeButton = likeBtn;
+    const loginBtn = document.getElementById("googleLoginBtn");
+    if (loginBtn) {
+      loginBtn.click();
     } else {
-      await setDoc(docRef, {
-        id: product.id,
-        title: product.text,
-        image: product.image
-      });
-      updateIcon(true);
+      alert("אנא התחבר דרך התפריט למעלה :)");
     }
-  };
+    return;
+  }
+
+  const docRef = doc(db, `likes_${user.uid}`, `${product.id}`);
+  const docSnap = await getDoc(docRef);
+
+  if (docSnap.exists()) {
+    await deleteDoc(docRef);
+    updateIcon(false);
+
+    if (window.location.pathname.includes('profile.html')) {
+      const gridItem = likeBtn.closest('.grid-item');
+      if (gridItem) {
+        gridItem.remove();
+      }
+    }
+  } else {
+    await setDoc(docRef, {
+      id: product.id,
+      title: product.text,
+      image: product.image
+    });
+    updateIcon(true);
+  }
+};
+
+// להוסיף מחוץ ל-onclick:
+likeBtn.addEventListener('touchend', (e) => {
+  e.preventDefault();
+  likeBtn.onclick(e); // מפעיל את אותה פונקציה גם במגע
+});
+
 
   await refreshLikeStatus();
 }
+
 
 async function displayProducts(items) {
   const container = document.getElementById('productsGrid');

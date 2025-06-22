@@ -1,6 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
-import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+import { getFirestore, collection, getDocs, doc, deleteDoc } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 
 // 🫶 יבוא של setupLikeButton מהסקריפט הראשי שלך
 import { setupLikeButton } from "./script.js";
@@ -37,53 +37,60 @@ onAuthStateChanged(auth, async (user) => {
     return;
   }
 
+  likedContainer.innerHTML = ""; // ריקון התיבה לפני טעינה מחדש
+
   snapshot.forEach(async (docSnap) => {
-    const product = docSnap.data();
+    const productData = docSnap.data();   // הנתונים של המוצר
+    const docId = docSnap.id;              // מזהה המסמך ב-Firestore
+    const productId = productData.id;      // מזהה המוצר מתוך הנתונים
 
     // צור כרטיס מוצר כמו בעמוד הראשי
-    const a = document.createElement('a');
-    a.href = `product.html?id=${product.id}`;
-    a.className = 'grid-item';
+// ✅ 1) צור אלמנט עוטף
+const gridItem = document.createElement('div');
+gridItem.className = 'grid-item';
 
-    const img = document.createElement('img');
-    img.src = product.image;
-    img.alt = product.title;
+// ✅ 2) צור קישור פנימי בלבד
+const a = document.createElement('a');
+a.href = `product.html?id=${productId}`;
 
-    const p = document.createElement('p');
-    p.textContent = product.title;
+const img = document.createElement('img');
+img.src = productData.image;
+img.alt = productData.title;
 
-    const likeBtn = document.createElement('button');
-    likeBtn.className = 'like-btn';
+const p = document.createElement('p');
+p.textContent = productData.title;
 
-    // 🫶 להשתמש ב-setupLikeButton הקיים שלך
-    await setupLikeButton(product, likeBtn);
+a.appendChild(img);
+a.appendChild(p);
 
-    // כשהמשתמש עושה unlike — הסר גם מהפרופיל
-    likeBtn.onclick = async (e) => {
-      e.preventDefault();
-      const userNow = auth.currentUser;
-      if (userNow) {
-        const wasLiked = likeBtn.innerHTML === '❤️';
-        likeBtn.disabled = true; // מניעת לחיצות כפולות
-        await setupLikeButton(product, likeBtn); // יוודא סטטוס מעודכן
-        if (wasLiked) {
-          // אם היה לייק לפני — כלומר עכשיו זה unlike — הסר את המוצר מהתצוגה
-          a.remove();
-          if (likedContainer.children.length === 0) {
-            likedContainer.innerHTML = "<p>עדיין לא אהבת מוצרים ❤️</p>";
-          }
-        }
-      } else {
-        alert("יש להתחבר כדי להסיר לייקים");
-      }
-      likeBtn.disabled = false;
-    };
+// ✅ 3) צור כפתור לייק מחוץ ל-a
+const likeBtn = document.createElement('button');
+likeBtn.className = 'like-btn';
 
-    // הוספת התוכן
-    a.appendChild(img);
-    a.appendChild(p);
-    a.appendChild(likeBtn);
+await setupLikeButton(productData, likeBtn);
 
-    likedContainer.appendChild(a);
+likeBtn.onclick = async (e) => {
+  e.preventDefault();
+  const userNow = auth.currentUser;
+  if (!userNow) return;
+
+  const docRef = doc(db, `likes_${userNow.uid}`, docId);
+  await deleteDoc(docRef);
+
+  // הסרת הכרטיס כולו
+  gridItem.remove();
+
+  // בדיקה אם נשארו מוצרים
+  if (likedContainer.children.length === 0) {
+    likedContainer.innerHTML = "<p>עדיין לא אהבת מוצרים ❤️</p>";
+  }
+};
+
+// ✅ 4) בנה את הכרטיס נכון
+gridItem.appendChild(a);
+gridItem.appendChild(likeBtn);
+
+likedContainer.appendChild(gridItem);
+
   });
 });

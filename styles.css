@@ -577,3 +577,61 @@ main > .like-btn {
 main > .like-btn:hover {
   transform: scale(1.2);
 }
+#profileDropdown {
+  position: absolute;
+  background-color: white;
+  min-width: 80px; /* רוחב מינימלי לתפריט */
+  box-shadow: 0 8px 16px rgba(0,0,0,0.2);
+  z-index: 1;
+  padding: 0; /* חשוב למחוק פדינג מיותר */
+  margin: 0;
+}
+
+#profileDropdown button {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;   /* חשוב! מחשיב padding בתוך הרוחב */
+  padding: 10px -50px;       /* רווח פנימי ימין ושמאל מספיק גדול */
+  border: none;
+  background: white;
+  text-align: center;        /* כי הטקסט בעברית צריך יישור לימין */
+  cursor: pointer;
+  white-space: nowrap;      /* כדי למנוע שבירת מילים */
+  overflow: hidden;         /* מוסיף זהירות */
+  text-overflow: ellipsis;  /* אם צריך, יוסיף ... */
+}
+
+#profileDropdown button + button {
+  border-top: 1px solid #ddd; /* קו הפרדה בין הכפתורים */
+}
+
+#profileDropdown button:hover {
+  background-color: #f1f1f1;
+}
+
+
+
+
+@media (max-width: 768px) {
+  #profileDropdown button {
+    padding: 16px 0; /* עוד טיפה יותר רווח במובייל */
+  }
+}
+.like-btn {
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+}
+
+.like-btn::before {
+  content: '🤍';
+}
+
+.like-btn[data-liked="true"]::before {
+  content: '❤️';
+}
+
+.like-btn:hover::before {
+  content: '💗';
+}
