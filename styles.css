@@ -131,7 +131,7 @@ header.sticky-header {
   cursor: pointer;
   border-top: 1px solid #eee;
   box-sizing: border-box;
-  display: block;
+  display: inline-block;
 }
 
 .profile-dropdown button:hover,
@@ -397,5 +397,14 @@ main {
   .grid-container {
     grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
     gap: 15px;
+  }
+}
+@media (max-width: 767px) {
+  .profile-dropdown button,
+  #logoutBtn {
+    display: inline-block;  /* לא block - רק סביב הטקסט */
+    width: auto;            /* לא לרוחב מלא */
+    min-width: auto;        /* ביטול רוחב מינימום */
+    padding: 8px 12px;      /* אם בא לך לצמצם רווחים */
   }
 }
