@@ -157,8 +157,15 @@
     }
   });
 
-  reviewForm.addEventListener('submit', async function(e) {
-    e.preventDefault();
+ reviewForm.addEventListener('submit', async function(e) {
+  e.preventDefault();
+
+  // השבתה של הכפתור לשליחה כפולה
+  const submitBtn = reviewForm.querySelector('button[type="submit"]');
+  submitBtn.disabled = true;
+  submitBtn.textContent = "שולח...";
+
+  try {
     const user = auth.currentUser;
     if (!user) {
       alert('אנא התחבר קודם.');
@@ -176,11 +183,18 @@
         timestamp: Date.now()
       });
       reviewText.value = '';
-      loadReviews();
+      await loadReviews();
     }
-  });
+  } catch (err) {
+    console.error(err);
+    alert("אירעה שגיאה בשליחת הביקורת");
+  } finally {
+    // הפעלה מחדש של הכפתור
+    submitBtn.disabled = false;
+    submitBtn.textContent = "שלח ביקורת";
+  }
+});
 
-  loadReviews();
 </script>
 
 
