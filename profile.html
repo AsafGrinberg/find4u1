@@ -1,33 +1,47 @@
 <!DOCTYPE html>
 <html lang="he">
 <head>
+    <link rel="styleloadMyReviewssheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
   <meta charset="UTF-8" />
   <title>Find4U - הפרופיל שלי</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="stylesheet" href="styles.css" />
+  
 </head>
 <body>
-
-  <!-- ✅ HEADER (יוטען כמו בשאר הדפים) -->
+  <!-- ✅ HEADER כרגיל -->
   <div id="header-placeholder"></div>
 
-  <main style="padding-top: 160px; max-width: 1120px; margin: auto; text-align: center;">
-    <h1>הפרופיל שלי</h1>
+  <!-- ✅ תוכן פרופיל -->
+  <main class="profile-page">
+    <section class="profile-header">
+<img id="userPhoto" alt="Profile Photo" style="width: 120px; border-radius: 50%;" />
+<h1 id="userName">שם משתמש</h1>
 
-    <section id="likedProductsSection" style="margin-top: 40px;">
-      <h2>המוצרים שאהבתי ❤️</h2>
-      <div id="likedProductsContainer" class="grid-container">
-        <!-- כאן נציג את כל המוצרים שעשינו להם לייק -->
-      </div>
     </section>
 
+    <section class="profile-likes">
+      <h2>המועדפים שלי ❤️</h2>
+      <div id="likesGrid" class="grid-container"></div>
+
+    </section>
+
+    <section class="profile-reviews">
+      <h2>הביקורות שלי ⭐</h2>
+      <div id="reviewsGrid"></div>
+    </section>
   </main>
 
-  <!-- ✅ סקריפט להטמעת ה-HEADER + כניסה ל-Firebase -->
+  <!-- ✅ קבצי JS -->
+  <script src="products.js"></script>
   <script type="module" src="script.js"></script>
-
-  <!-- ✅ סקריפט נפרד לדף פרופיל -->
   <script type="module" src="profile.js"></script>
+  
+
+<button id="logoutInsideBtn">
+  <i class="fa-solid fa-right-from-bracket"></i> התנתק
+</button>
 
 </body>
 </html>

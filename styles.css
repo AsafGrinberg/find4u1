@@ -623,3 +623,102 @@ main > .like-btn:hover {
   font-size: 24px;
   cursor: pointer;
 }
+.profile-page {
+  max-width: 1120px;
+  margin: auto;
+  padding: 160px 20px 60px;
+}
+
+.profile-header {
+  text-align: center;
+  margin-bottom: 40px;
+}
+
+.profile-photo {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  object-fit: cover;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+  margin-bottom: 15px;
+}
+
+#logoutInsideBtn {
+  background: #4364f7;
+  color: white;
+  border: none;
+  padding: 10px 25px;
+  border-radius: 30px;
+  font-weight: bold;
+  cursor: pointer;
+  margin-top: 20px;
+    font-size: 18px; /* ✅ גודל טקסט גדול יותר */
+
+}
+
+.profile-likes, .profile-reviews {
+  margin-top: 40px;
+}
+/* === עיצוב כללי לדף פרופיל === */
+.profile-page h1,
+.profile-page h2,
+.profile-page p {
+  text-align: center;
+}
+
+
+/* === יישור שם מתחת לתמונה === */
+.profile-header h1 {
+  margin-top: 10px;  /* מקרב את השם לתמונה */
+  margin-bottom: 5px;  /* קצת רווח לפני הקו */
+}
+
+/* === קו מתחת לשם === */
+.profile-header h1 {
+  border-bottom: 1px solid #ddd; /* קו עדין */
+  display: inline-block;
+  padding-bottom: 5px;
+}
+
+/* === התנתק בתחתית === */
+#logoutInsideBtn {
+  display: block;
+  margin: 40px auto 0 auto;  /* רווח מלמעלה, באמצע */
+  padding: 10px 20px;
+  background: #4364f7;
+  color: #fff;
+  border: none;
+  border-radius: 30px;
+  cursor: pointer;
+}
+#logoutInsideBtn i {
+  margin-left: 6px; /* רווח בין האייקון לטקסט */
+}
+#likesGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, auto));
+  gap: 22px;
+  justify-content: center;
+}
+.review-card {
+  position: relative;
+  padding: 20px;
+  border: 1px solid #ddd;
+  border-radius: 12px;
+  margin: 10px auto;
+  text-align: right;
+}
+
+.review-card .delete-icon {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  cursor: pointer;
+  color: red;
+  font-size: 20px;
+}
+
+
+.review-card .delete-icon:hover {
+  opacity: 1;
+}

@@ -5,6 +5,7 @@
   <title>Find4U - פרטי מוצר</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
 
@@ -15,7 +16,7 @@
     <h1 id="productTitle"></h1>
 
     <!-- ✅ כפתור לייק -->
-<button id="productLikeBtn" class="like-btn"></button>
+    <button id="productLikeBtn" class="like-btn"></button>
 
     <div id="imageGallery" style="display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin: 20px 0;"></div>
     <p id="productDescription" style="max-width: 800px; margin: 20px auto;"></p>
@@ -26,18 +27,21 @@
       <div id="averageRating" style="font-size: 1.2rem; margin: 10px 0; display: flex; align-items: center; justify-content: center;"></div>
       <div id="reviewsContainer" style="margin-top: 20px;"></div>
 
-      <h3 style="margin-top: 30px;">הוסף ביקורת משלך</h3>
-      <form id="reviewForm" class="review-form">
-        <div class="star-rating">
-          <input type="radio" id="star5" name="rating" value="5" checked><label for="star5">★</label>
-          <input type="radio" id="star4" name="rating" value="4"><label for="star4">★</label>
-          <input type="radio" id="star3" name="rating" value="3"><label for="star3">★</label>
-          <input type="radio" id="star2" name="rating" value="2"><label for="star2">★</label>
-          <input type="radio" id="star1" name="rating" value="1"><label for="star1">★</label>
-        </div>
-        <textarea id="reviewText" placeholder="כתוב ביקורת..." rows="4" required></textarea>
-        <button type="submit">שלח ביקורת</button>
-      </form>
+      <!-- כותרת + טופס הוספת ביקורת -->
+      <div id="addReviewSection" style="margin-top: 30px; display: none;">
+        <h3>הוסף ביקורת משלך</h3>
+        <form id="reviewForm" class="review-form">
+          <div class="star-rating">
+            <input type="radio" id="star5" name="rating" value="5" checked><label for="star5">★</label>
+            <input type="radio" id="star4" name="rating" value="4"><label for="star4">★</label>
+            <input type="radio" id="star3" name="rating" value="3"><label for="star3">★</label>
+            <input type="radio" id="star2" name="rating" value="2"><label for="star2">★</label>
+            <input type="radio" id="star1" name="rating" value="1"><label for="star1">★</label>
+          </div>
+          <textarea id="reviewText" placeholder="כתוב ביקורת..." rows="4" required></textarea>
+          <button type="submit">שלח ביקורת</button>
+        </form>
+      </div>
 
       <p id="loginReminder" style="color:red; display:none; margin-top:20px;">
         עליך להתחבר עם Google כדי להוסיף ביקורת.
@@ -46,37 +50,157 @@
   </main>
 
   <script src="products.js"></script>
-  <script src="product.js"></script>
 
-<!-- מחק או תגיב את השורה הבאה -->
-<!-- <script type="module" src="script.js"></script> -->
+  <script type="module">
+    import { setupLikeButton } from "./script.js";
+    import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
+    import { collection, addDoc, getDocs, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 
-<script type="module">
-  import { setupLikeButton } from "./script.js";
+    const auth = window.auth;
+    const db = window.db;
 
-  const urlParams = new URLSearchParams(window.location.search);
-  const productId = urlParams.get('id');
+    // --- טען מוצר
+    const urlParams = new URLSearchParams(window.location.search);
+    const productId = parseInt(urlParams.get('id'));
+    const product = products.find(p => p.id === productId);
 
-  const product = products.find(p => p.id == productId);
-  if (product) {
+    if (!product) {
+      document.querySelector('main').innerHTML = '<p>המוצר לא נמצא.</p>';
+      throw new Error('Product not found');
+    }
+
+    // --- הצג פרטי מוצר
     document.getElementById('productTitle').textContent = product.text;
     document.getElementById('productDescription').textContent = product.description || '';
     document.getElementById('buyButton').href = product.link || '#';
 
     const gallery = document.getElementById('imageGallery');
     gallery.innerHTML = '';
-    const img = document.createElement('img');
-    img.src = product.image;
-    img.style.maxWidth = '100%';
-    gallery.appendChild(img);
+    if (product.gallery && product.gallery.length) {
+      product.gallery.forEach(imgUrl => {
+        const img = document.createElement('img');
+        img.src = imgUrl;
+        img.style.maxWidth = '300px';
+        img.style.borderRadius = '12px';
+        gallery.appendChild(img);
+      });
+    } else if (product.image) {
+      const img = document.createElement('img');
+      img.src = product.image;
+      img.style.maxWidth = '100%';
+      gallery.appendChild(img);
+    }
 
+    // --- כפתור לייק
     window.currentProduct = product;
     const likeBtn = document.getElementById('productLikeBtn');
     setupLikeButton(product, likeBtn);
-  }
-</script>
+
+    // --- ניהול ביקורות ב-Firestore
+    const reviewForm = document.getElementById("reviewForm");
+    const addReviewSection = document.getElementById("addReviewSection");
+    const reviewsContainer = document.getElementById("reviewsContainer");
+    const averageRating = document.getElementById("averageRating");
+    const loginReminder = document.getElementById("loginReminder");
+
+    async function loadReviews() {
+      const reviewsRef = collection(db, `reviews_${productId}`);
+      const querySnapshot = await getDocs(reviewsRef);
+
+      let sum = 0;
+      let reviews = [];
+
+      reviewsContainer.innerHTML = "";
+      querySnapshot.forEach(docSnap => {
+        const data = docSnap.data();
+        reviews.push({ ...data, id: docSnap.id });
+        sum += data.rating;
+      });
+
+      if (reviews.length === 0) {
+        averageRating.textContent = "אין עדיין דירוגים.";
+        return;
+      }
+
+      const avg = (sum / reviews.length).toFixed(1);
+      averageRating.textContent = `דירוג ממוצע: ${avg} ⭐`;
+
+      const user = auth.currentUser;
+
+      reviews.forEach(r => {
+        const div = document.createElement("div");
+        div.className = "review-card";
+        const stars = "⭐".repeat(r.rating);
+        div.innerHTML = `
+          <div class="review-header">
+            ${stars} - ${r.userName || "משתמש לא ידוע"}
+          </div>
+          <div class="review-text">${r.text}</div>
+        `;
+
+if (user && user.uid === r.userId) {
+  const delBtn = document.createElement("span");
+  delBtn.innerHTML = '<i class="fa-solid fa-xmark"></i>';
+  delBtn.className = "delete-icon";
+
+  delBtn.onclick = async () => {
+    if (confirm("האם אתה בטוח שברצונך למחוק את הביקורת?")) {
+      await deleteDoc(doc(db, `reviews_${productId}`, r.id));
+      loadReviews();
+    }
+  };
+  div.prepend(delBtn);
+}
 
 
+        reviewsContainer.appendChild(div);
+      });
+    }
+
+    // טען בהתחלה
+    loadReviews();
+
+    // ניהול הצגת טופס הביקורת לפי התחברות
+    onAuthStateChanged(auth, user => {
+      if (user) {
+        addReviewSection.style.display = "block";
+        loginReminder.style.display = "none";
+      } else {
+        addReviewSection.style.display = "none";
+        loginReminder.style.display = "block";
+      }
+    });
+
+    // שליחת ביקורת
+    reviewForm.addEventListener("submit", async function (e) {
+      e.preventDefault();
+      const user = auth.currentUser;
+      if (!user) {
+        loginReminder.style.display = "block";
+        return;
+      }
+
+      const rating = parseInt(reviewForm.querySelector('input[name="rating"]:checked').value);
+      const text = reviewForm.querySelector("#reviewText").value.trim();
+
+      if (!text) {
+        alert("נא לכתוב ביקורת");
+        return;
+      }
+
+      await addDoc(collection(db, `reviews_${productId}`), {
+        rating,
+        text,
+        userId: user.uid,
+        userName: user.displayName || "אנונימי",
+        createdAt: new Date().toISOString(),
+      });
+
+      reviewForm.reset();
+      loadReviews();
+    });
+
+  </script>
 
 </body>
 </html>

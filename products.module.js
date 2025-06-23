@@ -1,5 +1,5 @@
-window.products = [
-  {
+export const products = [
+{
       id: 1,
       category: ['home'],
       text: 'IRobot - איירובוט',
@@ -49,4 +49,4 @@ window.products = [
       description: 'פח נייד על גלגלים לנוחות מירבית.',
       gallery: ['assets/images/TRASH.jpg']
     },
-  ];
+];

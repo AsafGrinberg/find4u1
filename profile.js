@@ -1,34 +1,44 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
-import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
+import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
 import { getFirestore, collection, getDocs, doc, deleteDoc } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
-
-// 🫶 יבוא של setupLikeButton מהסקריפט הראשי שלך
 import { setupLikeButton } from "./script.js";
+import { products } from './products.module.js';
 
-// 🔑 קונפיג שלך
+// 🔑 הקונפיג שלך
 const firebaseConfig = {
-  apiKey: "AIzaSyD6o0oDX5ahIw-7E0tUy76ImJDCFWbv4x8",
-  authDomain: "find4u-il.firebaseapp.com",
-  projectId: "find4u-il",
-  storageBucket: "find4u-il.appspot.com",
-  messagingSenderId: "1063243167726",
-  appId: "1:1063243167726:web:16a8bbaf73ed8181e680ff",
-  measurementId: "G-SYR49CZGZZ"
+  apiKey: "AIzaSyCwpXCeGMYK10KvU8JJ5uES5DJSG0Sq6jU",
+  authDomain: "find4u-il-aefd0.firebaseapp.com",
+  projectId: "find4u-il-aefd0",
+  storageBucket: "find4u-il-aefd0.firebasestorage.app",
+  messagingSenderId: "387851265240",
+  appId: "1:387851265240:web:ff3692945470dcab31a3ad"
 };
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-const likedContainer = document.getElementById('likedProductsContainer');
+const likedContainer = document.getElementById('likesGrid');
 
+// 🆕 אלמנטים חדשים לפרופיל
+const userNameEl = document.getElementById('userName');
+const userPhotoEl = document.getElementById('userPhoto');
+const logoutInsideBtn = document.getElementById('logoutInsideBtn');
+
+// ✅ מאזין למצב התחברות
 onAuthStateChanged(auth, async (user) => {
   if (!user) {
-    // אם אין משתמש מחובר – הפנה לדף הבית
     window.location.href = "index.html";
     return;
   }
+// ✅ אחרי שטענת את הלייקים
+loadMyReviews(user);
 
+  // 🆕 מראה שם ותמונה
+  if (userNameEl) userNameEl.textContent = user.displayName || "משתמש";
+  if (userPhotoEl) userPhotoEl.src = user.photoURL || "https://via.placeholder.com/120";
+
+  // ✅ ממשיך בדיוק כמו בקוד שלך
   const likesRef = collection(db, `likes_${user.uid}`);
   const snapshot = await getDocs(likesRef);
 
@@ -37,60 +47,105 @@ onAuthStateChanged(auth, async (user) => {
     return;
   }
 
-  likedContainer.innerHTML = ""; // ריקון התיבה לפני טעינה מחדש
+  likedContainer.innerHTML = "";
 
   snapshot.forEach(async (docSnap) => {
-    const productData = docSnap.data();   // הנתונים של המוצר
-    const docId = docSnap.id;              // מזהה המסמך ב-Firestore
-    const productId = productData.id;      // מזהה המוצר מתוך הנתונים
+    const productData = docSnap.data();
+    const docId = docSnap.id;
+    const productId = productData.id;
 
-    // צור כרטיס מוצר כמו בעמוד הראשי
-// ✅ 1) צור אלמנט עוטף
-const gridItem = document.createElement('div');
-gridItem.className = 'grid-item';
+    const gridItem = document.createElement('div');
+    gridItem.className = 'grid-item';
 
-// ✅ 2) צור קישור פנימי בלבד
-const a = document.createElement('a');
-a.href = `product.html?id=${productId}`;
+    const a = document.createElement('a');
+    a.href = `product.html?id=${productId}`;
 
-const img = document.createElement('img');
-img.src = productData.image;
-img.alt = productData.title;
+    const img = document.createElement('img');
+    img.src = productData.image;
+    img.alt = productData.title;
 
-const p = document.createElement('p');
-p.textContent = productData.title;
+    const p = document.createElement('p');
+    p.textContent = productData.title;
 
-a.appendChild(img);
-a.appendChild(p);
+    a.appendChild(img);
+    a.appendChild(p);
 
-// ✅ 3) צור כפתור לייק מחוץ ל-a
-const likeBtn = document.createElement('button');
-likeBtn.className = 'like-btn';
+    const likeBtn = document.createElement('button');
+    likeBtn.className = 'like-btn';
 
-await setupLikeButton(productData, likeBtn);
+    await setupLikeButton(productData, likeBtn);
 
-likeBtn.onclick = async (e) => {
-  e.preventDefault();
-  const userNow = auth.currentUser;
-  if (!userNow) return;
+    likeBtn.onclick = async (e) => {
+      e.preventDefault();
+      const userNow = auth.currentUser;
+      if (!userNow) return;
 
-  const docRef = doc(db, `likes_${userNow.uid}`, docId);
-  await deleteDoc(docRef);
+      const docRef = doc(db, `likes_${userNow.uid}`, docId);
+      await deleteDoc(docRef);
 
-  // הסרת הכרטיס כולו
-  gridItem.remove();
+      gridItem.remove();
 
-  // בדיקה אם נשארו מוצרים
-  if (likedContainer.children.length === 0) {
-    likedContainer.innerHTML = "<p>עדיין לא אהבת מוצרים ❤️</p>";
-  }
-};
+      if (likedContainer.children.length === 0) {
+        likedContainer.innerHTML = "<p>עדיין לא אהבת מוצרים ❤️</p>";
+      }
+    };
 
-// ✅ 4) בנה את הכרטיס נכון
-gridItem.appendChild(a);
-gridItem.appendChild(likeBtn);
+    gridItem.appendChild(a);
+    gridItem.appendChild(likeBtn);
 
-likedContainer.appendChild(gridItem);
-
+    likedContainer.appendChild(gridItem);
   });
 });
+
+// ✅ כפתור התנתקות בתוך הפרופיל
+if (logoutInsideBtn) {
+  logoutInsideBtn.addEventListener('click', () => {
+    signOut(auth).then(() => {
+      window.location.href = "index.html";
+    });
+  });
+}
+// ✅ פונקציה חדשה - טוענת ביקורות שכתבת
+async function loadMyReviews(user) {
+  const reviewsContainer = document.getElementById('reviewsGrid');
+  if (!reviewsContainer) return;
+
+  reviewsContainer.innerHTML = "<p>טוען ביקורות...</p>";
+
+  const myReviews = [];
+
+for (const product of window.products) {
+  const reviewsRef = collection(db, `reviews_${product.id}`);
+  const snapshot = await getDocs(reviewsRef);
+
+  snapshot.forEach(docSnap => {
+    const data = docSnap.data();
+    if (data.userId === user.uid) {
+      myReviews.push({
+        ...data,
+        productTitle: product.text
+      });
+    }
+  });
+}
+
+  if (myReviews.length === 0) {
+    reviewsContainer.innerHTML = "<p>לא כתבת ביקורות עדיין.</p>";
+    return;
+  }
+
+  reviewsContainer.innerHTML = "";
+
+  myReviews.forEach(r => {
+    const div = document.createElement('div');
+    div.className = "review-card";
+    const stars = "⭐".repeat(r.rating);
+
+    div.innerHTML = `
+      <div class="review-header">${stars} - ${r.productTitle}</div>
+      <div class="review-text">${r.text}</div>
+    `;
+
+    reviewsContainer.appendChild(div);
+  });
+}
