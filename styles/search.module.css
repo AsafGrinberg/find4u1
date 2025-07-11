@@ -1,0 +1,75 @@
+.searchInput {
+  width: 100%;
+  padding: 12px 16px;
+  font-size: 18px;
+  margin-bottom: 25px;
+  box-sizing: border-box;
+  border-radius: 12px;
+  border: 2px solid #0070f3;
+  outline: none;
+  box-shadow: 0 2px 6px rgba(0, 112, 243, 0.3);
+  background-color: white;
+  color: black;
+}
+
+body.dark .searchInput {
+  background-color: #333;
+  color: #eee;
+  border-color: #555;
+}
+
+/* מוצר בודד */
+.productItem {
+  margin-bottom: 20px;
+  border-radius: 12px;
+    box-shadow: 0 1px 5px rgba(0, 0, 0, 0.1);
+  padding: 10px 15px;
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  transition: background-color 0.3s ease, color 0.3s ease;
+    background-color: var(--bg-product);
+  color: var(--text-product);
+}
+
+body.dark .productItem {
+  background-color: #222;
+  color: #ddd;
+}
+
+/* קישור מוצר */
+.productLink {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  color: #0070f3;
+  text-decoration: none;
+  flex-grow: 1;
+}
+
+body.dark .productLink {
+  color: #003e80;
+}
+
+.productImage {
+  width: 70px;
+  height: 70px;
+  object-fit: cover;
+  border-radius: 10px;
+  flex-shrink: 0;
+  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.15);
+}
+.productList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.productItem p {
+  color: #444;
+  font-size: 14px;
+  margin: 0;
+}
+
+body.dark .productItem p {
+  color: #ccc;
+}

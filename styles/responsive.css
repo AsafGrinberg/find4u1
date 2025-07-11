@@ -1,0 +1,27 @@
+@media (max-width: 768px) {
+  .grid-container {
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  }
+
+  .search-container input {
+    width: 90%;
+  }
+
+  .profile-page-content {
+    padding: 10px;
+  }
+
+  #profileDropdown {
+    right: 10px;
+    top: 40px;
+  }
+
+  .review-form textarea {
+    min-height: 100px;
+  }
+
+  .lightbox-image {
+    max-width: 95%;
+    max-height: 70%;
+  }
+}

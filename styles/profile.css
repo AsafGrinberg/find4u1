@@ -1,0 +1,66 @@
+.profile-page-content {
+  max-width: 600px;
+  margin: auto;
+  text-align: center;
+}
+
+.profile-header-section {
+  margin-bottom: 20px;
+}
+
+.profile-avatar-container {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 10px;
+}
+
+.profile-photo-display {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.profile-name,
+.profile-email {
+  margin: 5px 0;
+}
+
+#profileDropdown {
+  position: absolute;
+  top: 65px;
+  right: 20px;
+  background-color: white;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  overflow: hidden;
+  z-index: 999;
+}
+
+#profileDropdown button {
+  display: block;
+  width: 100%;
+  padding: 10px;
+  border: none;
+  background: none;
+  text-align: right;
+  cursor: pointer;
+}
+
+#profileDropdown button:hover {
+  background-color: #f0f0f0;
+}
+
+/* Dark mode */
+.dark #profileDropdown {
+  background-color: #222;
+  border-color: #444;
+}
+
+.dark #profileDropdown button {
+  color: #eee;
+}
+
+.dark #profileDropdown button:hover {
+  background-color: #333;
+}

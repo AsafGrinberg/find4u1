@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="he">
+<head>
+  <meta charset="UTF-8" />
+  <title>Find4U - קטגוריות מוצרים עם חיפוש</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="logo-container">
+    <img src="/assets/images/FIND4ULOGGO.png" alt="Find4U Logo" class="logo" />
+  </div>
+  <p class="subtitle">אנחנו מוצאים עבורכם את המוצרים השווים ביותר אחרי שבדקנו אותם</p>
+
+  <div class="categories" id="categoryButtons">
+    <button class="active" onclick="showCategory('all', this)">כל המוצרים</button>
+    <button onclick="showCategory('home', this)">לבית ולגינה</button>
+    <button onclick="showCategory('bedroom', this)">לחדר שינה</button>
+    <button onclick="showCategory('car', this)">לרכב</button>
+    <button onclick="showCategory('kids', this)">לילדים</button>
+  </div>
+
+  <div class="search-container">
+    <input id="searchInput" type="text" placeholder="חפש מוצר..." />
+  </div>
+
+  <div class="grid-container" id="productsGrid">
+    <a class="grid-item" href="https://s.click.aliexpress.com/e/_oCGw960" target="_blank" data-category="home">
+      <img src="/assets/images/IROBOT.jpg" alt="IRobot" />
+      <p>IRobot</p>
+    </a>
+    <a class="grid-item" href="https://s.click.aliexpress.com/e/_opjxc80" target="_blank" data-category="kids">
+      <img src="/assets/images/PAALOLIM.jpg" alt="מכונית פעלולים" />
+      <p>מכונית פעלולים עם שלט רחוק ועם יכולת טיפוס</p>
+    </a>
+    <a class="grid-item" href="https://s.click.aliexpress.com/e/_omabbPE" target="_blank" data-category="home">
+      <img src="/assets/images/OREGYATUSHIM.jpg" alt="הורג יתושים חשמלי" />
+      <p>הורג יתושים חשמלי</p>
+    </a>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>

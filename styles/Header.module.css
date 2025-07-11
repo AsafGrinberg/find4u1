@@ -1,0 +1,594 @@
+  /* Header.module.css */
+  .stickyHeader {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 1000;
+    background: linear-gradient(135deg, #4364f7, #a0c1f7, #b18fcf);
+    background-size: 400% 400%;
+    animation: gradientBG 10s ease infinite;
+    box-shadow: 0 6px 15px rgba(161, 145, 207, 0.1);
+  }
+
+  /* המשך כל הסגנונות שקשורים רק ל-header */
+  /* סידור חדש-ישן ל-topBar */
+  .topBar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 25px 15px; /* היה 10px, עכשיו יותר גבוה */
+    position: relative;
+    flex-wrap: nowrap;
+  }
+  body.dark .topBar {
+    background: transparent; /* או background-color: transparent; */
+    color: #fff;
+  }
+
+
+
+  /* סדר נכון ל-logoWrapper ולכותרת */
+  .logoWrapper {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 15px;
+  }
+
+
+
+  /* הצד השמאלי: כפתור התחברות / תמונת פרופיל */
+  .actionsWrapper {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+  }
+
+
+
+
+  .logo {
+    max-height: 70px;
+  }
+
+  .siteTitle {
+    font-size: 1.4rem;
+    color: white;
+    margin: 0;
+  }
+
+
+  .googleLoginBtn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: linear-gradient(135deg, #4364f7, #a0c1f7, #b18fcf);
+    background-size: 400% 400%;
+    animation: gradientBG 10s ease infinite;
+    border: none;
+    border-radius: 50px;
+    padding: 6px 20px;
+    cursor: pointer;
+    transition: transform 0.2s;
+    font-size: 14px;
+  }
+
+  .googleLoginBtn:hover {
+    transform: translateY(-50%) scale(1.05);
+  }
+
+  .googleLoginBtn img {
+    width: 18px;
+    height: 18px;
+  }
+
+  .googleLoginBtn span {
+    color: white;
+    font-weight: 600;
+    font-size: 14px;
+  }
+
+  .profileAvatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: white;
+    color: #4364f7;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-weight: bold;
+    cursor: pointer;
+    box-shadow: 0 0 0 2px #4364f7;
+    padding: 0;
+    border: none;
+  }
+
+.profileDropdownDarkModeBtn {
+  background: none;
+  border: none;
+  width: 100%;
+  height: 48px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  /* במקום justify-content: center; נשתמש ב justify-content: space-between */
+  justify-content: space-between; 
+  padding: 0 15px;
+  box-sizing: border-box;
+  color: inherit;
+  font-family: inherit;
+}
+
+.profileDropdownDarkModeBtn span {
+  flex-grow: 1;
+  text-align: center;
+  margin-left: 10px; /* אם רוצים מעט רווח מהאייקון */
+}
+
+/* כדי שהאייקון יישב בצד שמאל */
+.darkModeIcon {
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.darkModeBtn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between; /* לצדדים */
+  width: 100%;
+  padding: 0 1px;
+  height: 48px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  box-sizing: border-box;
+  color: inherit;
+  font-family: inherit;
+}
+
+
+.darkModeBtn span {
+  flex-grow: 1;
+  text-align: center;
+  user-select: none;
+}
+
+.darkModeBtn svg {
+  margin-right: 8px; /* מרווח מצד ימין של האייקון */
+}
+
+/* הסוויץ' (ה-label) נשאר מימין (בגלל justify-content: space-between) */
+.switch {
+  display: flex;
+  align-items: center;
+  justify-content: center; /* מרכז את התוכן בתוך הלייבל */
+  width: 40px;
+  height: 20px;
+  margin-left: 0;
+  position: relative;
+}
+
+/* ה-input מוסתר */
+.switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+/* הסליידר */
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background-color: #ccc;
+  border-radius: 34px;
+  transition: 0.4s;
+}
+
+
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 14px;
+  width: 14px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  border-radius: 50%;
+  transition: 0.4s;
+}
+
+input:checked + .slider {
+  background-color: #4CAF50;
+}
+
+input:checked + .slider:before {
+  transform: translateX(20px);
+}
+
+
+
+
+  .profileDropdown .darkModeBtn:hover {
+    background-color: #f0f0f0;
+  }
+
+  .darkModeIcon {
+    font-size: 16px;
+  }
+
+  .toggleLabel {
+    display: none;
+  }
+
+  .switch {
+    position: relative;
+    display: inline-block;
+    width: 40px;
+    height: 20px;
+  }
+
+  .switchInput {
+    opacity: 0;
+    width: 0;
+    height: 0;
+  }
+
+  .slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0; left: 0;
+    right: 0; bottom: 0;
+    background-color: #ccc;
+    border-radius: 34px;
+    transition: 0.4s;
+  }
+  .round {
+    border-radius: 34px;
+  }
+
+  .slider:before {
+    position: absolute;
+    content: "";
+    height: 14px;
+    width: 14px;
+    left: 3px;
+    bottom: 3px;
+    background-color: white;
+    border-radius: 50%;
+    transition: 0.4s;
+  }
+
+  input:checked + .slider {
+    background-color: #4CAF50;
+  }
+
+  input:checked + .slider:before {
+    transform: translateX(20px);
+  }
+
+
+  .menuToggle {
+    display: none;
+    background: none;
+    border: none;
+    font-size: 32px;
+    color: white;
+    cursor: pointer;
+  }
+  .navCategories {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin-top: 10px;
+    transition: max-height 0.3s ease;
+    overflow: hidden;
+    max-height: 500px; /* גבוה במחשב */
+  }
+
+  .navCategoriesButton,
+  .navCategories .navLink {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(255, 255, 255, 0.25);
+    border: 1px solid #4364f7;
+    border-radius: 30px;
+    padding: 8px 20px;
+    font-size: 15px;
+    color: white;
+    text-decoration: none;
+    cursor: pointer;
+    transition: 0.3s;
+  }
+
+  .navCategoriesButton:hover,
+  .navCategories .navLink:hover {
+    background: rgba(255, 255, 255, 0.4);
+  }
+
+/* מצב Light */
+.navCategoriesButton.activeButton {
+  background-color: #0c5dae;
+  color: white;
+  border: 1px solid white;
+}
+
+/* מצב Dark */
+:global(body.dark) .navCategoriesButton.activeButton {
+  background-color: #9499c0 !important;
+  color: #40414f !important;
+  border-color: #888aca !important;
+}
+
+
+
+
+
+  body.dark .navCategoriesButton {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid #888aca;
+    color: #fff;
+  }
+
+  body.dark .navCategoriesButton:hover {
+    background: rgba(255, 255, 255, 0.2);
+  }
+  body.dark .siteTitle {
+    color: #f0f0f0;
+  }
+
+
+  @media (max-width: 767px) {
+    .topBar {
+      flex-direction: row; /* אל תשנה את זה ל-row-reverse */
+      justify-content: space-between;
+      padding: 20px 15px;
+      align-items: center;
+    }
+
+    .logoWrapper {
+      order: 2;
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+    }
+
+    .siteTitle {
+      font-size: 1rem;
+      margin-right: 10px;
+    }
+
+    .menuToggle {
+      display: block;
+      order: 3; /* שמאלה */
+    }
+
+    .actionsWrapper {
+      order: 1; /* ימינה */
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      margin-left: 10px;
+    }
+
+    .navCategories {
+      display: none;
+    }
+
+    .navCategoriesShow {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      background: rgba(255, 255, 255, 0.1);
+      padding-bottom: 10px;
+      z-index: 100;
+    }
+
+    .profileDropdown {
+      left: auto;
+      right: 5%;
+      top: 77% !important;
+    }
+    
+      .profileMenu {
+      margin-right: 0;
+      margin-left: 0;
+    }
+  }
+  body.dark .profileDropdown {
+    background-color: #1e1e1e;
+    color: #e0e0e0;
+    border-color: #444;
+    box-shadow: 0 2px 8px rgba(255, 255, 255, 0.05);
+  }
+
+  body.dark .darkModeBtn {
+    background-color: transparent;
+    color: #e0e0e0;
+  }
+
+  body.dark .darkModeBtn:hover {
+    background-color: #2a2a2a;
+  }
+
+  body.dark .slider {
+    background-color: #555;
+  }
+
+  body.dark input:checked + .slider {
+    background-color: #76ff03; /* ירוק ניאון לדארק מוד */
+  }
+
+  body.dark .slider:before {
+    background-color: #eee;
+  }
+
+  body.dark .profileAvatar {
+    background-color: #333;
+    color: #fff;
+    box-shadow: 0 0 0 2px #888aca;
+  }
+
+  body.dark .googleLoginBtn {
+    background: linear-gradient(135deg, #1e1e1e, #2c2c2c);
+  }
+
+  body.dark .googleLoginBtn span {
+    color: #fff;
+  }
+
+  body.dark :global(.Header_logoWrapper__peewc) {
+    background: transparent !important;
+  }
+  :global(body.dark) .stickyHeader {
+    background: #1a1a1a !important;
+    background-image: none !important;
+    animation: none !important;
+    box-shadow: 0 6px 15px rgba(255, 255, 255, 0.05) !important;
+  }
+
+  :global(body.dark) .topBar {
+    background: #1a1a1a !important;
+    background-image: none !important;
+    animation: none !important;
+    box-shadow: 0 6px 15px rgba(255, 255, 255, 0.05) !important;
+  }
+
+.profileDropdown button i {
+  position: absolute;  /* מאפשר לאייקון "לצאת" מהמיקום הרגיל */
+  left: 15px;          /* ממקם אותו 15 פיקסל משמאל */
+  top: 50%;            /* מרכז אנכית */
+  transform: translateY(-50%);
+  font-size: 14px;
+  pointer-events: none; /* כדי שלא יפריע ללחיצה */
+}
+
+.profileDropdown button span {
+  display: inline-block;
+  width: 100%;
+  text-align: center;
+  direction: ltr; /* force LTR so שהטקסט יימורכז נכון */
+}
+
+.darkModeBtn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  width: 100%;
+  padding: 1px 1px;
+}
+
+.darkModeContent {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.dropdownBtn:last-child {
+  border-bottom: none;
+}
+
+.dropdownBtn i {
+  font-size: 14px;
+  margin-left: 8px;
+  pointer-events: none;
+}
+
+.dropdownBtn span {
+  flex-grow: 1;
+  text-align: center;
+  direction: ltr;
+}
+
+.dropdownBtn:hover {
+  background-color: #f0f0f0
+}
+
+body.dark .dropdownBtn:hover {
+  background-color: #2a2a2a;
+}
+
+/* הוספת מרווח קטן + קו הפרדה ברור בין כפתורים */
+.dropdownBtn + .dropdownBtn {
+  margin-top: 0;           /* מאפס מרווח למעלה */
+  padding-top: 6px;        /* מוסיף ריפוד עליון שגורם למרווח */
+  border-top: 1px solid #999; /* קו הפרדה בצבע בינוני (בהיר יותר) */
+}
+
+
+.dropdownBtn:hover {
+  background-color: #f0f0f0;
+}
+
+body.dark .dropdownBtn:hover {
+  background-color: #2a2a2a;
+}
+.profileDropdown {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+  z-index: 1000;
+  width: auto; /* כאן הורדתי רוחב קבוע */
+  min-width: 120px; /* רוחב מינימלי קטן יותר */
+  padding: 4px 6px; /* ריפוד פנימי קטן יותר */
+  box-sizing: border-box;
+  white-space: nowrap;
+}
+
+.dropdownBtn {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  width: 100%;
+  height: 34px;
+  padding: 4px 10px;
+  font-size: 13px;
+  line-height: 1.2;
+  background-color: white; /* או כל צבע רקע בהיר */
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  box-sizing: border-box;
+  position: relative;
+  gap: 8px;
+  transition: background-color 0.2s ease;
+}
+
+.dropdownBtn:last-child {
+  border-bottom: none; /* לא לשים קו אחרי האחרון */
+}
+
+.dropdownBtn i {
+  font-size: 14px;
+  margin-left: 8px;
+  pointer-events: none;
+}
+
+.dropdownBtn span {
+  flex-grow: 1;
+  text-align: center;
+  direction: ltr;
+}
+
+.dropdownBtn:hover {
+  background-color: #f0f0f0;
+}
+
+body.dark .dropdownBtn:hover {
+  background-color: #2a2a2a;
+}
+body.dark .dropdownBtn + .dropdownBtn {
+  border-top: 1px solid #444;
+}

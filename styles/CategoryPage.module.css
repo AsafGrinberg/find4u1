@@ -1,0 +1,147 @@
+/* כלליים - אותו סגנון כמו בדף הבית */
+.container {
+  padding-top: 100px; /* מתאים לגובה ה-Header */
+  max-width: 1200px;
+  margin: 0 auto;
+  direction: rtl;
+}
+
+.welcome-text {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin: 20px 0 10px;
+  text-align: center;
+  color: #333;
+}
+
+.subtitle {
+  text-align: center;
+  color: #555;
+  margin-bottom: 30px;
+}
+
+.search-container {
+  max-width: 400px;
+  margin: 0 auto 25px;
+  position: relative;
+}
+
+#searchInput {
+  width: 100%;
+  padding: 10px 15px;
+  font-size: 1rem;
+  border: 2px solid #ccc;
+  border-radius: 30px;
+  outline: none;
+  transition: border-color 0.3s ease;
+}
+
+#searchInput:focus {
+  border-color: #0070f3;
+  box-shadow: 0 0 8px rgba(0, 112, 243, 0.5);
+}
+
+.autocomplete-list {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: white;
+  border: 1px solid #ddd;
+  border-top: none;
+  border-radius: 0 0 12px 12px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  max-height: 200px;
+  overflow-y: auto;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  z-index: 1000;
+}
+
+.autocomplete-list li {
+  padding: 10px 15px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.autocomplete-list li:hover,
+.autocomplete-list li:focus {
+  background-color: #0070f3;
+  color: white;
+  outline: none;
+}
+
+.grid-container {
+  max-width: 1200px;
+  margin: 0 auto 40px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 20px;
+  padding: 0 15px;
+}
+
+.product-wrapper {
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+  overflow: hidden;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  cursor: pointer;
+  position: relative;
+}
+
+.product-wrapper:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 16px rgba(0,0,0,0.15);
+}
+
+.grid-item img {
+  width: 100%;
+  height: 150px;
+  object-fit: contain;
+  background-color: #f9f9f9;
+}
+
+.grid-item p {
+  padding: 12px 15px 15px;
+  font-size: 1rem;
+  font-weight: 600;
+  text-align: center;
+  color: #222;
+  margin: 0;
+}
+
+.like-button {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 24px;
+  user-select: none;
+  transition: color 0.3s ease, transform 0.2s ease;
+  color: black;
+  z-index: 10;
+}
+
+.like-button:hover {
+  color: #e91e63;
+  transform: scale(1.3);
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+  .grid-item img {
+    height: 120px;
+  }
+
+  .grid-item p {
+    font-size: 0.9rem;
+  }
+
+  .like-button {
+    font-size: 20px;
+  }
+}

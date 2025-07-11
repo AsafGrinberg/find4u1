@@ -1,0 +1,43 @@
+#lightboxModal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0,0,0,0.8);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+#lightboxImage {
+  max-width: 90%;
+  max-height: 80%;
+  transition: opacity 0.3s ease;
+}
+
+#lightboxCloseBtn,
+#lightboxPrevBtn,
+#lightboxNextBtn {
+  position: absolute;
+  top: 50%;
+  background: rgba(255,255,255,0.7);
+  border: none;
+  padding: 10px;
+  cursor: pointer;
+  z-index: 1001;
+}
+
+#lightboxCloseBtn {
+  top: 20px;
+  right: 20px;
+}
+
+#lightboxPrevBtn {
+  left: 20px;
+}
+
+#lightboxNextBtn {
+  right: 20px;
+}

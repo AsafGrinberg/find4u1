@@ -1,0 +1,44 @@
+/* styles/MobileNav.module.css */
+.mobileNav {
+  position: fixed;
+  bottom: 0;
+  right: 0;
+  left: 0;
+  background: white;
+  border-top: 1px solid #ccc;
+  display: flex;
+  justify-content: space-around;
+  padding: 6px 0;
+  z-index: 1000;
+  font-size: 12px;
+  text-align: center;
+}
+
+.mobileNav a {
+  color: #444;
+  text-decoration: none;
+}
+
+.mobileNav a span {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-weight: 500;
+}
+
+.active {
+  color: #0070f3;
+}
+.mobileNav {
+  color: black; /* ברירת מחדל */
+}
+
+body.dark .mobileNav {
+  background: #1e1e1e;
+  color: #ddd;
+  border-top: 1px solid #444;
+}
+
+body.dark .mobileNav a {
+  color: #ddd;
+}

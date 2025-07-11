@@ -1,0 +1,61 @@
+body.dark {
+  background-color: #121212;
+  color: #e0e0e0;
+}
+
+.dark button,
+.dark input,
+.dark textarea {
+  background-color: #333;
+  color: #eee;
+  border-color: #444;
+}
+
+.dark nav,
+.dark .header {
+  background-color: #1e1e1e;
+}
+
+.dark a {
+  color: #9cf;
+}
+
+.dark-mode-toggle {
+  cursor: pointer;
+  background-color: #444;
+  border: none;
+  color: white;
+  padding: 6px 12px;
+  border-radius: 6px;
+  transition: background-color 0.3s ease;
+}
+
+.dark-mode-toggle:hover {
+  background-color: #666;
+}
+.dark .grid-item {
+  color: #e0e0e0;
+}
+.dark .grid-item p {
+  color: #e0e0e0;
+}
+.dark-mode main li {
+  background-color: #222;  /* כהה במקום לבן */
+  box-shadow: 0 1px 5px rgba(255,255,255,0.1);
+  color: #ccc;  /* טקסט בהיר */
+}
+
+.dark-mode main li a {
+  color: #aad4ff;  /* כחול בהיר לדארק */
+}
+
+.dark-mode main li p {
+  color: #aaa;
+}
+body.dark-mode {
+  --card-bg: #1f1f1f;
+  --text-color: #f0f0f0;
+  --subtle-text-color: #aaa;
+  --accent-color: #ff80ab;
+  --hover-accent-color: #ff4081;
+}

@@ -1,0 +1,1261 @@
+/* === בסיס === */
+html, body {
+  direction: rtl;
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background: #f9fbfd;
+  overflow-x: hidden;
+}
+
+header.sticky-header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  background: linear-gradient(135deg, #4364f7, #a0c1f7, #b18fcf);
+  background-size: 400% 400%;
+  animation: gradientBG 10s ease infinite;
+  box-shadow: 0 6px 15px rgba(161, 145, 207, 0.1);
+}
+
+.top-bar {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 10px 15px;
+  position: relative;
+}
+
+.logo-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.logo {
+  max-height: 70px;
+}
+
+.site-title {
+  font-size: 1.4rem;
+  color: white;
+  margin: 0;
+}
+
+.menu-toggle {
+  display: none;
+  background: none;
+  border: none;
+  font-size: 32px;
+  color: white;
+  cursor: pointer;
+}
+
+#googleLoginBtn,
+.profile-menu {
+  position: absolute;
+  right: 20px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+#googleLoginBtn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: linear-gradient(135deg, #4364f7, #a0c1f7, #b18fcf);
+  background-size: 400% 400%;
+  animation: gradientBG 10s ease infinite;
+  border: none;
+  border-radius: 50px;
+  padding: 6px 20px;
+  cursor: pointer;
+  transition: transform 0.2s;
+  font-size: 14px;
+}
+
+#googleLoginBtn:hover {
+  transform: translateY(-50%) scale(1.05);
+}
+
+#googleLoginBtn img {
+  width: 18px;
+  height: 18px;
+}
+
+#googleLoginBtn span {
+  color: white;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.profile-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: white;
+  color: #4364f7;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-weight: bold;
+  cursor: pointer;
+  box-shadow: 0 0 0 2px #4364f7;
+  padding: 0;
+  border: none;
+}
+
+.profile-dropdown {
+  display: none;
+  position: absolute;
+  top: 50px;
+  right: 0;
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+  z-index: 1000;
+  min-width: 60px; /* ✅ חדש - מבטיח שהתפריט לא יהיה קטן מדי */
+}
+
+.profile-dropdown button,
+#logoutBtn {
+  background: white;
+  border: none;
+  padding: 10px 20px;
+  width: 10%; /* ✅ חדש - הכפתור ברוחב מלא */
+  text-align: right;
+  cursor: pointer;
+  border-top: 1px solid #eee;
+  box-sizing: border-box;
+  display: inline-block;
+}
+
+.profile-dropdown button:hover,
+#logoutBtn:hover {
+  background: #f5f5f5;
+}
+
+.nav-categories {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 0 10px 10px;
+}
+
+.nav-categories button,
+.nav-categories .nav-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.25);
+  border: 1px solid #4364f7;
+  border-radius: 30px;
+  padding: 8px 20px;
+  font-size: 15px;
+  color: white;
+  text-decoration: none;
+  cursor: pointer;
+  transition: 0.3s;
+}
+
+.nav-categories button:hover,
+.nav-categories .nav-link:hover {
+  background: rgba(255, 255, 255, 0.4);
+}
+
+.nav-categories button.active {
+  background: white;
+  color: #2948e0;
+}
+
+body.dark-mode .nav-categories button.active {
+  background-color: #444654 !important;
+  color: #ffffff !important;
+  border-color: #ececf1 !important;
+}
+
+
+.nav-categories button[data-emoji]:before {
+  content: attr(data-emoji);
+  margin-left: 6px;
+  font-size: 18px;
+}
+
+main {
+  padding-top: 90px;
+}
+
+.welcome-text {
+  text-align: center;
+  font-size: 1.2rem;
+  font-weight: bold;
+  margin: 20px auto 0;
+  color: #2948e0;
+  text-shadow: 0 1px 4px rgba(0,0,0,0.15);
+}
+
+.subtitle {
+  text-align: center;
+  font-size: 1.1rem;
+  margin: 10px auto 20px;
+  max-width: 1120px;
+}
+
+.search-text {
+  text-align: center;
+  font-weight: 600;
+  margin: 10px auto 4px;
+  font-size: 1rem;
+}
+
+.search-container {
+  text-align: center;
+  margin-bottom: 30px;
+  max-width: 1120px;
+  margin-left: auto;
+  margin-right: auto;
+  position: relative;
+}
+
+.search-container input {
+  padding: 12px 20px;
+  border-radius: 30px;
+  border: 1px solid #ccc;
+  width: 300px;
+  max-width: 90%;
+  font-size: 1rem;
+  direction: rtl;
+  text-align: right;
+}
+body.dark-mode .search-container input {
+  background-color: #444654 !important;
+  color: #ececf1 !important;
+  border: 1px solid #666 !important;
+}
+body.dark-mode .search-container input::placeholder {
+  color: #cccccc;
+}
+
+.autocomplete-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  background: #fff;
+  border: 1px solid #ccc;
+  border-radius: 0 0 10px 10px;
+  max-height: 200px;
+  overflow-y: auto;
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 300px;
+  z-index: 999;
+  direction: rtl;
+  text-align: right;
+}
+
+.autocomplete-list li {
+  padding: 10px;
+  cursor: pointer;
+}
+
+.autocomplete-list li:hover {
+  background: #f0f0f0;
+}
+
+.grid-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 22px;
+  max-width: 1120px;
+  margin: 20px auto 60px;
+  padding: 0 15px;
+  justify-content: center;
+}
+
+.grid-item {
+  max-width: 300px;
+  width: 100%;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+  overflow: hidden;
+  text-decoration: none;
+  color: inherit;
+  transition: transform 0.2s;
+}
+
+.grid-item:hover {
+  transform: translateY(-5px);
+}
+
+.grid-item img {
+  width: 100%;
+  height: 200px; /* או כל גובה קבוע שאתה רוצה */
+  object-fit: cover;
+  display: block;
+  border-radius: 12px 12px 0 0;
+}
+
+
+.grid-item p {
+  padding: 12px;
+  margin: 0;
+  font-weight: 600;
+  white-space: normal;          /* מאפשר שבירת שורות */
+  word-wrap: break-word;        /* שובר מילים ארוכות */
+  overflow-wrap: break-word;    /* תמיכה מתקדמת יותר בשבירת מילים */
+  word-break: break-word;       /* מפצל מילים ארוכות */
+}
+.grid-item a {
+  text-decoration: none;
+  color: inherit;
+}
+body.dark-mode .grid-item a {
+  color: inherit;
+}
+
+.no-results {
+  text-align: center;
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: #333;
+  margin: 20px 0;
+  opacity: 0;
+  animation: fadeIn 0.4s forwards;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes gradientBG {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* === מובייל בלבד === */
+@media (max-width: 767px) {
+  .top-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .logo-wrapper {
+    order: 1;
+  }
+
+  .site-title {
+    font-size: 1rem;
+    margin-right: 10px;
+  }
+
+  #googleLoginBtn {
+    order: 2;
+    position: static;
+    margin: 0 8px;
+    transform: none;
+  }
+
+  .menu-toggle {
+    display: block;
+    position: static;
+    margin: 0 8px;
+    transform: none;
+    order: 3;
+  }
+
+  .profile-dropdown {
+    position: absolute;
+    right: auto;
+    left: 0;
+    top: 100%;
+    transform: none;
+  }
+
+  .profile-menu {
+    position: relative !important;
+    order: 2;
+    margin: 0 8px;
+    margin-left: 26px;
+    transform: none;
+  }
+
+  .nav-categories {
+    display: none;
+  }
+
+  .nav-categories.show {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background: rgba(255, 255, 255, 0.1);
+    padding-bottom: 10px;
+      z-index: 100;
+
+  }
+
+  .grid-container {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .grid-item {
+    max-width: 100%;
+    width: 100%;
+  }
+
+  .grid-item img {
+    width: 100%;
+    height: auto;
+  }
+
+  .grid-item p {
+    font-size: 14px;
+    padding: 8px;
+  }
+}
+
+@media (max-width: 480px) {
+  .grid-container {
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 15px;
+  }
+}
+@media (max-width: 767px) {
+  .profile-dropdown button,
+  #logoutBtn {
+    display: inline-block;
+    width: auto;
+    min-width: auto;
+    padding: 6px 12px;
+    font-size: 14px; /* קטן יותר אם בא לך */
+  }
+}
+@media (max-width: 767px) {
+  .profile-dropdown {
+    min-width: auto; /* מבטל את הרוחב המינימלי במובייל */
+    width: auto;     /* מוודא שהתיבה תתאים לכפתור */
+    left: auto;      /* שלא יתנגש במיקום */
+    right: 0;        /* מחזיר לימין אם צריך */
+  }
+
+  .profile-dropdown button,
+  #logoutBtn {
+    display: inline-block;
+    width: auto;
+    min-width: auto;
+    padding: 6px 12px;
+    font-size: 14px;
+  }
+  
+}
+.star-rating {
+  display: flex;
+  flex-direction: row-reverse;
+  justify-content: center; /* מרכז את הכוכבים */
+  margin-bottom: 10px;
+}
+
+.star-rating input[type="radio"] {
+  display: none;
+}
+
+.star-rating label {
+  font-size: 2rem;
+  color: #ddd;
+  cursor: pointer;
+}
+
+.star-rating input:checked ~ label,
+.star-rating label:hover,
+.star-rating label:hover ~ label {
+  color: #FFD700;
+}
+/* === עיצוב ביקורות ודירוג === */
+.review-card {
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 10px;
+  padding: 15px;
+  margin-bottom: 15px;
+  text-align: right;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+}
+
+.review-header {
+  font-weight: bold;
+  color: #333;
+  margin-bottom: 5px;
+  font-size: 0.95rem;
+}
+
+.review-date {
+  font-size: 0.8rem;
+  color: #888;
+}
+
+.review-rating {
+  color: #FFD700;
+  font-size: 1rem;
+}
+
+.review-text {
+  margin-top: 8px;
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+.review-form {
+  max-width: 500px;
+  margin: 0 auto;
+  text-align: right;
+}
+
+.review-form textarea {
+  width: 100%;
+  margin-bottom: 10px;
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+}
+
+.review-form button {
+  background: #4364f7;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 30px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+@media (max-width: 600px) {
+  .review-card {
+    font-size: 0.95rem;
+  }
+}
+/* === עיצוב כפתור הלב === */
+.like-btn {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  background: transparent;
+  border: none;
+  font-size: 22px;
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+.like-btn:hover {
+  transform: scale(1.2);
+}
+
+.grid-item {
+  position: relative; /* הכרחי שהלב יהיה ממוקם נכון בתוך הכרטיס */
+}
+.like-btn {
+  font-size: 2rem;
+  border: none;
+  background: none;
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+.like-btn:hover {
+  transform: scale(1.2);
+}
+/* === לב בכרטיסי מוצרים === */
+.grid-item {
+  position: relative;
+}
+
+.grid-item .like-btn {
+  position: absolute;
+  top: 10px;
+  right: 10px;   /* במקום left */
+  left: auto;    /* כדי לוודא */
+  z-index: 4;
+  background-color: rgba(255, 255, 255, 0.5);
+  border-radius: 50%;
+  font-size: 22px;
+  border: none;
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+
+.grid-item .like-btn:hover {
+  transform: scale(1.2);
+}
+
+/* === לב בדף מוצר === */
+main > .like-btn {
+  display: inline-block;
+  position: static;
+  font-size: 2.5rem;
+  margin: 10px auto;
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+main > .like-btn:hover {
+  transform: scale(1.2);
+}
+#profileDropdown {
+  position: absolute;
+  background-color: white;
+  min-width: 80px; /* רוחב מינימלי לתפריט */
+  box-shadow: 0 8px 16px rgba(0,0,0,0.2);
+  z-index: 100;
+  padding: 0; /* חשוב למחוק פדינג מיותר */
+  margin: 0;
+}
+
+#profileDropdown button {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;   /* חשוב! מחשיב padding בתוך הרוחב */
+padding: 10px 20px;
+  border: none;
+  background: white;
+  text-align: center;        /* כי הטקסט בעברית צריך יישור לימין */
+  cursor: pointer;
+  white-space: nowrap;      /* כדי למנוע שבירת מילים */
+  overflow: hidden;         /* מוסיף זהירות */
+  text-overflow: ellipsis;  /* אם צריך, יוסיף ... */
+}
+
+#profileDropdown button + button {
+  border-top: 1px solid #ddd; /* קו הפרדה בין הכפתורים */
+}
+
+#profileDropdown button:hover {
+  background-color: #f1f1f1;
+}
+
+
+
+
+@media (max-width: 768px) {
+  #profileDropdown button {
+    padding: 16px 0; /* עוד טיפה יותר רווח במובייל */
+  }
+}
+.like-btn {
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+}
+/* === עיצוב כללי לדף פרופיל - עדכון קלאסים ו-ID-ים === */
+.profile-page-content { /* Main container */
+    max-width: 1120px;
+    margin: auto;
+    padding: 160px 20px 60px;
+}
+
+.profile-header-section { /* Header section for photo, name, email */
+    text-align: center;
+    margin-bottom: 40px;
+}
+
+.profile-avatar-container { /* Wrapper for the profile photo display */
+    display: flex;
+    justify-content: center;
+    margin-bottom: 15px;
+}
+
+.profile-photo-display { /* The div that holds the photo/initials */
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    background-color: #eee; /* Fallback for no photo */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 3rem; /* Size for initials */
+    color: #4364f7;
+    object-fit: cover;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+}
+
+.profile-display-name { /* User's name */
+    margin-top: 10px;
+    margin-bottom: 5px;
+    border-bottom: 1px solid #ddd;
+    display: inline-block;
+    padding-bottom: 5px;
+    font-size: 2rem; /* Adjust as needed */
+    color: #333;
+}
+
+.profile-display-email { /* User's email */
+    font-size: 1rem;
+    color: #666;
+    margin-top: 5px;
+    margin-bottom: 20px;
+}
+
+/* Updated logout button styling */
+#logoutButton { /* Changed ID from logoutInsideBtn to logoutButton */
+    display: block;
+    margin: 40px auto 0 auto;
+    padding: 10px 25px;
+    background: #4364f7;
+    color: white;
+    border: none;
+    border-radius: 30px;
+    font-weight: bold;
+    cursor: pointer;
+    font-size: 18px;
+}
+
+#logoutButton i {
+    margin-left: 6px;
+}
+
+
+.profile-content-section { /* Container for liked products and reviews */
+    margin-top: 40px;
+}
+
+.section-title { /* Titles for "My Likes" and "My Reviews" */
+    text-align: center;
+    margin-bottom: 25px;
+    font-size: 1.8rem;
+    color: #2948e0;
+}
+
+.products-grid { /* Grid for liked products (was #likesGrid) */
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, auto));
+    gap: 22px;
+    justify-content: center;
+    margin-bottom: 40px;
+}
+
+.reviews-list { /* Container for reviews (was #reviewsGrid) */
+    max-width: 800px; /* Optional: limit width of reviews container */
+    margin: 0 auto;
+    padding: 0 10px;
+}
+.review-card {
+  position: relative;
+  padding: 20px;
+  border: 1px solid #ddd;
+  border-radius: 12px;
+  margin: 10px auto;
+  text-align: right;
+}
+
+.review-card .delete-icon {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  cursor: pointer;
+  color: red;
+  font-size: 20px;
+}
+
+
+.review-card .delete-icon:hover {
+  opacity: 1;
+}
+/* לטקסט כאשר אין ביקורות / אין מוצרים אהובים */
+.no-results,
+.reviews-list > p { /* הוספתי את זה במיוחד עבור הביקורות */
+    text-align: center;
+    font-size: 1.1rem;
+    color: #666;
+    margin-top: 15px;
+}
+.like-btn {
+  z-index: 4;
+  background-color: rgba(255, 255, 255, 0.5);
+  border-radius: 50%;
+}
+#imageGallery img {
+  max-width: 100%;
+  max-height: 500px;
+  object-fit: contain;
+  border-radius: 10px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+/* תמונה ראשית - קצת יותר גדולה */
+#mainProductImage {
+  max-width: 100%;
+  max-height: 400px;  /* קצת יותר גדולה */
+  object-fit: contain; /* תמנע עיוות */
+  margin-bottom: 20px;
+  border-radius: 10px;
+}
+
+/* תמונות בגלריה */
+#imageGallery img {
+  max-width: 150px;  /* תמונות קטנות יותר */
+  max-height: 150px;
+  object-fit: cover; /* חיתוך אחיד */
+  border-radius: 8px;
+  margin: 5px;
+}
+#lightboxOverlay {
+  display: none;
+  position: fixed;
+  top: 0; left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0,0,0,0.8);
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+#lightboxOverlay img {
+  max-width: 90vw;
+  max-height: 90vh;
+  border-radius: 12px;
+  box-shadow: 0 0 15px black;
+}
+
+#lightboxCloseBtn,
+#lightboxPrevBtn,
+#lightboxNextBtn {
+  position: absolute;
+  background: none;
+  border: none;
+  color: white;
+  cursor: pointer;
+  user-select: none;
+  font-weight: bold;
+}
+
+#lightboxCloseBtn {
+  top: 20px;
+  right: 20px;
+  font-size: 2rem;
+}
+
+#lightboxPrevBtn {
+  top: 50%;
+  left: 20px;
+  font-size: 3rem;
+  transform: translateY(-50%);
+}
+
+#lightboxNextBtn {
+  top: 50%;
+  right: 20px;
+  font-size: 3rem;
+  transform: translateY(-50%);
+}
+#lightboxImage {
+  transition: opacity 0.2s ease-in-out;
+  opacity: 1;
+}
+/* מתג Dark Mode */
+.dark-mode-toggle {
+  display: flex;
+  flex-direction: row; 
+  align-items: center;
+  justify-content: center;
+  padding: 10px;
+  gap: 10px;
+  direction: rtl;
+}
+
+
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 50px;
+  height: 24px;
+}
+
+.switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background-color: #ccc;
+  transition: 0.4s;
+  border-radius: 24px;
+}
+
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 18px; width: 18px;
+  left: 3px; bottom: 3px;
+  background-color: white;
+  transition: 0.4s;
+  border-radius: 50%;
+}
+
+input:checked + .slider {
+  background-color: #4CAF50;
+}
+
+input:checked + .slider:before {
+  transform: translateX(26px);
+}
+
+/* מצב כהה בכל האתר */
+body.dark-mode {
+  background-color: #202123;
+  color: #ececf1;
+}
+body.dark-mode #logoutButton {
+  background-color: #c0392b;
+  color: white;
+}
+
+body.dark-mode {
+  background-color: #121212 !important;
+}
+html.dark-mode, body.dark-mode {
+  background-color: #121212 !important;
+}
+
+body.dark-mode .top-bar {
+  background: linear-gradient(90deg, #40414f, #202123) !important;
+}
+
+body.dark-mode .site-title,
+body.dark-mode .profile-dropdown,
+body.dark-mode .profile-dropdown button,
+body.dark-mode nav,
+body.dark-mode nav button,
+body.dark-mode .product-card,
+body.dark-mode .product-card h3,
+body.dark-mode .product-card p {
+  color: #ececf1 !important;
+background-color: #2a2b32 !important;
+}
+
+body.dark-mode nav button {
+  border-color: #ececf1;
+}
+
+body.dark-mode .profile-dropdown {
+  background-color: #2a2b32;
+}
+body.dark-mode .profile-dropdown button:hover {
+  background-color: #444654 !important;
+}
+
+body.dark-mode nav.nav-categories {
+  background-color: #2a2b32 !important;
+}
+
+body.dark-mode nav.nav-categories button {
+  color: #ececf1 !important;
+  background-color: transparent !important;
+  border: 1px solid transparent;
+}
+
+body.dark-mode nav.nav-categories button:hover {
+  background-color: #2a2b32 !important;
+  border-color: #ececf1 !important;
+}
+
+/* כפתור ה-Dark Mode בתפריט הפרופיל */
+.profile-dropdown .dark-mode-btn {
+  background: none;
+  border: none;
+  width: 100%;
+  height: 48px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  border-top: 1px solid #ccc;
+  font-family: inherit;
+  color: inherit;
+  padding: 0 10px;
+  box-sizing: border-box;
+}
+
+.profile-dropdown .dark-mode-btn:hover {
+  background-color: #f0f0f0;
+}
+
+/* מצב כהה - כפתור הדארק מוד */
+body.dark-mode .profile-dropdown .dark-mode-btn {
+  background-color: transparent;
+  border-top: 1px solid #444;
+  color: #ececf1;
+}
+
+body.dark-mode .profile-dropdown .dark-mode-btn:hover {
+  background-color: #343541;
+}
+/* סגנון לאייקון */
+.dark-mode-btn i {
+  font-size: 16px;
+  line-height: 1;
+}
+/* מתג סוויץ' (העגול) בתוך כפתור הדארק מוד */
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 40px;
+  height: 20px;
+}
+
+.switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.slider.round {
+  position: absolute;
+  cursor: pointer;
+  top: 0; left: 0;
+  right: 0; bottom: 0;
+  background-color: #ccc;
+  border-radius: 34px;
+  transition: 0.4s;
+}
+
+.slider.round:before {
+  position: absolute;
+  content: "";
+  height: 14px;
+  width: 14px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  border-radius: 50%;
+  transition: 0.4s;
+}
+
+input:checked + .slider.round {
+  background-color: #4CAF50;
+}
+
+input:checked + .slider.round:before {
+  transform: translateX(20px);
+}
+
+.toggle-label {
+  margin-right: 10px;
+}
+@media (max-width: 768px) {
+  .profile-dropdown .dark-mode-btn {
+    height: 42px;
+    font-size: 13px;
+    gap: 6px;
+  }
+
+  .switch {
+    transform: scale(0.9);
+  }
+
+
+  .profile-dropdown .dark-mode-toggle {
+    flex-direction: row-reverse;
+    justify-content: center;
+  }
+
+  .profile-dropdown .toggle-label {
+    font-size: 11px;
+  }
+
+  .profile-dropdown .switch {
+    transform: scale(0.9); /* מקטין את הסוויץ' */
+  }
+}
+.dark-mode-toggle i {
+  font-size: 16px;
+}
+.toggle-label {
+  display: none;
+}
+@media (max-width: 768px) {
+  .profile-dropdown > button {
+    width: calc(100% - 0px) !important;
+    margin: 0 7px !important;
+      box-sizing: border-box;
+
+  }
+}
+@media (max-width: 768px) {
+  body.dark-mode .profile-dropdown > button {
+    width: calc(100% - 14px) !important; /* נותן קצת פדינג רוחבי */
+    margin: 0 7px !important;
+    padding-left: 7px !important;
+    padding-right: 7px !important;
+    box-sizing: border-box !important;
+    max-width: 100% !important;
+  }
+}
+body.dark-mode .grid-item {
+  background-color: #2a2b32 !important;
+  color: #ececf1 !important;
+}
+body.dark-mode .autocomplete-list {
+  background-color: #444654 !important;
+  color: #ececf1 !important;
+  border: 1px solid #555 !important;
+  border-radius: 8px;
+}
+
+body.dark-mode .autocomplete-list li {
+  background-color: #444654 !important;
+  color: #ececf1 !important;
+  padding: 10px;
+  border-bottom: 1px solid #555;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+
+}
+
+body.dark-mode .autocomplete-list li:hover {
+  background-color: #555 !important;
+}
+body.dark-mode input[type="file"] {
+  background-color: #2b2b2e;
+  color: #ececf1;
+  border-color: #444;
+}
+
+body.dark-mode .image-preview-container {
+  background-color: #2a2a2d;
+  border-color: #555;
+}
+.product-text {
+  text-align: center;
+  margin-top: 8px;
+}
+
+.product-text p {
+  font-weight: 600;
+  white-space: normal;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  word-break: break-word;
+  line-height: 1.3;
+  margin: 0 12px;
+  padding: 4px 0;
+}
+
+
+.product-name {
+  font-weight: bold;
+}
+
+.product-price {
+color: #555555;
+  font-size: 0.95em;
+  font-weight: 600;
+}
+body.dark-mode .product-price {
+  color: #d7dadc;
+}
+html, body {
+  height: 100%;
+}
+
+body.dark-mode {
+  background-color: #121212 !important;
+}
+
+body.dark-mode #logoutButton {
+  background-color: #c0392b;
+  color: white;
+}
+
+/* דואג שהכפתור לא "יצא" מהmain ויישב על רקע תואם */
+main {
+  position: relative;
+  min-height: 100vh;
+}
+.dark-mode textarea#reviewText {
+    background-color: #2f2f2f; /* רק תיבת הטקסט */
+    color: #ddd; /* טקסט בהיר */
+    border: 1px solid #555; /* גבול כהה */
+    border-radius: 5px;
+    padding: 8px;
+}
+
+/* אם תרצה, תשפר גם את כפתור השליחה */
+.dark-mode #reviewForm button[type="submit"] {
+    background-color: #555; /* כפתור רקע כהה */
+    color: #eee;
+    border: none;
+    border-radius: 5px;
+    padding: 10px 20px;
+    cursor: pointer;
+}
+
+/* אפשר להוסיף אפקט hover לכפתור */
+.dark-mode #reviewForm button[type="submit"]:hover {
+    background-color: #666;
+}
+/* שינוי צבע רקע וטקסט של כרטיס ביקורת בדף מוצר במצב Dark Mode */
+.dark-mode #reviewsContainer .review-card {
+    background-color: #2f2f2f; /* אפור כהה */
+    color: #ddd; /* טקסט בהיר */
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 15px;
+    box-shadow: 0 0 10px rgba(0,0,0,0.7);
+}
+
+/* אפשר לשנות גם את הלינקים בתוך הביקורת במידת הצורך */
+.dark-mode #reviewsContainer .review-card a {
+    color: #89b7ff;
+}
+/* שינוי צבע רקע וטקסט של כרטיס ביקורת בפרופיל במצב Dark Mode */
+.dark-mode #reviewsGrid .review-card {
+    background-color: #2f2f2f; /* אפור כהה */
+    color: #ddd; /* טקסט בהיר */
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 15px;
+    box-shadow: 0 0 10px rgba(0,0,0,0.7);
+}
+
+/* גם כאן אפשר לשנות את צבע הלינקים */
+.dark-mode #reviewsGrid .review-card a {
+    color: #89b7ff;
+}
+.review-card a {
+  color: black; /* או כל צבע שתרצה */
+  text-decoration: none; /* כדי להסיר קו תחתון אם לא רוצים */
+}
+
+.review-card a:hover {
+  color: #333; /* צבע קצת כהה יותר בהנחת עכבר - אופציונלי */
+  text-decoration: underline; /* אם רוצים הדגשה בהנחת עכבר */
+}
+body.dark-mode .review-header {
+  color: #f0f0f0; /* צבע בהיר */
+}
+
+body.dark-mode .review-card a {
+  color: #f0f0f0; /* או לבן אם אתה רוצה שיהיה ברור */
+}
+
+body.dark-mode .review-date,
+body.dark-mode .review-text {
+  color: #ccc;
+}
