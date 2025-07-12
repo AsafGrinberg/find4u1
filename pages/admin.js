@@ -617,12 +617,15 @@ async function deleteCategory(id) {
 
       <section>
         <h2>רשימת מוצרים ({loadingProducts ? 'טוען...' : allProducts.length})</h2>
-        <table
+<div style={{ overflowX: 'auto' }}>
+  <table
           style={{
             width: '100%',
             borderCollapse: 'collapse',
             direction: 'rtl',
             textAlign: 'right',
+                  minWidth: 600 // חשוב כדי לאפשר גלילה כשצריך
+
           }}
         >
           <thead>
@@ -648,7 +651,20 @@ async function deleteCategory(id) {
                     'אין תמונה'
                   )}
                 </td>
-                <td style={{ border: '1px solid #aaa', padding: '4px' }}>{p.name}</td>
+<td
+  style={{
+    border: '1px solid #aaa',
+    padding: '4px',
+    maxWidth: 180, // הגבלת רוחב
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    direction: 'rtl',
+  }}
+  title={p.name}
+>
+  {p.name}
+</td>
 <td style={{ border: '1px solid #aaa', padding: '4px' }}>
   {typeof p.category === 'string' ? p.category : (Array.isArray(p.category) ? p.category.join(', ') : '-')}
 </td>
@@ -674,6 +690,8 @@ async function deleteCategory(id) {
             )}
           </tbody>
         </table>
+        </div>
+
       </section>
     </main>
   );

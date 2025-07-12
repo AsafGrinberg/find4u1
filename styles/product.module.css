@@ -143,19 +143,20 @@
   }
 }
 .mainContainer {
-  max-width: 768px; /* רוחב מקסימלי */
-  margin: 0 auto;   /* מרכז את הקונטיינר אופקית */
+  max-width: 768px;
+  margin: 0 auto;
   padding: 24px;
-  padding-top: 150px; /* למשל 80 פיקסלים - תתאים לפי גובה ה-Top Bar שלך */
-  direction: rtl;   /* יישור מימין לשמאל */
+  padding-top: var(--header-height);
+  direction: rtl;
   display: flex;
   flex-direction: column;
-  align-items: center; /* מרכז את כל התוכן בעמוד */
-  text-align: center;  /* טקסט יהיה ממורכז כברירת מחדל */
+  align-items: center;
+  text-align: center;
 }
+
 @media (max-width: 640px) {
   .mainContainer {
-    padding-top: 80px; /* תתאים לפי גובה ה-Top Bar במובייל */
+    padding-top: 90px; /* תתאים לפי גובה ה-Top Bar במובייל */
   }
 }
 .centeredColumn {
@@ -341,16 +342,34 @@
   .videoIframe{aspect-ratio:9/16;}
 }
 .reviewCard {
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  padding: 12px;
   background-color: white;
   color: black;
-  border: 1px solid #ccc;
-  padding: 12px;
-  border-radius: 6px;
   transition: background-color 0.3s, color 0.3s;
 }
+.productTitle {
+  font-size: 2rem;
+  font-weight: bold;
+  margin-bottom: 12px;
+  text-align: center;
+    word-break: break-word;        /* מאפשר שבירת מילים ארוכות */
+  overflow-wrap: break-word;    /* דואג ל"כריכה" של מילים ארוכות */
+  white-space: normal;          /* דואג לשבירת שורות רגילה */
+}
 
-body.dark .reviewCard {
-  background-color: #1c1c1c;
-  color: #ddd;
-  border-color: #444;
+.productDescription {
+  font-size: 1.1rem;
+  color: #444;
+  margin-bottom: 24px;
+  text-align: center;
+  line-height: 1.4;
+}
+.productPrice {
+  font-size: 16px;
+  font-weight: bold;
+  color: #0070f3;
+  margin: 10px 0 20px;
+  text-align: right;
 }

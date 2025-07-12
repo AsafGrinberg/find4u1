@@ -3,13 +3,14 @@ import { auth, provider } from '../firebase/firebase-config';
 import { signInWithPopup, signOut, onAuthStateChanged } from "firebase/auth";
 import styles from '../styles/Header.module.css';
 import { useRouter } from 'next/router';
+import { useDarkMode } from '../context/DarkModeContext';
 import Link from 'next/link';
 import { FaSun, FaMoon } from 'react-icons/fa';
 import { collection, getDocs } from 'firebase/firestore';
 import { db } from '../firebase/firebase-config';
 
-
 export default function Header() {
+  const { isDarkMode, setIsDarkMode } = useDarkMode();
   const router = useRouter();
   const [user, setUser] = useState(null);
   const [profileDropdownVisible, setProfileDropdownVisible] = useState(false);
@@ -46,17 +47,6 @@ useEffect(() => {
     return () => unsubscribe();
   }, [router.query.cat]);
 
-const getInitialDarkMode = () => {
-  if (typeof window !== 'undefined') {
-    const stored = localStorage.getItem('darkMode');
-    if (stored !== null) return stored === 'true';
-    return window.matchMedia('(prefers-color-scheme: dark)').matches;
-  }
-  return false;
-};
-
-const [darkMode, setDarkMode] = useState(getInitialDarkMode);
-
 // אפקט להאזנה ללחיצה מחוץ לדרופדאון של הפרופיל
 useEffect(() => {
   const handleClickOutside = (event) => {
@@ -75,26 +65,6 @@ useEffect(() => {
     document.removeEventListener('click', handleClickOutside);
   };
 }, []);
-
-// אפקט לעדכון מצב הדארק מוד ב-<body> ושמירה ב-localStorage
-useEffect(() => {
-  if (darkMode) {
-    document.body.classList.add('dark');
-    localStorage.setItem('darkMode', 'true');
-} else {
-  document.body.classList.remove('dark');
-  localStorage.setItem('darkMode', 'false');
-}
-
-}, [darkMode]);
-useEffect(() => {
-  const icon = document.getElementById("darkModeIcon");
-  if (icon) {
-    icon.className = darkMode
-      ? "fa-solid fa-sun"
-      : "fa-solid fa-moon";
-  }
-}, [darkMode]);
 
 
 // אפקט לסגירת התפריט כשנלחץ מחוץ
@@ -115,27 +85,8 @@ useEffect(() => {
   };
 }, []);
 
-// אפקט לסנכרון מצב darkMode בין דפים (במיוחד אחרי מעבר דף)
-useEffect(() => {
-  const syncDarkMode = () => {
-    const stored = localStorage.getItem('darkMode');
-    setDarkMode(stored === 'true');
-  };
-
-  // בכל פעם שהעמוד משתנה - נבדוק את מצב ה-darkMode מה-localStorage
-  router.events?.on('routeChangeComplete', syncDarkMode);
-
-  // קריאה ראשונית
-  syncDarkMode();
-
-  return () => {
-    router.events?.off('routeChangeComplete', syncDarkMode);
-  };
-}, [router.events]);
-
-
 const toggleDarkMode = (enable) => {
-  setDarkMode(enable);
+  setIsDarkMode(enable);
 };
 
 
@@ -172,14 +123,29 @@ const toggleDarkMode = (enable) => {
 
         <div className={styles.logoWrapper}>
 <Link href="/" legacyBehavior>
-  <a>
-<img
-  src={darkMode ? "/assets/images/FIND4ULOGGO-dark.png" : "/assets/images/FIND4ULOGGO.png"}
-  alt="Find4U Logo"
-  className={styles.logo}
-/>
+  <a
+    onClick={(e) => {
+      e.preventDefault(); // נבטל ניווט ברירת מחדל
+      if (typeof window !== 'undefined') {
+        if (router.pathname === '/') {
+          // אם אנחנו כבר בדף הבית
+          if (typeof window.onLogoClick === 'function') {
+            window.onLogoClick(); // נקרא לפונקציה הגלובלית שתאפס
+          }
+        } else {
+          router.push('/'); // אחרת ננווט לדף הבית
+        }
+      }
+    }}
+  >
+    <img
+      src={isDarkMode ? "/assets/images/FIND4ULOGGO-dark.png" : "/assets/images/FIND4ULOGGO.png"}
+      alt="Find4U Logo"
+      className={styles.logo}
+    />
   </a>
 </Link>
+
           <h1 className={styles.siteTitle}>כל מה שחיפשתם במקום אחד</h1>
         </div>
 
@@ -218,13 +184,13 @@ const toggleDarkMode = (enable) => {
 
 <button className={styles.dropdownBtn}>
   <div className={styles.darkModeContent}>
-    {darkMode ? <FaSun size={16} color="orange" /> : <FaMoon size={16} color="black" />}
+    {isDarkMode ? <FaSun size={16} color="orange" /> : <FaMoon size={16} color="black" />}
     <label className={styles.switch}>
       <input
         type="checkbox"
         id="darkModeSwitch"
         onChange={(e) => toggleDarkMode(e.target.checked)}
-        checked={darkMode}
+        checked={isDarkMode}
       />
       <span className={`${styles.slider} ${styles.round}`}></span>
     </label>

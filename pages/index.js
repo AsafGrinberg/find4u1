@@ -16,6 +16,11 @@ export default function Home() {
   const [user, setUser] = useState(null);
 const [likedProducts, setLikedProducts] = useState(new Set());
 const [hoveredProductId, setHoveredProductId] = useState(null);
+const [showAutocomplete, setShowAutocomplete] = useState(false);
+const [lastVisible, setLastVisible] = useState(null);
+const [loadingMore, setLoadingMore] = useState(false);
+const [hasMore, setHasMore]       = useState(true);
+const observerRef = useRef(null);
 
 async function loadUserLikes(userId) {
   const snapshot = await getDocs(collection(db, 'users', userId, 'likedProducts'));
@@ -51,17 +56,59 @@ async function toggleLike(productId) {
     setLikedProducts(prev => new Set(prev).add(productId));
   }
 }
+async function loadMoreProducts() {
+  if (loadingMore || !hasMore) return;
+  setLoadingMore(true);
 
+  const { products: newBatch, lastVisible: newLast } = await fetchProducts({
+    limitCount: 20,
+    lastDoc: lastVisible,
+  });
 
+setProducts(prev => {
+  const existingIds = new Set(prev.map(p => p.id));
+  const unique = newBatch.filter(p => !existingIds.has(p.id));
+  return [...prev, ...unique];
+});
+setFilteredProducts(prev => {
+  const existingIds = new Set(prev.map(p => p.id));
+  const unique = newBatch.filter(p => !existingIds.has(p.id));
+  return [...prev, ...unique];
+});
 
-  useEffect(() => {
-    const loadProducts = async () => {
-      const data = await fetchProducts();
-      setProducts(data);
-      setFilteredProducts(data);
-    };
-    loadProducts();
-  }, []);
+  setLastVisible(newLast);
+  setHasMore(!!newLast);
+  setLoadingMore(false);
+}
+
+useEffect(() => {
+  const loadInitial = async () => {
+    const { products: firstBatch, lastVisible } = await fetchProducts({ limitCount: 20 });
+    console.log('Products loaded from fetchProducts:', firstBatch);  // <--- הדפסת התוצאות
+    setProducts(firstBatch);
+    setFilteredProducts(firstBatch);
+    setLastVisible(lastVisible);
+    setHasMore(!!lastVisible);
+  };
+  loadInitial();
+}, []);
+
+useEffect(() => {
+  if (!observerRef.current || !hasMore) return;
+
+  const observer = new IntersectionObserver(entries => {
+    if (entries[0].isIntersecting) {
+      loadMoreProducts();
+    }
+  });
+
+  observer.observe(observerRef.current);
+
+  return () => {
+    if (observerRef.current) observer.unobserve(observerRef.current);
+  };
+}, [lastVisible, hasMore, loadingMore]);
+
 useEffect(() => {
   const unsubscribe = onAuthStateChanged(auth, (u) => {
     setUser(u);
@@ -70,12 +117,23 @@ useEffect(() => {
   });
   return () => unsubscribe();
 }, []);
+useEffect(() => {
+  window.onLogoClick = () => {
+    setSearchTerm('');
+    setFilteredProducts(products);
+    setShowAutocomplete(false);
+  };
 
+  return () => {
+    window.onLogoClick = null;
+  };
+}, [products]);
   useEffect(() => {
     if (products.length === 0) return;
 
-    const fuse = new Fuse(products, {
-      keys: ['title', 'description'],
+const fuse = new Fuse(products, {
+  keys: ['name', 'description'],
+
       threshold: 0.4,
     });
 
@@ -95,7 +153,7 @@ useEffect(() => {
         <meta name="viewport" content="width=device-width, initial-scale=1" />
       </Head>
 
-      <main dir="rtl">
+      <main className="mainHome" dir="rtl">
         <Header /> {/* כאן אנחנו מציגים את ההדר האמיתי */}
 
         <p className="welcome-text">🎉 ברוכים הבאים ל-Find4U 🎉</p>
@@ -114,15 +172,29 @@ useEffect(() => {
     dir="rtl"
     autoComplete="off"
     value={searchTerm}
-    onChange={e => setSearchTerm(e.target.value)}
+    onChange={e => {
+  setSearchTerm(e.target.value);
+  setShowAutocomplete(true);
+}}
   />
-  {searchTerm.trim() !== '' && (
-    <ul id="autocomplete-list" className="autocomplete-list" ref={autocompleteRef}>
-      {filteredProducts.slice(0, 5).map(product => (
-        <li key={product.id}>{product.title}</li>
-      ))}
-    </ul>
-  )}
+  {searchTerm.trim() !== '' && showAutocomplete && (
+  <ul id="autocomplete-list" className="autocomplete-list" ref={autocompleteRef}>
+    {filteredProducts.slice(0, 5).map(product => (
+      <li
+        key={product.id}
+        onClick={() => {
+          setSearchTerm(product.name);
+          setFilteredProducts(products);
+          setShowAutocomplete(false); // 👈 זה מה שסוגר את הרשימה!
+        }}
+        style={{ cursor: 'pointer' }}
+      >
+        {product.name}
+      </li>
+    ))}
+  </ul>
+)}
+
 </div>
 
 <div id="productsGrid" className="grid-container">
@@ -157,15 +229,22 @@ useEffect(() => {
       {hoveredProductId === product.id ? '💗' : likedProducts.has(product.id) ? '❤️' : '🤍'}
     </button>
 
-    <Link href={`/product/${product.id}`} className="grid-item">
-      <img src={product.image} alt={product.title} />
-      <p>{product.name}</p>
-    </Link>
+<Link href={`/product/${product.id}`} className="grid-item">
+  <img src={product.image} alt={product.name} />
+  <p className="product-name">{product.name}</p>
+  {product.price > 0 && (
+    <p className="product-price">{product.price.toFixed(2)} ₪</p>
+  )}
+</Link>
+
   </div>
+  
 ))}
 
 </div>
 
+{loadingMore && <p style={{ textAlign: 'center' }}>טוען עוד...</p>}
+<div ref={observerRef}></div>
 
 
       </main>

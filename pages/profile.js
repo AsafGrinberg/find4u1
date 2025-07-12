@@ -158,7 +158,7 @@ function removeReviewById(id) {
   }, [router]);
 
   return (
-<main style={{ paddingTop: '160px', maxWidth: 800, margin: 'auto', textAlign: 'center' }}>
+<main className="profile-main-container">
   {loadingProfile ? (
     <p>טוען פרופיל...</p>
   ) : (

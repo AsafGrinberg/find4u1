@@ -36,12 +36,12 @@ function toggleReviewExpand(id) {
 
   return (
     <>
-      <section style={cardStyle}>
+      <section className="card">
         <h2>פרטים אישיים</h2>
         <p>ברוך הבא, <strong>{userData?.displayName || 'משתמש'}</strong></p>
       </section>
 
-      <section style={cardStyle}>
+      <section className="card">
         <h2>מוצרים שאהבתי</h2>
         {loadingLikes ? (
           <p>טוען...</p>
@@ -50,7 +50,7 @@ function toggleReviewExpand(id) {
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(150px,1fr))', gap: 10 }}>
             {likedProductsArray.map(product => (
-              <div key={product.id} style={{ position: 'relative', border: '1px solid #ccc', borderRadius: 6, overflow: 'hidden', background: '#fff' }}>
+              <div key={product.id} className="card" style={{ position: 'relative', overflow: 'hidden' }}>
                 {/* לייק */}
                 <button
                   onClick={(e) => {
@@ -76,7 +76,19 @@ function toggleReviewExpand(id) {
                 <a href={`/product/${product.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
                   <img src={product.image} alt={product.name} style={{ width: '100%', height: 200, objectFit: 'cover' }} />
                   <div style={{ padding: 10 }}>
-                    <p style={{ margin: 0, fontWeight: 'bold' }}>{product.name}</p>
+                    <p
+  style={{
+    margin: 0,
+    fontWeight: 'bold',
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    maxWidth: '150px',  // אפשר לשנות את הערך לפי כמה רחב אתה רוצה
+  }}
+  title={product.name}  // זה יאפשר שכשמעבירים עכבר - יראה את הטקסט המלא בטיפ (tooltip)
+>
+  {product.name}
+</p>
                     {typeof product.price === 'number' && product.price > 0 && (
                       <p style={{ margin: 0 }}>₪{product.price.toFixed(2)}</p>
                     )}
@@ -88,7 +100,7 @@ function toggleReviewExpand(id) {
         )}
       </section>
 
-      <section style={cardStyle}>
+      <section className="card">
         <h2>הביקורות שלי</h2>
         {loadingReviews ? (
           <p>טוען...</p>
@@ -102,9 +114,22 @@ function toggleReviewExpand(id) {
               const timeStr = dateObj.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
               const stars = '⭐'.repeat(review.rating);
               return (
-                <div key={review.id} style={{ border: '1px solid #ccc', borderRadius: 6, padding: 10, marginBottom: 10, background: '#fff', position: 'relative' }}>
+                <div key={review.id} className="card" style={{ padding: 10, marginBottom: 10, position: 'relative' }}>
                   <div style={{ fontWeight: 'bold' }}>
-                    {review.userName || 'משתמש'} - {stars} <a href={`/product/${review.productId}`}>{review.productTitle}</a>
+                    {review.userName || 'משתמש'} - {stars} <a
+  href={`/product/${review.productId}`}
+  style={{
+    display: 'inline-block',
+    maxWidth: '200px',       // רוחב מקסימלי שאתה רוצה להקצות לשם
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    verticalAlign: 'bottom',
+  }}
+  title={review.productTitle}  // Tooltip עם הטקסט המלא
+>
+  {review.productTitle}
+</a>
                   </div>
 <div style={{
   whiteSpace: 'normal',

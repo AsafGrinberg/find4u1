@@ -19,10 +19,12 @@ import {
   increment
 } from 'firebase/firestore';
 import styles from '../../styles/product.module.css';
+import { useDarkMode } from '../../context/DarkModeContext';
 
 export default function ProductPage() {
   const router = useRouter();
   const { id: productId } = router.query;
+  const { isDarkMode } = useDarkMode();
 
   const [product, setProduct] = useState(null);
   const [reviews, setReviews] = useState([]);
@@ -52,7 +54,13 @@ const [expandedReviews, setExpandedReviews] = useState({});
     }));
   }
   const images = product ? [product.image, ...(product.gallery || [])] : [];
-
+useEffect(() => {
+    if (isDarkMode) {
+      document.body.classList.add('dark');
+    } else {
+      document.body.classList.remove('dark');
+    }
+  }, [isDarkMode]);
   // טעינת מוצר
   useEffect(() => {
     if (!productId) return;
@@ -70,6 +78,13 @@ const [expandedReviews, setExpandedReviews] = useState({});
       .catch(() => setError('שגיאה בטעינת המוצר'))
       .finally(() => setLoadingProduct(false));
   }, [productId]);
+useEffect(() => {
+  document.body.classList.add('product-page');
+
+  return () => {
+    document.body.classList.remove('product-page');
+  };
+}, []);
 
   // אימות משתמש
   useEffect(() => {
@@ -229,9 +244,20 @@ async function toggleLike() {
       <title>{product.name} - Find4U</title>
     </Head>
 
-<main dir="rtl" className={styles.mainContainer}>
-  <h1>{product.name}</h1>
-  <p>{product.description}</p>
+<main className={`${styles.mainContainer} ${isDarkMode ? styles.dark : ''}`} dir="rtl">
+
+  {/* הצגת שם המוצר */}
+  <h1 className={styles.productTitle}>{product.name}</h1>
+
+  {/* הצגת תיאור המוצר */}
+  {product.description && (
+    <p className={styles.productDescription}>{product.description}</p>
+  )}
+{product.price && product.price > 0 && (
+  <p className={styles.productPrice}>
+    מחיר: {product.price.toFixed(2)} ₪
+  </p>
+)}
 
 <button
   onClick={toggleLike}
@@ -363,8 +389,11 @@ async function toggleLike() {
 
               <div className={`${styles.spaceY4} w-full`}>
                 {reviews.map(r => (
-                  <div key={r.id} className={`${styles.reviewCard} text-right`}>
-<div className="font-bold">{r.userName}</div>
+                  <div
+  key={r.id}
+  className={`${styles.reviewCard} reviewCard text-right`}
+>
+  <div className="font-bold">{r.userName}</div>
 <div style={{ color: '#ffc107', fontSize: '18px' }}>
   {'★'.repeat(r.rating)}{'☆'.repeat(5 - r.rating)}
 </div>

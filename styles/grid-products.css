@@ -61,3 +61,15 @@
 .grid-item .like-btn:hover {
   transform: scale(1.2);
 }
+.product-name {
+  margin: 0;
+  font-weight: bold;
+}
+
+.product-price {
+  margin: 4px 0 0;
+  font-weight: 600;
+  color: #0070f3; /* צבע כחול - אפשר לשנות לפי העיצוב שלך */
+  text-align: center;
+  font-size: 12px !important;
+}

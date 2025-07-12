@@ -59,3 +59,88 @@ body.dark-mode {
   --accent-color: #ff80ab;
   --hover-accent-color: #ff4081;
 }
+body.dark .reviewCard {
+  background-color: #1c1c1c;
+  color: #eee;
+  border-color: #444;
+}
+
+body.dark .mainContainer {
+  background-color: #121212;
+  color: #f1f1f1;
+}
+
+body.dark .buyNowButton {
+  background-color: #bb86fc;
+  color: black;
+}
+
+body.dark .mainImage {
+  box-shadow: 0 4px 12px rgba(255, 255, 255, 0.3);
+}
+
+body.dark .thumbnail {
+  border-color: #444;
+}
+
+body.dark .thumbnail.active {
+  border-color: #bb86fc;
+}
+
+body.dark .submitReviewBtn {
+  background-color: #03dac6;
+  color: black;
+}
+
+body.dark .submitReviewBtn:hover:not(:disabled) {
+  background-color: #018786;
+}
+
+body.dark .reviewTextarea {
+  background-color: #2a2a2a;
+  color: #fff;
+  border-color: #555;
+}
+/* Autocomplete List - Light Mode (כברירת מחדל) */
+#autocomplete-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  position: absolute;
+  background-color: white;
+  color: black;
+  border: 1px solid #ccc;
+  max-height: 200px;
+  overflow-y: auto;
+  width: 100%;
+  z-index: 999;
+}
+
+#autocomplete-list li {
+  padding: 8px 12px;
+  border-bottom: 1px solid #eee;
+  background-color: white;
+  color: black;
+  cursor: pointer;
+}
+
+#autocomplete-list li:hover {
+  background-color: #f0f0f0;
+}
+
+
+/* ✅ Autocomplete List - Dark Mode */
+body.dark #autocomplete-list {
+  background-color: #1e1e1e;
+  border: 1px solid #444;
+}
+
+body.dark #autocomplete-list li {
+  background-color: #1e1e1e;
+  color: #eee;
+  border-bottom: 1px solid #333;
+}
+
+body.dark #autocomplete-list li:hover {
+  background-color: #2a2a2a;
+}

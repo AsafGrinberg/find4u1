@@ -1,71 +1,85 @@
-html, body {
-  direction: rtl;
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
+  html, body {
+    direction: rtl;
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  background: #f9fbfd;
-  overflow-x: hidden;
-  height: 100%;
-}
-:root {
-  --header-height: 140px; /* אפשר לשנות בהתאם לגובה ה-header */
-}
-
-main {
-  position: relative;
-  min-height: 100vh;
-  padding-top: var(--header-height);
-}
-:root {
+    background: #f9fbfd;
+    overflow-x: hidden;
+    height: 100%;
+  }
+html {
   --header-height: 140px;
 }
-
-@media (max-width: 768px) {
-  :root {
-    --header-height: 80px; /* לדוגמה */
+body, body.product-page {
+  --header-height: 140px;
+}
+  main {
+    position: relative;
+    min-height: 100vh;
+    padding-top: var(--header-height);
   }
-}
-
-
-.welcome-text {
-  text-align: center;
-  font-size: 1.2rem;
-  font-weight: bold;
-  margin: 20px auto 0;
-  color: #2948e0;
-  text-shadow: 0 1px 4px rgba(0,0,0,0.15);
-}
-
-.subtitle {
-  text-align: center;
-  font-size: 1.1rem;
-  margin: 10px auto 20px;
-  max-width: 1120px;
-}
-.mobileOnly {
-  display: none;
-}
-
-@media (max-width: 768px) {
-  .mobileOnly {
-    display: block;
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    background: white; /* או צבע אחר שתבחר */
-    border-top: 1px solid #ddd;
-    z-index: 10000;
-  }
-}
 :root {
-  --bg-product: #fff;
-  --text-product: #222;
+  --header-height: 80px; /* או 100 אם ההדר שלך יותר גבוה */
 }
 
-body.dark {
-  --bg-product: #222;
-  --text-product: #ddd;
-}
 
+@media (max-width: 768px) {
+  html {
+    --header-height: 80px;
+  }
+  body.product-page {
+    --header-height: 150px;
+  }
+  }
+
+
+  .welcome-text {
+    text-align: center;
+    font-size: 1.2rem;
+    font-weight: bold;
+    margin: 20px auto 0;
+    color: #2948e0;
+    text-shadow: 0 1px 4px rgba(0,0,0,0.15);
+  }
+
+  .subtitle {
+    text-align: center;
+    font-size: 1.1rem;
+    margin: 10px auto 20px;
+    max-width: 1120px;
+  }
+  .mobileOnly {
+    display: none;
+  }
+
+  @media (max-width: 768px) {
+    .mobileOnly {
+      display: block;
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: white; /* או צבע אחר שתבחר */
+      border-top: 1px solid #ddd;
+      z-index: 10000;
+    }
+  }
+  :root {
+    --bg-product: #fff;
+    --text-product: #222;
+  }
+
+  body.dark {
+    --bg-product: #222;
+    --text-product: #ddd;
+  }
+
+.mainHome {
+  padding-top: 125px; /* קצת יותר קטן כדי להקטין את הרווח */
+}
+@media (max-width: 768px) {
+  .mainHome {
+    padding-top: 70px;
+  }
+}
