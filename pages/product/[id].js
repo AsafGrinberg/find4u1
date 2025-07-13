@@ -20,6 +20,18 @@ import {
 } from 'firebase/firestore';
 import styles from '../../styles/product.module.css';
 import { useDarkMode } from '../../context/DarkModeContext';
+// אייקון וקטורי של ווצאפ
+const WhatsappIcon = ({ size = 28, color = '#25D366' }) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill={color}
+  >
+    <path d="M20.52 3.48A11.94 11.94 0 0012 0C5.37 0 0 5.37 0 12a11.91 11.91 0 001.8 6.27L0 24l5.91-1.54A11.92 11.92 0 0012 24c6.63 0 12-5.37 12-12a11.94 11.94 0 00-3.48-8.52zm-8.57 17.38a8.52 8.52 0 01-4.44-1.28l-.32-.19-3.13.82.83-3.04-.21-.31a8.5 8.5 0 1111.66 3.01 8.34 8.34 0 01-4.59 1.99zm4.02-5.54c-.22-.11-1.3-.64-1.5-.71-.2-.07-.34.11-.49.11s-.56.71-.68.86-.25.14-.46.05a4.1 4.1 0 01-1.2-.7 4.72 4.72 0 01-1.39-1.71c-.15-.26 0-.4.11-.53.11-.11.25-.29.37-.44a.85.85 0 00.12-.21.35.35 0 00-.02-.41c-.07-.12-.48-1.14-.66-1.57s-.35-.36-.49-.36h-.42a1.17 1.17 0 00-.86.41 3.57 3.57 0 00-1.1 2.62 6.7 6.7 0 001.38 3.17 7.15 7.15 0 004.06 3.06 4.11 4.11 0 002.72.05 3.77 3.77 0 001.15-.74 4.62 4.62 0 001.09-1.36c.1-.18.07-.34 0-.47s-.49-.18-1.02-.32z" />
+  </svg>
+);
 
 export default function ProductPage() {
   const router = useRouter();
@@ -46,7 +58,7 @@ const [hovered, setHovered] = useState(false);
   // לייק
   const [liked, setLiked] = useState(false);
 const [expandedReviews, setExpandedReviews] = useState({});
-
+const [hoveredShare, setHoveredShare] = useState(false);
   function toggleReviewExpand(id) {
     setExpandedReviews(prev => ({
       ...prev,
@@ -259,26 +271,54 @@ async function toggleLike() {
   </p>
 )}
 
-<button
-  onClick={toggleLike}
-  aria-label={liked ? 'ביטול לייק' : 'לייק'}
-  onMouseEnter={() => setHovered(true)}
-  onMouseLeave={() => setHovered(false)}
-  style={{
-    background: 'none',
-    border: 'none',
-    cursor: 'pointer',
-    fontSize: '24px',
-    padding: 0,
-    lineHeight: 1,
-    userSelect: 'none',
-    color: hovered ? '#ff69b4' : liked ? 'red' : 'black',
-    transition: 'transform 0.2s ease, color 0.3s ease',
-    transform: hovered ? 'scale(1.2)' : 'scale(1)'
-  }}
->
-  {hovered ? '💗' : liked ? '❤️' : '🤍'}
-</button>
+<div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+  <button
+    onClick={toggleLike}
+    aria-label={liked ? 'ביטול לייק' : 'לייק'}
+    onMouseEnter={() => setHovered(true)}
+    onMouseLeave={() => setHovered(false)}
+    style={{
+      background: 'none',
+      border: 'none',
+      cursor: 'pointer',
+      fontSize: '24px',
+      padding: 0,
+      lineHeight: 1,
+      userSelect: 'none',
+      color: hovered ? '#ff69b4' : liked ? 'red' : 'black',
+      transition: 'transform 0.2s ease, color 0.3s ease',
+      transform: hovered ? 'scale(1.2)' : 'scale(1)'
+    }}
+  >
+    {hovered ? '💗' : liked ? '❤️' : '🤍'}
+  </button>
+
+  <button
+    onClick={() => {
+      const productUrl = `${window.location.origin}/product/${productId}`;
+      const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(productUrl)}`;
+      window.open(whatsappUrl, '_blank');
+    }}
+    aria-label="שתף את המוצר בווצאפ"
+    onMouseEnter={() => setHoveredShare(true)}
+    onMouseLeave={() => setHoveredShare(false)}
+    style={{
+      background: 'none',
+      border: 'none',
+      cursor: 'pointer',
+      padding: 0,
+      lineHeight: 1,
+      userSelect: 'none',
+      color: hoveredShare ? '#25D366' : 'black',
+      transition: 'transform 0.2s ease, color 0.3s ease',
+      transform: hoveredShare ? 'scale(1.2)' : 'scale(1)'
+    }}
+  >
+    <WhatsappIcon size={28} color={hoveredShare ? '#25D366' : 'black'} />
+  </button>
+</div>
+
+
 
 
 
@@ -325,15 +365,24 @@ async function toggleLike() {
 
 )}
 
+<a
+  href={product.link}
+  target="_blank"
+  rel="noopener noreferrer"
+  className={styles.buyNowButton}
+  onClick={async () => {
+    try {
+      await updateDoc(doc(db, 'products', productId), {
+        clicksCount: increment(1),
+      });
+    } catch (e) {
+      console.error('שגיאה בעדכון clicksCount:', e);
+    }
+  }}
+>
+  קנה עכשיו
+</a>
 
-  <a
-    href={product.link}
-    target="_blank"
-    rel="noopener noreferrer"
-    className={styles.buyNowButton}
-  >
-    קנה עכשיו
-  </a> {/* <-- חשוב לסגור את תג ה-a */}
 
         {/* לייטבוקס */}
         {lightboxOpen && (

@@ -7,8 +7,11 @@ import {
   setDoc,
   deleteDoc,
   addDoc,
-  updateDoc
+  updateDoc,
+  query,      // ✅ הוספה
+  where       // ✅ הוספה
 } from "firebase/firestore";
+
 import {
   getAuth,
   GoogleAuthProvider,
@@ -43,5 +46,8 @@ export {
   setDoc,
   deleteDoc,
   addDoc,
-  updateDoc
+  updateDoc,
+  query,      // ✅ הוספה
+  where       // ✅ הוספה
 };
+

@@ -58,7 +58,7 @@ export default function CategoryPage() {
         } else {
           q = query(
             collection(db, 'products'),
-            where('category', 'array-contains', cat)
+            where('category', '==', cat)
           );
         }
 
