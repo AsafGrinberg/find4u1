@@ -1,0 +1,451 @@
+/* סגנונות בסיסיים */
+.stickyHeader {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  background: linear-gradient(135deg, #4364f7, #a0c1f7, #b18fcf);
+  background-size: 400% 400%;
+  animation: gradientBG 10s ease infinite;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+}
+
+.stickyHeader.dark {
+  background: #1a1a1a;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+  animation: none;
+}
+
+.topBar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 20px;
+  position: relative;
+  background: linear-gradient(135deg, #4364f7, #a0c1f7, #b18fcf);
+  background-size: 400% 400%;
+  animation: gradientBG 10s ease infinite;
+  transition: all 0.3s ease;
+}
+
+.stickyHeader.dark .topBar {
+  background: #1a1a1a;
+  animation: none;
+}
+
+.logoWrapper {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: 70%;
+  padding: 8px 16px;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+}
+
+.stickyHeader.dark .logoWrapper {
+  background: rgba(30, 30, 30, 0.7);
+}
+
+.logoLink {
+  display: flex;
+  align-items: center;
+  text-decoration: none;
+}
+
+.logo {
+  height: 50px;
+  transition: transform 0.3s ease;
+}
+
+.logo:hover {
+  transform: scale(1.05);
+}
+
+.siteTitle {
+  font-size: 1rem;
+  color: white;
+  margin: 0;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  transition: color 0.3s ease;
+}
+
+.stickyHeader.dark .siteTitle {
+  color: #eee;
+}
+
+.menuToggle {
+  background: none;
+  border: none;
+  font-size: 24px;
+  color: white;
+  cursor: pointer;
+  padding: 5px;
+  display: none;
+  z-index: 1002;
+  transition: color 0.3s ease;
+}
+
+.stickyHeader.dark .menuToggle {
+  color: #eee;
+}
+
+.navCategories {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 15px;
+  background: rgba(255, 255, 255, 0.1);
+  overflow-x: auto;
+  scrollbar-width: none;
+  transition: background-color 0.3s ease;
+}
+
+.navCategories::-webkit-scrollbar {
+  display: none;
+}
+
+.navCategoriesButton {
+  padding: 8px 15px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: white;
+  font-size: 14px;
+  white-space: nowrap;
+  transition: all 0.2s;
+  cursor: pointer;
+}
+
+.navCategoriesButton:hover,
+.navCategoriesButton.activeButton {
+  background: rgba(255, 255, 255, 0.4);
+}
+
+.stickyHeader.dark .navCategories {
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.stickyHeader.dark .navCategoriesButton {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.2);
+  color: #eee;
+}
+
+.stickyHeader.dark .navCategoriesButton:hover,
+.stickyHeader.dark .navCategoriesButton.activeButton {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.profileMenu {
+  position: relative;
+  margin-left: auto;
+  margin-right: 15px;
+  z-index: 1003;
+}
+
+.profileAvatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: white;
+  color: #4364f7;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  cursor: pointer;
+  border: 2px solid white;
+  transition: all 0.2s;
+}
+
+.profileAvatar:hover {
+  transform: scale(1.1);
+}
+
+.stickyHeader.dark .profileAvatar {
+  background: #333;
+  color: white;
+  border-color: #555;
+}
+
+.profileDropdown {
+  position: absolute;
+  right: 0;
+  top: 45px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  min-width: 200px;
+  z-index: 1001;
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+.stickyHeader.dark .profileDropdown {
+  background: #2d2d2d;
+  border: 1px solid #444;
+}
+
+.dropdownBtn {
+  width: 100%;
+  padding: 10px 15px;
+  text-align: right;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  background: none;
+  border: none;
+  border-bottom: 1px solid #f0f0f0;
+  cursor: pointer;
+  font-size: 14px;
+  color: #333;
+  transition: all 0.2s;
+}
+
+.stickyHeader.dark .dropdownBtn {
+  color: #eee;
+  border-bottom-color: #444;
+}
+
+.dropdownBtn:hover {
+  background: #f8f8f8;
+}
+
+.stickyHeader.dark .dropdownBtn:hover {
+  background: #3a3a3a;
+}
+
+.dropdownIcon {
+  font-size: 14px;
+  transition: color 0.3s ease;
+}
+
+.stickyHeader.dark .dropdownIcon {
+  color: #eee;
+}
+
+.darkModeContainer {
+  padding: 10px 15px;
+  border-top: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.stickyHeader.dark .darkModeContainer {
+  border-top-color: rgba(255, 255, 255, 0.1);
+}
+
+.darkModeToggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.darkModeContent {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #333;
+  transition: all 0.3s ease;
+  font-size: 14px;
+}
+
+.stickyHeader.dark .darkModeContent {
+  color: #eee;
+}
+
+.darkModeIcon {
+  font-size: 14px;
+  transition: color 0.3s ease;
+}
+
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 40px;
+  height: 20px;
+}
+
+.darkModeInput {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #ccc;
+  transition: .4s;
+  border-radius: 20px;
+}
+
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 16px;
+  width: 16px;
+  left: 2px;
+  bottom: 2px;
+  background-color: white;
+  transition: .4s;
+  border-radius: 50%;
+}
+
+.darkModeInput:checked + .slider {
+  background-color: #4364f7;
+}
+
+.darkModeInput:checked + .slider:before {
+  transform: translateX(20px);
+}
+
+.stickyHeader.dark .slider {
+  background-color: #666;
+}
+
+.stickyHeader.dark .darkModeInput:checked + .slider {
+  background-color: #6b7bd6;
+}
+
+@keyframes gradientBG {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* מדיה קווריז - מובייל */
+@media (max-width: 768px) {
+  .topBar {
+    padding: 10px 15px;
+  }
+  
+  .logoWrapper {
+    position: static;
+    transform: none;
+    margin: 0 auto;
+    order: 2;
+    flex-grow: 1;
+    text-align: center;
+    max-width: 60%;
+    background: none !important;
+  }
+  
+  .menuToggle {
+    order: 1;
+    display: block;
+  }
+
+  .actionsWrapper {
+    order: 3;
+  }
+  
+  .siteTitle {
+    font-size: 0.9rem;
+    max-width: 120px;
+  }
+  
+  .navCategories {
+    position: fixed;
+    top: 70px;
+    left: 0;
+    right: 0;
+    max-height: 0;
+    padding: 0 15px;
+    overflow: hidden;
+    opacity: 0;
+    transition: max-height 0.3s ease, opacity 0.3s ease;
+    flex-direction: column;
+    background: white;
+    z-index: 999;
+    gap: 12px;
+  }
+  
+  .navCategories.navCategoriesShow {
+    max-height: calc(100vh - 70px);
+    opacity: 1;
+    padding: 15px;
+    overflow-y: auto;
+  }
+  
+  .navCategoriesButton {
+    width: 100%;
+    padding: 10px 12px;
+    border-radius: 8px;
+    text-align: center;
+    background: rgba(67, 100, 247, 0.1);
+    border: 1px solid rgba(67, 100, 247, 0.2);
+    color: #333;
+    font-size: 13px;
+  }
+  
+.profileDropdown {
+  left: 10px; /* במקום 0px - לתת ריווח קטן מהקצה */
+  right: auto;
+  width: auto;
+  min-width: 160px;
+  max-width: 85vw; /* למנוע התפשטות מוגזמת */
+  top: 42px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.15); /* צל עדין */
+  border: 1px solid #eee; /* מסגרת עדינה */
+}
+
+  .dropdownBtn {
+    padding: 8px 12px;
+    font-size: 13px;
+    justify-content: flex-start;
+  }
+
+  .darkModeContainer {
+    padding: 8px 12px;
+  }
+
+  .darkModeContent {
+    font-size: 13px;
+    gap: 8px;
+  }
+
+  .darkModeIcon {
+    font-size: 14px;
+  }
+
+  .switch {
+    width: 36px;
+    height: 18px;
+  }
+
+  .slider:before {
+    height: 14px;
+    width: 14px;
+  }
+
+  .darkModeInput:checked + .slider:before {
+    transform: translateX(18px);
+  }
+
+  .profileAvatar {
+    width: 32px;
+    height: 32px;
+  }
+
+  .stickyHeader.dark .navCategories {
+    background: #1a1a1a;
+  }
+
+  .stickyHeader.dark .navCategoriesButton {
+    color: #eee;
+  }
+
+  .stickyHeader.dark .logoWrapper {
+    background: none !important;
+  }
+}

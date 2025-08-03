@@ -3,7 +3,5 @@
   "/_error": "pages/_error.js",
   "/_document": "pages/_document.js",
   "/": "pages/index.js",
-  "/product/[id]": "pages/product/[id].js",
-  "/category": "pages/category.js",
-  "/profile": "pages/profile.js"
+  "/category": "pages/category.js"
 }

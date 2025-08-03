@@ -1,0 +1,17 @@
+/* מובייל */
+@media (max-width: 768px) {
+  .header {
+    padding: var(--space-sm);
+  }
+
+  .navLink {
+    margin-left: var(--space-md);
+  }
+}
+
+/* טאבלט */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .product-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
