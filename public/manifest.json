@@ -1,0 +1,29 @@
+{
+  "name": "Find4U - מוצרים מומלצים וחמים",
+  "short_name": "Find4U",
+  "description": "האתר המוביל למציאת מוצרים איכותיים במחירים הטובים ביותר",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#667eea",
+  "theme_color": "#667eea",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/assets/images/FIND4ULOGGO.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/assets/images/FIND4ULOGGO.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["shopping", "lifestyle", "productivity"],
+  "lang": "he",
+  "dir": "rtl",
+  "scope": "/",
+  "prefer_related_applications": false
+}

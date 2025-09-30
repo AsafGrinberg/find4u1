@@ -2,6 +2,8 @@
   "/_app": "pages/_app.js",
   "/_error": "pages/_error.js",
   "/_document": "pages/_document.js",
-  "/": "pages/index.js",
-  "/category": "pages/category.js"
+  "/api/aliexpress-link": "pages/api/aliexpress-link.js",
+  "/api/ali-images-by-link": "pages/api/ali-images-by-link.js",
+  "/admin": "pages/admin.js",
+  "/api/aliexpress": "pages/api/aliexpress.js"
 }

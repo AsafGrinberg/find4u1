@@ -17,6 +17,7 @@ export default function Header() {
   const [activeCategory, setActiveCategory] = useState('all');
   const [menuOpen, setMenuOpen] = useState(false);
   const [dynamicCategories, setDynamicCategories] = useState([]);
+  const [hideSocialIcons, setHideSocialIcons] = useState(false);
   const dropdownRef = useRef(null);
   const avatarRef = useRef(null);
   const menuButtonRef = useRef(null);
@@ -68,6 +69,17 @@ export default function Header() {
     return () => document.removeEventListener('click', handleClickOutsideMenu);
   }, []);
 
+  // אפקט להסתרת האייקונים כשפותחים את התפריט
+  useEffect(() => {
+    if (menuOpen) {
+      // הסתר את האייקונים מיד כשפותחים את התפריט
+      setHideSocialIcons(true);
+    } else {
+      // החזר את האייקונים כשסוגרים את התפריט
+      setHideSocialIcons(false);
+    }
+  }, [menuOpen]);
+
   const toggleDarkMode = () => {
     const newMode = !isDarkMode;
     setIsDarkMode(newMode);
@@ -99,9 +111,37 @@ export default function Header() {
     setProfileDropdownVisible(false);
   };
 
+  // Check if user is admin (main or added)
+  const MAIN_ADMIN_EMAIL = "asafg999@gmail.com";
+  const [adminEmails, setAdminEmails] = useState([MAIN_ADMIN_EMAIL]);
+  useEffect(() => {
+    import('../lib/admin-control').then(({ getAdminEmails }) => {
+      getAdminEmails().then(emails => {
+        setAdminEmails([MAIN_ADMIN_EMAIL, ...emails.filter(e => e !== MAIN_ADMIN_EMAIL)]);
+      });
+    });
+  }, []);
+  const isAdmin = user && (adminEmails.includes(user.email) || user.email === MAIN_ADMIN_EMAIL);
+
   return (
     <header className={`${styles.stickyHeader} ${isDarkMode ? styles.dark : ''}`}>
+      {/* Gradient background animation overlay */}
+      <div style={{
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        width: '100%',
+        height: '100%',
+        zIndex: 0,
+        pointerEvents: 'none',
+        background: isDarkMode
+          ? 'linear-gradient(135deg, #23243a 0%, #1a1a1a 100%)'
+          : 'linear-gradient(135deg, #4364f7 0%, #a0c1f7 50%, #b18fcf 100%)',
+        opacity: 0.7,
+        transition: 'background 0.5s',
+      }} />
       <div className={styles.topBar}>
+        {/* Hamburger menu - mobile only */}
         <button
           ref={menuButtonRef}
           className={styles.menuToggle}
@@ -111,10 +151,17 @@ export default function Header() {
         >
           {menuOpen ? '✕' : '☰'}
         </button>
-
         <div className={styles.logoWrapper}>
           <Link href="/" passHref legacyBehavior>
-            <a className={styles.logoLink}>
+            <a
+              className={styles.logoLink}
+              onClick={e => {
+                if (window.location.pathname === "/") {
+                  e.preventDefault();
+                  window.location.reload();
+                }
+              }}
+            >
               <img
                 src={isDarkMode ? "/assets/images/FIND4ULOGGO-dark.png" : "/assets/images/FIND4ULOGGO.png"}
                 alt="Find4U Logo"
@@ -126,8 +173,8 @@ export default function Header() {
             כל מה שחיפשתם<br />במקום אחד
           </h1>
         </div>
-
         <div className={styles.actionsWrapper}>
+          {/* login/profile logic here */}
           {!user ? (
             <button 
               className={styles.googleLoginBtn} 
@@ -146,7 +193,6 @@ export default function Header() {
               >
                 {user.displayName?.[0]?.toUpperCase() || user.email?.[0]?.toUpperCase()}
               </div>
-
               {profileDropdownVisible && (
                 <div className={styles.profileDropdown} ref={dropdownRef}>
                   <button 
@@ -156,13 +202,15 @@ export default function Header() {
                     <FaUser className={styles.dropdownIcon} />
                     <span>הפרופיל שלי</span>
                   </button>
-                  <button 
-                    className={styles.dropdownBtn} 
-                    onClick={navigateToAdmin}
-                  >
-                    <FaCog className={styles.dropdownIcon} />
-                    <span>פאנל אדמין</span>
-                  </button>
+                  {isAdmin && (
+                    <button 
+                      className={styles.dropdownBtn} 
+                      onClick={navigateToAdmin}
+                    >
+                      <FaCog className={styles.dropdownIcon} />
+                      <span>פאנל אדמין</span>
+                    </button>
+                  )}
                   <button 
                     className={styles.dropdownBtn} 
                     onClick={handleLogout}
@@ -170,39 +218,62 @@ export default function Header() {
                     <FaSignOutAlt className={styles.dropdownIcon} />
                     <span>התנתק</span>
                   </button>
-                  <div className={styles.darkModeContainer}>
-                    <div className={styles.darkModeToggle}>
-                      <div className={styles.darkModeContent}>
-                        {isDarkMode ? 
-                          <FaSun className={styles.darkModeIcon} /> : 
-                          <FaMoon className={styles.darkModeIcon} />
-                        }
-                        <span>{isDarkMode ? 'מצב בהיר' : 'מצב כהה'}</span>
-                        <label className={styles.switch}>
-                          <input
-                            type="checkbox"
-                            checked={isDarkMode}
-                            onChange={toggleDarkMode}
-                            className={styles.darkModeInput}
-                          />
-                          <span className={styles.slider}></span>
-                        </label>
-                      </div>
-                    </div>
-                  </div>
                 </div>
               )}
             </div>
           )}
         </div>
+        {/* Dark mode switch - mobile only, absolute bottom left */}
+        <div className={styles.darkModeContainer}>
+          <div className={styles.darkModeToggle}>
+            <div className={styles.darkModeContent}>
+              {isDarkMode ? 
+                <FaSun className={styles.darkModeIcon} /> : 
+                <FaMoon className={styles.darkModeIcon} />
+              }
+              <span>{isDarkMode ? 'מצב בהיר' : 'מצב כהה'}</span>
+              <label className={styles.switch}>
+                <input
+                  type="checkbox"
+                  checked={isDarkMode}
+                  onChange={toggleDarkMode}
+                  className={styles.darkModeInput}
+                />
+                <span className={styles.slider}></span>
+              </label>
+            </div>
+          </div>
+        </div>
+        {/* Social icons - mobile only, absolute bottom center */}
+        <div 
+          className={`${styles.socialIconsRowMobile} ${
+            (menuOpen || hideSocialIcons) ? styles.hideSocialIcons : ''
+          }`}
+        >
+          <a href="https://www.tiktok.com/@find4u_il" target="_blank" rel="noopener noreferrer" aria-label="TikTok">
+            <svg width="22" height="22" viewBox="0 0 48 48" fill="none"><path d="M33 6v28a9 9 0 11-9-9" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/><path d="M33 6c1.5 4.5 6 7.5 10 7.5" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+          </a>
+          <a href="https://www.instagram.com/find4u_il" target="_blank" rel="noopener noreferrer" aria-label="Instagram">
+            <svg width="22" height="22" viewBox="0 0 48 48" fill="none"><rect x="8" y="8" width="32" height="32" rx="10" stroke="currentColor" strokeWidth="2.2"/><circle cx="24" cy="24" r="8" stroke="currentColor" strokeWidth="2.2"/><circle cx="34" cy="14" r="2" fill="currentColor"/></svg>
+          </a>
+          <a href="https://www.facebook.com/find4u.il" target="_blank" rel="noopener noreferrer" aria-label="Facebook">
+            <svg width="22" height="22" viewBox="0 0 48 48" fill="none"><rect x="8" y="8" width="32" height="32" rx="16" stroke="currentColor" strokeWidth="2.2"/><path d="M28 24h-4v8h-4v-8h-2v-4h2v-2c0-2.2 1.8-4 4-4h4v4h-4v2h4v4z" fill="currentColor"/></svg>
+          </a>
+          {/* הוספת יוטיוב */}
+          <a href="https://www.youtube.com/@Find4u-i2q" target="_blank" rel="noopener noreferrer" aria-label="YouTube">
+            <svg width="22" height="22" viewBox="0 0 48 48" fill="none">
+              <path d="M42 14a5 5 0 00-3.52-4.76C35.46 8 24 8 24 8s-11.46 0-14.48 1.24A5 5 0 006 14c0 0-2 10-2 16s2 16 2 16a5 5 0 003.52 4.76C12.54 40 24 40 24 40s11.46 0 14.48-1.24A5 5 0 0042 34c0 0 2-10 2-16s-2-16-2-16z" stroke="currentColor" strokeWidth="2.2" fill="none"/>
+              <path d="M20 30l10-6-10-6v12z" fill="currentColor"/>
+            </svg>
+          </a>
+        </div>
       </div>
-
       <nav
         ref={menuRef}
         className={`${styles.navCategories} ${menuOpen ? styles.navCategoriesShow : ''}`}
         aria-hidden={!menuOpen}
       >
-        {dynamicCategories.map((cat) => (
+        {dynamicCategories.map((cat, idx) => (
           <button
             key={cat}
             onClick={() => handleCategoryClick(cat)}

@@ -1,3 +1,18 @@
+/* DesktopOnly and MobileOnly helpers for SocialBar and MobileNav */
+.desktopOnly {
+  display: block;
+}
+.mobileOnly {
+  display: none;
+}
+@media (max-width: 900px) {
+  .desktopOnly {
+    display: none !important;
+  }
+  .mobileOnly {
+    display: block !important;
+  }
+}
   html, body {
     direction: rtl;
     margin: 0;
@@ -76,10 +91,10 @@ body, body.product-page {
   }
 
 .mainHome {
-  padding-top: 125px; /* קצת יותר קטן כדי להקטין את הרווח */
+  padding-top: 140px; /* רווח בינוני בין ההדר לתוכן בדסקטופ */
 }
 @media (max-width: 768px) {
   .mainHome {
-    padding-top: 70px;
+    padding-top: 145px;
   }
 }

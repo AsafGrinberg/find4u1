@@ -10,7 +10,16 @@ export default function SearchPage() {
   const [filtered, setFiltered] = useState([]);
 
   useEffect(() => {
-    fetchProducts().then(data => setProducts(data));
+    fetchProducts().then(data => {
+      // אם data הוא אובייקט עם products, קח את המערך
+      if (Array.isArray(data)) {
+        setProducts(data);
+      } else if (Array.isArray(data.products)) {
+        setProducts(data.products);
+      } else {
+        setProducts([]);
+      }
+    });
   }, []);
 
   useEffect(() => {
@@ -19,9 +28,11 @@ export default function SearchPage() {
       return;
     }
     const q = query.toLowerCase();
-    const filteredResults = products.filter(p =>
-      p.name.toLowerCase().includes(q) || (p.description && p.description.toLowerCase().includes(q))
-    );
+    const filteredResults = Array.isArray(products)
+      ? products.filter(p =>
+          p.name?.toLowerCase().includes(q) || (p.description && p.description.toLowerCase().includes(q))
+        )
+      : [];
     setFiltered(filteredResults);
   }, [query, products]);
 

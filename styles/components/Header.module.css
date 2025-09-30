@@ -1,3 +1,43 @@
+.profileDropdown {
+  right: 0;
+  left: auto;
+  min-width: 200px;
+  max-width: unset;
+  width: auto;
+  text-align: right;
+  position: absolute;
+  top: 45px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* הסרת כל הכפילויות - שמירה רק על הסגנונות הבאים: */
+.menuToggle {
+  order: 1;
+  margin-right: 0;
+  display: none;
+}
+
+.logoWrapper {
+  order: 2;
+}
+
+.actionsWrapper {
+  order: 2;
+  margin-left: 0;
+  margin-right: auto;
+}
+
+.profileMenu {
+  order: 3;
+  margin-left: auto;
+  margin-right: 0;
+  position: static;
+}
+
+.topBar {
+  flex-direction: row;
+}
+
 /* סגנונות בסיסיים */
 .stickyHeader {
   position: fixed;
@@ -24,10 +64,9 @@
   align-items: center;
   padding: 10px 20px;
   position: relative;
-  background: linear-gradient(135deg, #4364f7, #a0c1f7, #b18fcf);
-  background-size: 400% 400%;
-  animation: gradientBG 10s ease infinite;
+  background: transparent;
   transition: all 0.3s ease;
+  min-height: 70px; /* גובה קבוע להדר */
 }
 
 .stickyHeader.dark .topBar {
@@ -97,12 +136,12 @@
 
 .navCategories {
   display: flex;
-  justify-content: center;
-  gap: 8px;
+  justify-content: flex-start;
+  gap: 4px;
   padding: 10px 15px;
   background: rgba(255, 255, 255, 0.1);
   overflow-x: auto;
-  scrollbar-width: none;
+  scrollbar-width: thin;
   transition: background-color 0.3s ease;
 }
 
@@ -111,35 +150,39 @@
 }
 
 .navCategoriesButton {
-  padding: 8px 15px;
-  border-radius: 20px;
-  background: rgba(255, 255, 255, 0.2);
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  color: white;
-  font-size: 14px;
+  padding: 4px 12px;
+  border-radius: 12px;
+  background: linear-gradient(90deg, #e3e6f3 0%, #b1b7d6 100%) !important;
+  border: 1px solid #a0a7c7 !important;
+  color: #222 !important;
+  font-size: 16px;
+  font-weight: 700;
   white-space: nowrap;
-  transition: all 0.2s;
+  transition: all 0.16s cubic-bezier(.4,0,.2,1);
   cursor: pointer;
+  text-shadow: 0 1px 2px #fff;
+  letter-spacing: 0.1px;
+  margin: 0 2px;
+  box-shadow: 0 1px 4px rgba(67,100,247,0.07);
 }
 
 .navCategoriesButton:hover,
 .navCategoriesButton.activeButton {
-  background: rgba(255, 255, 255, 0.4);
-}
-
-.stickyHeader.dark .navCategories {
-  background: rgba(0, 0, 0, 0.2);
+  background: linear-gradient(90deg, #4364f7 0%, #b18fcf 100%) !important;
+  color: #fff !important;
+  text-shadow: 0 2px 8px #23243a;
+  box-shadow: 0 2px 12px rgba(67,100,247,0.18);
 }
 
 .stickyHeader.dark .navCategoriesButton {
-  background: rgba(255, 255, 255, 0.1);
-  border-color: rgba(255, 255, 255, 0.2);
-  color: #eee;
+  background: rgba(255, 255, 255, 0.1) !important;
+  border-color: rgba(255, 255, 255, 0.3) !important;
+  color: #eee !important;
 }
 
 .stickyHeader.dark .navCategoriesButton:hover,
 .stickyHeader.dark .navCategoriesButton.activeButton {
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.2) !important;
 }
 
 .profileMenu {
@@ -231,13 +274,24 @@
   color: #eee;
 }
 
+/* Dark mode switch - desktop - מציג בדסקטופ */
 .darkModeContainer {
-  padding: 10px 15px;
-  border-top: 1px solid rgba(0, 0, 0, 0.1);
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 1100;
+  padding: 0;
+  border: none;
+  background: none;
 }
 
 .stickyHeader.dark .darkModeContainer {
-  border-top-color: rgba(255, 255, 255, 0.1);
+  border: none;
+}
+
+/* Social icons - הסתר בדסקטופ */
+.socialIconsRowMobile {
+  display: none; /* מסתיר בדסקטופ */
 }
 
 .darkModeToggle {
@@ -325,38 +379,160 @@
 
 /* מדיה קווריז - מובייל */
 @media (max-width: 768px) {
-  .topBar {
-    padding: 10px 15px;
-  }
-  
-  .logoWrapper {
-    position: static;
-    transform: none;
-    margin: 0 auto;
-    order: 2;
-    flex-grow: 1;
-    text-align: center;
-    max-width: 60%;
-    background: none !important;
-  }
-  
-  .menuToggle {
-    order: 1;
-    display: block;
+  .stickyHeader {
+    overflow: visible;
+    min-height: 110px; /* גובה קבוע להדר במובייל */
   }
 
-  .actionsWrapper {
-    order: 3;
+  .topBar {
+    min-height: 110px;
+    padding-bottom: 40px; /* מקום לאייקונים בתחתית */
+    position: relative;
   }
-  
+
+  .menuToggle {
+    display: block !important;
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    z-index: 3000;
+  }
+
+  /* Dark mode switch - mobile - ממש בתחתית משמאל - מוקטן יותר */
+  .darkModeContainer {
+    position: absolute;
+    left: 6px;
+    bottom: 6px;
+    z-index: 3000;
+    transform: scale(0.75); /* הקטנה נוספת */
+    margin: 0;
+    padding: 0;
+    border: none;
+    background: none;
+  }
+
+  .darkModeContent {
+    font-size: 11px; /* גופן קטן יותר */
+    gap: 4px; /* רווח קטן יותר */
+  }
+
+  .switch {
+    width: 32px; /* קטן יותר */
+    height: 16px; /* קטן יותר */
+  }
+
+  .slider:before {
+    height: 12px; /* קטן יותר */
+    width: 12px; /* קטן יותר */
+    left: 2px;
+    bottom: 2px;
+  }
+
+  .darkModeInput:checked + .slider:before {
+    transform: translateX(16px); /* התאמה לגודל החדש */
+  }
+
+  /* Social icons - ממש בתחתית במרכז - מופיע רק במובייל */
+.socialIconsRowMobile {
+  display: flex !important; /* מציג במובייל */
+  justify-content: center;
+  align-items: center;
+  gap: 14px; /* רווח קטן יותר */
+  margin: 0;
+  padding: 0;
+  background: none;
+  width: auto;
+  position: absolute;
+  left: 50%;
+  bottom: 10px; /* מרווח קטן יותר מלמטה */
+  transform: translateX(-50%);
+  z-index: 3000;
+  opacity: 1;
+  visibility: visible;
+  transition: all 0.3s ease; /* אנימציה חלקה */
+}
+
+/* כאשר התפריט פתוח - הסתר את האייקונים */
+.socialIconsRowMobile.hideSocialIcons {
+  opacity: 0;
+  visibility: hidden;
+  transform: translateX(-50%) translateY(10px); /* זז קצת למטה */
+}
+
+  /* כאשר התפריט פתוח וגוללים - הסתר את האייקונים */
+  .hideSocialIcons {
+    opacity: 0;
+    visibility: hidden;
+    transform: translateX(-50%) translateY(10px); /* זז קצת למטה */
+  }
+
+  .socialIconsRowMobile a {
+    margin: 0 6px; /* מרווח קטן יותר */
+    color: #fff;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px; /* קטן יותר */
+    height: 30px; /* קטן יותר */
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.15);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+    font-size: 15px; /* קטן יותר */
+    text-decoration: none;
+    backdrop-filter: blur(5px);
+  }
+
+  .socialIconsRowMobile a:hover {
+    background: rgba(255, 255, 255, 0.3);
+    transform: translateY(-2px) scale(1.1);
+    box-shadow: 0 4px 12px rgba(255, 255, 255, 0.2);
+  }
+
+  /* פרופיל - מיקום קבוע */
+  .profileMenu {
+    position: absolute;
+    top: 15px;
+    left: 15px;
+    margin: 0;
+    z-index: 3000;
+  }
+
+  .profileAvatar {
+    width: 32px;
+    height: 32px;
+  }
+
+  .profileDropdown {
+    left: 0;
+    right: auto;
+    top: 42px;
+    min-width: 160px;
+    max-width: 85vw;
+  }
+
+  /* לוגו - מיקום מרכזי */
+  .logoWrapper {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    max-width: 60%;
+    padding: 6px 12px;
+  }
+
+  .logo {
+    height: 40px;
+  }
+
   .siteTitle {
     font-size: 0.9rem;
-    max-width: 120px;
   }
-  
+
+  /* תפריט קטגוריות - מתחיל ממש מההדר */
   .navCategories {
     position: fixed;
-    top: 70px;
+    top: 110px; /* מתחיל ממש מתחת להדר */
     left: 0;
     right: 0;
     max-height: 0;
@@ -365,87 +541,118 @@
     opacity: 0;
     transition: max-height 0.3s ease, opacity 0.3s ease;
     flex-direction: column;
-    background: white;
+    background: linear-gradient(135deg, #4364f7, #a0c1f7, #b18fcf) !important;
+    background-size: 400% 400% !important;
+    animation: gradientBG 10s ease infinite !important;
     z-index: 999;
-    gap: 12px;
+    gap: 8px;
+    border-top: 1px solid rgba(255, 255, 255, 0.2);
   }
-  
+
   .navCategories.navCategoriesShow {
-    max-height: calc(100vh - 70px);
+    max-height: calc(100vh - 110px); /* תופס את כל הגובה פחות גובה ההדר */
     opacity: 1;
-    padding: 15px;
+    padding: 15px 15px 80px 15px;
     overflow-y: auto;
   }
-  
+
   .navCategoriesButton {
     width: 100%;
-    padding: 10px 12px;
-    border-radius: 8px;
+    margin: 4px 0;
+    padding: 12px 0;
+    border-radius: 12px;
     text-align: center;
-    background: rgba(67, 100, 247, 0.1);
-    border: 1px solid rgba(67, 100, 247, 0.2);
-    color: #333;
-    font-size: 13px;
+    background: rgba(255, 255, 255, 0.25) !important;
+    border: 2px solid rgba(255, 255, 255, 0.4) !important;
+    color: #fff !important;
+    font-size: 16px;
+    font-weight: 700;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+    transition: all 0.3s ease;
+    cursor: pointer;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(10px);
+  }
+
+  /* הסרת כל הסגנונות הכפולים של dark mode במובייל */
+  .stickyHeader.dark .navCategories {
+    background: #1a1a1a !important;
+    animation: none !important;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
   }
   
-.profileDropdown {
-  left: 10px; /* במקום 0px - לתת ריווח קטן מהקצה */
-  right: auto;
-  width: auto;
-  min-width: 160px;
-  max-width: 85vw; /* למנוע התפשטות מוגזמת */
-  top: 42px;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.15); /* צל עדין */
-  border: 1px solid #eee; /* מסגרת עדינה */
+  .stickyHeader.dark .navCategoriesButton {
+    background: rgba(255, 255, 255, 0.1) !important;
+    border-color: rgba(255, 255, 255, 0.2) !important;
+    color: #eee !important;
+  }
+  
+  .stickyHeader.dark .navCategoriesButton:hover,
+  .stickyHeader.dark .navCategoriesButton.activeButton {
+    background: rgba(255, 255, 255, 0.2) !important;
+    border-color: rgba(255, 255, 255, 0.4) !important;
+  }
 }
 
+@media (min-width: 769px) {
+  .mainHome {
+    margin-top: 3500px;
+  }
+  
+  .profileDropdown {
+    left: 0;
+    right: auto;
+    min-width: 200px;
+    text-align: left;
+  }
+
   .dropdownBtn {
-    padding: 8px 12px;
-    font-size: 13px;
+    display: flex;
+    flex-direction: row;
     justify-content: flex-start;
-  }
-
-  .darkModeContainer {
-    padding: 8px 12px;
-  }
-
-  .darkModeContent {
-    font-size: 13px;
+    align-items: center;
     gap: 8px;
+    padding: 10px 15px;
+    width: 100%;
+    text-align: right;
   }
 
-  .darkModeIcon {
-    font-size: 14px;
+  .dropdownBtn > span {
+    flex-grow: 1;
+    text-align: right;
   }
+}
 
-  .switch {
-    width: 36px;
-    height: 18px;
-  }
+/* עיצוב כפתור התחבר עם גוגל */
+.googleLoginBtn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.2) !important;
+  border: 1px solid rgba(255, 255, 255, 0.3) !important;
+  color: white !important;
+  padding: 8px 15px !important;
+  border-radius: 20px !important;
+  font-size: 14px !important;
+  transition: all 0.2s ease !important;
+  cursor: pointer !important;
+}
 
-  .slider:before {
-    height: 14px;
-    width: 14px;
-  }
+.googleLoginBtn:hover {
+  background: rgba(255, 255, 255, 0.4) !important;
+}
 
-  .darkModeInput:checked + .slider:before {
-    transform: translateX(18px);
-  }
+.googleLoginBtn img {
+  width: 20px;
+  height: 20px;
+}
 
-  .profileAvatar {
-    width: 32px;
-    height: 32px;
-  }
+.stickyHeader.dark .googleLoginBtn {
+  background: rgba(255, 255, 255, 0.1) !important;
+  border-color: rgba(255, 255, 255, 0.2) !important;
+  color: #eee !important;
+}
 
-  .stickyHeader.dark .navCategories {
-    background: #1a1a1a;
-  }
-
-  .stickyHeader.dark .navCategoriesButton {
-    color: #eee;
-  }
-
-  .stickyHeader.dark .logoWrapper {
-    background: none !important;
-  }
+.stickyHeader.dark .googleLoginBtn:hover {
+  background: rgba(255, 255, 255, 0.2) !important;
 }

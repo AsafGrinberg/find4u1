@@ -8,9 +8,18 @@
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {
-    "firebase": "^11.9.1",
+    "axios": "^1.11.0",
+    "cheerio": "^1.1.2",
+    "critters": "^0.0.23",
+    "crypto-js": "^4.2.0",
+    "dayjs": "^1.11.13",
+    "dotenv": "^17.2.1",
+    "firebase": "^11.10.0",
     "fuse.js": "^7.1.0",
-    "next": "latest",
+    "js-md5": "^0.8.3",
+    "next": "^13.5.4",
+    "node-fetch": "^3.3.2",
+    "puppeteer": "^24.17.0",
     "react": "latest",
     "react-dom": "latest",
     "react-icons": "^5.5.0",
@@ -28,11 +37,15 @@
     "url": "https://github.com/AsafGrinberg/Find4U/issues"
   },
   "homepage": "https://github.com/AsafGrinberg/Find4U#readme",
-  "description": "",
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.11",
     "autoprefixer": "^10.4.21",
     "postcss": "^8.5.6",
     "tailwindcss": "^4.1.11"
-  }
+  },
+  "main": "aliexpress-test.js",
+  "directories": {
+    "lib": "lib"
+  },
+  "description": ""
 }

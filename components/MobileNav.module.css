@@ -8,7 +8,7 @@
   border-top: 1px solid #ccc;
   display: flex;
   justify-content: space-around;
-  padding: 6px 0;
+  padding: 2px 0 2px 0; /* מרווח גדול יותר בתחתית כדי שלא יסתיר כפתורים */
   z-index: 1000;
   font-size: 12px;
   text-align: center;
@@ -33,12 +33,17 @@
   color: black; /* ברירת מחדל */
 }
 
-body.dark .mobileNav {
-  background: #1e1e1e;
-  color: #ddd;
-  border-top: 1px solid #444;
+body.dark .mobileNav a {
+  color: #fff !important;
 }
-
+body.dark .mobileNav a span {
+  color: #fff !important;
+}
+body.dark .mobileNav .active {
+  color: #fff !important;
+  background: #0070f3 !important;
+  border-radius: 8px;
+}
 body.dark .mobileNav a {
   color: #ddd;
 }

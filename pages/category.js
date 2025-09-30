@@ -52,21 +52,22 @@ export default function CategoryPage() {
 
     const fetchProducts = async () => {
       try {
-        let q;
-        if (cat === 'כל המוצרים') {
-          q = collection(db, 'products');
-        } else {
-          q = query(
-            collection(db, 'products'),
-            where('category', '==', cat)
-          );
-        }
-
+        let q = collection(db, 'products');
         const snapshot = await getDocs(q);
-        const items = snapshot.docs.map(doc => ({
+        let items = snapshot.docs.map(doc => ({
           id: doc.id,
           ...doc.data()
         }));
+        if (cat && cat !== 'כל המוצרים') {
+          // סינון מוצרים לפי קטגוריה (כולל מוצרים עם כמה קטגוריות)
+          items = items.filter(p => {
+            if (Array.isArray(p.categories)) {
+              return p.categories.includes(cat);
+            } else {
+              return p.category === cat;
+            }
+          });
+        }
         setProducts(items);
         setFilteredProducts(items);
         setSearchTerm('');

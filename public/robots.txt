@@ -1,0 +1,19 @@
+User-agent: *
+Allow: /
+
+# Sitemap
+Sitemap: https://find4u.co.il/sitemap.xml
+
+# Disallow admin pages
+Disallow: /admin
+Disallow: /api/
+
+# Allow important pages
+Allow: /
+Allow: /search
+Allow: /category
+Allow: /product/
+Allow: /profile
+
+# Crawl delay
+Crawl-delay: 1
