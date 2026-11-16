@@ -5,11 +5,11 @@
  * ---------------------------------------------------------------
  * Hourly job:
  *   1. picks a different search angle each run (rotation stored in Firestore)
- *   2. searches AliExpress affiliate API
+ *   2. searches AliExpress affiliate API with prices in ILS
  *   3. keeps only "recommended" products (rating + real sales + image + price + commission)
  *   4. skips products posted in the last 14 days
- *   5. creates the category in /categories if it does not exist yet
- *   6. saves the product to /products (Admin SDK -> bypasses client rules)
+ *   5. creates the Hebrew category in /categories if it does not exist yet
+ *   6. saves the product to /products in ILS
  *   7. posts to Telegram: photo + caption, then a detailed text post with a "לקנייה" button
  */
 
@@ -37,78 +37,123 @@ const MIN_SALES = 50;
 const SEARCH_PAGE_SIZE = 50;
 
 const STATE_DOC = "job_state/recommendedProducts";
+const TRANSLATION_CACHE = "translation_cache";
 
 // ---- Search angles: one different angle per run -------------------------
+// q = the English query sent to AliExpress, he = the Hebrew category name.
 const ANGLES = [
-  "air purifier",
-  "robot vacuum",
-  "key finder",
-  "baby monitor",
-  "smart light",
-  "car accessories",
-  "massage gun",
-  "portable blender",
-  "desk organizer",
-  "humidifier",
-  "garlic press",
-  "phone holder",
-  "pet bed",
-  "cooler bag",
-  "ice maker",
-  "cable organizer",
-  "kitchen gadget",
-  "led strip",
-  "electric shaver",
-  "water bottle",
-  "tool set",
-  "gaming accessories",
-  "yoga mat",
-  "solar lamp",
-  "hair dryer",
-  "coffee grinder",
-  "food storage",
-  "backpack",
-  "watch band",
-  "night light"
+  {q: "air purifier", he: "מטהרי אוויר"},
+  {q: "robot vacuum", he: "שואבי אבק רובוטיים"},
+  {q: "key finder", he: "מחפשי מפתחות"},
+  {q: "baby monitor", he: "מצלמות ומנטרים לתינוק"},
+  {q: "smart light", he: "תאורה חכמה"},
+  {q: "car accessories", he: "אביזרים לרכב"},
+  {q: "massage gun", he: "מסאז'רים"},
+  {q: "portable blender", he: "בלנדרים ניידים"},
+  {q: "desk organizer", he: "ארגון לשולחן העבודה"},
+  {q: "humidifier", he: "מכשירי אדים"},
+  {q: "garlic press", he: "מטבח"},
+  {q: "phone holder", he: "מעמדים לטלפון"},
+  {q: "pet bed", he: "מוצרים לחיות מחמד"},
+  {q: "cooler bag", he: "צידניות וציוד לפיקניק"},
+  {q: "ice maker", he: "מכונות קרח"},
+  {q: "cable organizer", he: "ארגון כבלים"},
+  {q: "kitchen gadget", he: "גאדג'טים למטבח"},
+  {q: "led strip", he: "פסי לד"},
+  {q: "electric shaver", he: "מכונות גילוח"},
+  {q: "water bottle", he: "בקבוקי שתייה"},
+  {q: "tool set", he: "כלי עבודה"},
+  {q: "gaming accessories", he: "אביזרים לגיימינג"},
+  {q: "yoga mat", he: "ספורט וכושר"},
+  {q: "solar lamp", he: "תאורת חוץ"},
+  {q: "hair dryer", he: "מייבשי שיער"},
+  {q: "coffee grinder", he: "מטחנות קפה"},
+  {q: "food storage", he: "אחסון מזון"},
+  {q: "backpack", he: "תיקים"},
+  {q: "watch band", he: "רצועות לשעון"},
+  {q: "night light", he: "מנורות לילה"},
 ];
 
-// ---- AliExpress category -> Hebrew label for auto-created categories ----
-const CATEGORY_LABELS = {
-  "Home Appliances": "מוצרי חשמל לבית",
-  "Kitchen,Dining & Bar": "מטבח",
-  "Consumer Electronics": "אלקטרוניקה",
-  "Computer & Office": "מחשבים ומשרד",
-  "Beauty & Health": "יופי ובריאות",
-  "Sports & Entertainment": "ספורט ופנאי",
-  "Automobiles & Motorcycles": "רכב",
-  "Home Improvement": "שיפורי בית",
-  "Pet Products": "מוצרים לחיות מחמד",
-  "Baby & Kids": "תינוקות וילדים",
-  "Mother & Kids": "תינוקות וילדים",
-  Jewelry: "תכשיטים",
-  Watches: "שעונים",
-  "Luggage & Bags": "תיקים",
-  Shoes: "הנעלה",
-  "Women's Clothing": "אופנת נשים",
-  "Men's Clothing": "אופנת גברים",
-  "Phones & Telecommunications": "טלפונים",
-  "Home & Garden": "בית וגינה",
-  Furniture: "רהיטים",
-  "Toys & Hobbies": "צעצועים ותחביבים",
-  "Office & School Supplies": "ציוד משרדי",
-  "Tools": "כלים",
-  "Cleaning Appliances": "מוצרי ניקיון",
-  "Home Appliance Parts": "אביזרים למוצרי חשמל",
-  "Car Electronics": "אלקטרוניקה לרכב",
-  "Kitchen Appliances": "מוצרי מטבח",
-  "Home Storage & Organization": "אחסון וארגון לבית",
-  "Small Home Appliances": "מוצרי חשמל קטנים",
-  "Personal Care Appliances": "טיפוח אישי",
-  "Household Sundries": "מוצרי בית",
-};
+// ---- Sales copy: rotated so the channel does not read like a template ----
+const HOOKS = [
+  "אחד המוצרים המבוקשים בקטגוריה",
+  "מוצר עם דירוג גבוה ומכירות מטורפות",
+  "הבחירה של אלפי קונים מרוצים",
+  "מהמוצרים המדורגים ביותר בקטגוריה",
+  "מוצר שלא נשאר במלאי לאורך זמן",
+];
+
+const CLOSERS = [
+  "לחצו על הכפתור וזה אצלכם.",
+  "משלוח לישראל, לחצו ובדקו.",
+  "לפרטים ולהזמנה, לחצו על הכפתור.",
+  "מחיר משתלם לזמן מוגבל.",
+];
+
+// ---- Helpers ------------------------------------------------------------
 
 function db() {
   return admin.firestore();
+}
+
+function toNumber(value) {
+  if (value === null || value === undefined) return null;
+  const parsed = parseFloat(String(value).replace(/[^\d.\-]/g, ""));
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function toPercent(value) {
+  const parsed = toNumber(value);
+  return parsed === null ? 0 : parsed;
+}
+
+function pick(list) {
+  return list[Math.floor(Math.random() * list.length)];
+}
+
+function shekels(value) {
+  if (value === null || value === undefined) return "";
+  return `${value.toFixed(2)} ₪`;
+}
+
+function mainImage(product) {
+  if (product.product_main_image_url) return product.product_main_image_url;
+
+  const small = product.product_small_image_urls &&
+    product.product_small_image_urls.string;
+  if (Array.isArray(small) && small.length > 0) return small[0];
+
+  return product.image_url || "";
+}
+
+function ratingOutOfFive(product) {
+  const raw = toNumber(product.evaluate_rate);
+  if (raw === null) return null;
+  // AliExpress sends the rating as a percentage like "94.1%".
+  return raw > 5 ? raw / 20 : raw;
+}
+
+function salePrice(product) {
+  const target = toNumber(product.target_sale_price);
+  if (target !== null) return target;
+  return toNumber(product.sale_price);
+}
+
+function originalPrice(product) {
+  const target = toNumber(product.target_original_price);
+  if (target !== null) return target;
+  return toNumber(product.original_price);
+}
+
+function discountPercent(product) {
+  const sale = salePrice(product);
+  const original = originalPrice(product);
+  const fromApi = toNumber(product.discount);
+
+  if (sale !== null && original !== null && original > sale) {
+    return Math.round(((original - sale) / original) * 100);
+  }
+  return fromApi;
 }
 
 // ---------------------------------------------------------------------
@@ -154,7 +199,9 @@ async function aliexpressCall(method, params) {
   try {
     json = JSON.parse(text);
   } catch (error) {
-    throw new Error(`AliExpress returned non-JSON (${response.status}): ${text.slice(0, 300)}`);
+    throw new Error(
+      `AliExpress returned non-JSON (${response.status}): ${text.slice(0, 300)}`
+    );
   }
 
   if (json.error_response) {
@@ -172,7 +219,7 @@ async function searchProducts(keyword) {
     page_no: "1",
     page_size: String(SEARCH_PAGE_SIZE),
     sort: "LAST_VOLUME_DESC",
-    target_currency: "USD",
+    target_currency: "ILS",
     target_language: "EN",
     ship_to_country: "IL",
     tracking_id: ALIEXPRESS_TRACKING_ID,
@@ -205,42 +252,155 @@ async function buildAffiliateLink(product) {
 }
 
 // ---------------------------------------------------------------------
-// Filtering
+// Hebrew naming
 // ---------------------------------------------------------------------
 
-function toNumber(value) {
-  if (value === null || value === undefined) return null;
-  const parsed = parseFloat(String(value).replace(/[^\d.\-]/g, ""));
-  return Number.isFinite(parsed) ? parsed : null;
+const NOISE = /\b(hot sale|free shipping|dropshipping|wholesale|new arrival|high quality|best seller|factory price|2023|2024|2025|2026)\b/gi;
+
+function cleanTitle(title) {
+  return String(title || "")
+    .replace(NOISE, " ")
+    .replace(/\s+/g, " ")
+    .replace(/^[\s\-–|,]+|[\s\-–|,]+$/g, "")
+    .trim();
 }
 
-function toPercent(value) {
-  const parsed = toNumber(value);
-  return parsed === null ? 0 : parsed;
+function quantityInfo(title) {
+  const match = String(title || "").match(
+    /^\s*(\d+)\s*(\/\s*\d+)?\s*(pcs|pc|pack|packs|pieces|set|sets)\b/i
+  );
+  if (!match) return {count: null, isVariant: false};
+  return {count: Number(match[1]), isVariant: Boolean(match[2])};
 }
 
-function mainImage(product) {
-  if (product.product_main_image_url) return product.product_main_image_url;
+function extractSpecs(title) {
+  const specs = [];
+  const text = String(title || "");
 
-  const small = product.product_small_image_urls &&
-    product.product_small_image_urls.string;
-  if (Array.isArray(small) && small.length > 0) return small[0];
+  const quantity = quantityInfo(text);
+  // "1/4 Pack" means one of four variants, so the number is not a quantity.
+  if (quantity.count && !quantity.isVariant) {
+    specs.push(`${quantity.count} יחידות`);
+  }
 
-  return product.image_url || "";
+  const ah = text.match(/(\d[\d,.]*)\s*mah/i);
+  if (ah) specs.push(`${ah[1]}mAh`);
+
+  const pa = text.match(/(\d[\d,.]*)\s*pa\b/i);
+  if (pa) specs.push(`${pa[1]}Pa`);
+
+  const ml = text.match(/(\d[\d,.]*)\s*ml\b/i);
+  if (ml) specs.push(`${ml[1]} מ״ל`);
+
+  const watts = text.match(/(\d[\d,.]*)\s*w\b/i);
+  if (watts) specs.push(`${watts[1]}W`);
+
+  const liters = text.match(/(\d+(?:\.\d+)?)\s*l\b/i);
+  if (liters) specs.push(`${liters[1]} ליטר`);
+
+  return specs.slice(0, 2).join(" ");
 }
 
-function ratingOutOfFive(product) {
-  const raw = toNumber(product.evaluate_rate);
-  if (raw === null) return null;
-  // AliExpress sends the rating as a percentage like "94.1%".
-  return raw > 5 ? raw / 20 : raw;
+function headForTranslation(title) {
+  const withoutQuantity = cleanTitle(title).replace(
+    /^\s*\d+\s*(?:\/\s*\d+)?\s*(?:pcs|pc|pack|packs|pieces|set|sets)\b\s*/i,
+    ""
+  );
+  const cleaned =
+    withoutQuantity.replace(/^for\s+/i, "").trim() || cleanTitle(title);
+  const cut = cleaned.split(/\s+for\s+|\s+with\s+|\s+and\s+|,|;/i)[0].trim();
+  const base = cut.split(" ").length >= 2 ? cut : cleaned;
+  return base.split(" ").slice(0, 8).join(" ");
 }
 
-function salePrice(product) {
-  const target = toNumber(product.target_sale_price);
-  if (target !== null) return target;
-  return toNumber(product.sale_price);
+async function translateToHebrew(text) {
+  if (!text) return null;
+
+  // Cache first: saves the free translation quota and keeps names stable.
+  const key = crypto.createHash("md5").update(text).digest("hex");
+  try {
+    const cached = await db().collection(TRANSLATION_CACHE).doc(key).get();
+    if (cached.exists && cached.get("he")) return cached.get("he");
+  } catch (error) {
+    // Cache is best effort; the job keeps working without it.
+  }
+
+  let hebrew = null;
+
+  try {
+    const url =
+      "https://api.mymemory.translated.net/get?q=" +
+      encodeURIComponent(text) +
+      "&langpair=en|he";
+    const response = await fetch(url);
+    if (response.ok) {
+      const json = await response.json();
+      const candidate =
+        json.responseData && json.responseData.translatedText;
+      if (
+        candidate &&
+        !/MYMEMORY WARNING|QUERY LENGTH LIMIT/i.test(candidate)
+      ) {
+        hebrew = candidate;
+      }
+    }
+  } catch (error) {
+    hebrew = null;
+  }
+
+  if (!hebrew) {
+    try {
+      const url =
+        "https://translate.googleapis.com/translate_a/single" +
+        "?client=gtx&sl=en&tl=he&dt=t&q=" +
+        encodeURIComponent(text);
+      const response = await fetch(url);
+      if (response.ok) {
+        const json = await response.json();
+        hebrew = json[0].map((part) => part[0]).join("");
+      }
+    } catch (error) {
+      hebrew = null;
+    }
+  }
+
+  if (!hebrew) return null;
+
+  hebrew = hebrew
+    .replace(/\s+/g, " ")
+    .replace(/\s+([,.:;!?])/g, "$1")
+    .trim();
+
+  try {
+    await db().collection(TRANSLATION_CACHE).doc(key).set({
+      en: text,
+      he: hebrew,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    }, {merge: true});
+  } catch (error) {
+    // Ignore cache write failures.
+  }
+
+  return hebrew;
 }
+
+async function hebrewName(product) {
+  const head = headForTranslation(product.product_title);
+  const translated = await translateToHebrew(head);
+  const body = translated || head;
+
+  // The translation often already contains the quantity, so only add it
+  // when it is missing.
+  const specs = extractSpecs(product.product_title);
+  const hasQuantity = /יחידות/.test(body);
+  const prefix = specs && hasQuantity ? "" : specs;
+
+  return [prefix, body].filter(Boolean).join(" ").trim();
+}
+
+// ---------------------------------------------------------------------
+// Filtering
+// ---------------------------------------------------------------------
 
 function isRecommended(product) {
   const price = salePrice(product);
@@ -262,29 +422,17 @@ function scoreProduct(product) {
   const sales = toNumber(product.lastest_volume) || 0;
   const commission = toPercent(product.commission_rate);
   const price = salePrice(product) || 0;
-  // Price is weighted so a real product beats a 2 dollar accessory
+  // Price is weighted so a real product beats a 2 shekel accessory
   // with a similar rating and sales volume.
   return rating * 100 +
     Math.log10(sales + 1) * 40 +
     commission * 2 +
-    Math.min(price, 200) * 0.5;
-}
-
-function categoryNameFor(product) {
-  const raw =
-    product.second_level_category_name || product.first_level_category_name;
-  if (!raw) return "מוצרים מומלצים";
-  const cleaned = String(raw).trim();
-  return CATEGORY_LABELS[cleaned] || cleaned;
+    Math.min(price, 800) * 0.05;
 }
 
 // ---------------------------------------------------------------------
 // Telegram
 // ---------------------------------------------------------------------
-
-function formatPrice(value) {
-  return value === null ? "" : `$${value.toFixed(2)}`;
-}
 
 async function telegramRequest(method, body) {
   const response = await fetch(
@@ -305,53 +453,47 @@ async function telegramRequest(method, body) {
   return json.result;
 }
 
-async function postProductToTelegram(product, affiliateLink, categoryName) {
-  const title = product.product_title || "מוצר מומלץ";
+async function postProductToTelegram(product, affiliateLink, nameHe, categoryHe) {
   const price = salePrice(product);
-  const originalPrice = toNumber(product.target_original_price);
+  const original = originalPrice(product);
+  const discount = discountPercent(product);
   const rating = ratingOutOfFive(product);
   const sales = toNumber(product.lastest_volume);
-  const discount = product.discount ? String(product.discount).trim() : "";
 
-  const captionLines = [
-    title,
+  const caption = [
+    nameHe,
     "",
-    `מחיר: ${formatPrice(price)}`,
-    discount ? `הנחה: ${discount}` : "",
-    `קטגוריה: ${categoryName}`,
+    `${shekels(price)} במקום ${shekels(original)}`,
+    discount ? `${discount}% הנחה` : "",
+    `קטגוריה: ${categoryHe}`,
   ].filter((line) => line !== "");
 
   await telegramRequest("sendPhoto", {
     chat_id: TELEGRAM_CHANNEL,
     photo: mainImage(product),
-    caption: captionLines.join("\n"),
+    caption: caption.join("\n"),
   });
 
-  const detailLines = [
-    title,
+  const details = [
+    nameHe,
     "",
-    `מחיר מבצע: ${formatPrice(price)}`,
-    originalPrice && price && originalPrice > price
-      ? `מחיר רגיל: ${formatPrice(originalPrice)}`
-      : "",
-    discount ? `הנחה: ${discount}` : "",
-    rating ? `דירוג: ${rating.toFixed(1)} מתוך 5` : "",
-    sales ? `מכירות: ${sales.toLocaleString("he-IL")}` : "",
-    `קטגוריה: ${categoryName}`,
+    `${pick(HOOKS)}:`,
+    rating ? `דירוג ${rating.toFixed(1)} מתוך 5` : "",
+    sales ? `${sales.toLocaleString("he-IL")} מכירות` : "",
     "",
-    "מוצר מומלץ עם דירוג גבוה ומכירות גבוהות. משלוח לישראל.",
+    `המחיר עכשיו ${shekels(price)} בלבד, במקום ${shekels(original)}`,
+    discount ? `כלומר ${discount}% הנחה` : "",
+    "",
+    "משלוח לישראל.",
+    pick(CLOSERS),
   ].filter((line) => line !== "");
 
   await telegramRequest("sendMessage", {
     chat_id: TELEGRAM_CHANNEL,
-    text: detailLines.join("\n"),
+    text: details.join("\n"),
     disable_web_page_preview: true,
     reply_markup: affiliateLink
-      ? {
-        inline_keyboard: [
-          [{text: "לקנייה באתר", url: affiliateLink}],
-        ],
-      }
+      ? {inline_keyboard: [[{text: "לקנייה באתר", url: affiliateLink}]]}
       : undefined,
   });
 }
@@ -394,39 +536,44 @@ async function wasPostedRecently(productId) {
   return postedDate > cutoff;
 }
 
-async function saveProduct(product, affiliateLink, categoryName) {
+async function saveProduct(product, affiliateLink, nameHe, categoryHe) {
   const id = `aliexpress_${product.product_id}`;
   const docRef = db().collection("products").doc(id);
   const existing = await docRef.get();
 
   const price = salePrice(product);
-  const originalPrice = toNumber(product.target_original_price);
+  const original = originalPrice(product);
+  const discount = discountPercent(product);
   const rating = ratingOutOfFive(product);
   const sales = toNumber(product.lastest_volume);
 
   const description = [
-    `מוצר מומלץ מקטגוריית ${categoryName}.`,
+    nameHe + ".",
     rating ? `דירוג ${rating.toFixed(1)} מתוך 5.` : "",
-    sales ? `מעל ${sales.toLocaleString("he-IL")} מכירות.` : "",
+    sales ? `${sales.toLocaleString("he-IL")} מכירות.` : "",
+    discount ? `${discount}% הנחה.` : "",
     "משלוח לישראל.",
   ]
     .filter(Boolean)
     .join(" ");
 
   const data = {
-    name: product.product_title || "מוצר מומלץ",
+    name: nameHe,
     description: description,
     link: affiliateLink || product.product_detail_url || "",
     price: price,
-    category: [categoryName],
+    currency: "ILS",
+    category: [categoryHe],
     image: mainImage(product),
     gallery: mainImage(product) ? [mainImage(product)] : [],
     videos: [],
     updatedAt: new Date().toISOString(),
     source: "aliexpress",
     sourceId: String(product.product_id),
-    originalPrice: originalPrice,
-    currency: "USD",
+    sourceTitle: product.product_title || "",
+    sourceCategory: product.second_level_category_name || "",
+    originalPrice: original,
+    discountPercent: discount,
     rating: rating,
     sales: sales,
     commissionRate: toPercent(product.commission_rate),
@@ -452,15 +599,17 @@ async function pickAngle() {
   const state = await stateRef.get();
   const recent = (state.exists && state.get("recentAngles")) || [];
 
-  const available = ANGLES.filter((angle) => !recent.includes(angle));
+  const available = ANGLES.filter(
+    (angle) => !recent.includes(angle.q)
+  );
   const chosen = available.length > 0 ? available[0] : ANGLES[0];
 
-  const nextRecent = [chosen].concat(recent).slice(0, 10);
+  const nextRecent = [chosen.q].concat(recent).slice(0, 10);
   await stateRef.set(
     {
       recentAngles: nextRecent,
       lastRunAt: admin.firestore.FieldValue.serverTimestamp(),
-      lastAngle: chosen,
+      lastAngle: chosen.q,
     },
     {merge: true}
   );
@@ -474,9 +623,10 @@ async function pickAngle() {
 
 async function runRecommendedProducts() {
   const angle = await pickAngle();
-  console.log(`[recommended] angle for this run: ${angle}`);
+  const categoryHe = angle.he;
+  console.log(`[recommended] angle for this run: ${angle.q} (${categoryHe})`);
 
-  const products = await searchProducts(angle);
+  const products = await searchProducts(angle.q);
   console.log(`[recommended] ${products.length} products returned`);
 
   // The same product can come back several times with different SKUs,
@@ -495,14 +645,13 @@ async function runRecommendedProducts() {
   console.log(`[recommended] ${candidates.length} products passed the filter`);
 
   const published = [];
+  let categoryCreated = false;
 
   for (const product of candidates) {
     if (published.length >= MAX_POSTS_PER_RUN) break;
-
     if (await wasPostedRecently(product.product_id)) continue;
 
-    const categoryName = categoryNameFor(product);
-    const categoryCreated = await ensureCategory(categoryName);
+    const nameHe = await hebrewName(product);
 
     let affiliateLink = null;
     try {
@@ -513,15 +662,25 @@ async function runRecommendedProducts() {
       );
     }
 
-    await saveProduct(product, affiliateLink, categoryName);
-    await postProductToTelegram(product, affiliateLink, categoryName);
+    await saveProduct(product, affiliateLink, nameHe, categoryHe);
+
+    // Create the category once, right before the first product needs it.
+    if (!categoryCreated) {
+      categoryCreated = await ensureCategory(categoryHe);
+    }
+
+    await postProductToTelegram(product, affiliateLink, nameHe, categoryHe);
 
     published.push({
       id: product.product_id,
-      name: product.product_title,
-      category: categoryName,
-      categoryCreated: categoryCreated,
+      name: nameHe,
+      price: salePrice(product),
+      category: categoryHe,
     });
+  }
+
+  if (!categoryCreated && published.length > 0) {
+    categoryCreated = await ensureCategory(categoryHe);
   }
 
   console.log(
@@ -529,7 +688,9 @@ async function runRecommendedProducts() {
   );
 
   return {
-    angle: angle,
+    angle: angle.q,
+    category: categoryHe,
+    categoryCreated: categoryCreated,
     candidates: candidates.length,
     published: published,
   };
@@ -543,7 +704,12 @@ module.exports = {
     mainImage,
     ratingOutOfFive,
     salePrice,
-    categoryNameFor,
+    originalPrice,
+    discountPercent,
     scoreProduct,
+    extractSpecs,
+    headForTranslation,
+    cleanTitle,
+    hebrewName,
   },
 };
