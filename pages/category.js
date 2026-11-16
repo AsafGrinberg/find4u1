@@ -20,8 +20,8 @@ import { createdAtValue, dedupeProducts } from '../lib/urls';
 import ProductCard from '../components/ProductCard';
 
 function categoriesOf(product) {
-  const value = product.category;
-  if (Array.isArray(value)) return value;
+  const value = product.categories ?? product.category;
+  if (Array.isArray(value)) return value.filter(Boolean);
   if (typeof value === 'string' && value.trim()) return [value.trim()];
   return [];
 }
