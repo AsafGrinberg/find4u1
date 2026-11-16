@@ -83,12 +83,6 @@ const HOOKS = [
   "מוצר שלא נשאר במלאי לאורך זמן",
 ];
 
-const CLOSERS = [
-  "לחצו על הכפתור וזה אצלכם.",
-  "משלוח לישראל, לחצו ובדקו.",
-  "לפרטים ולהזמנה, לחצו על הכפתור.",
-  "מחיר משתלם לזמן מוגבל.",
-];
 
 // ---- Helpers ------------------------------------------------------------
 
@@ -453,48 +447,72 @@ async function telegramRequest(method, body) {
   return json.result;
 }
 
-async function postProductToTelegram(product, affiliateLink, nameHe, categoryHe) {
+async function shortenUrl(url) {
+  if (!url) return "";
+  if (url.length <= 40) return url;
+
+  const shorten = async (endpoint) => {
+    const response = await fetch(endpoint);
+    if (!response.ok) return null;
+    const text = (await response.text()).trim();
+    if (!/^https?:\/\//.test(text)) return null;
+    return text.length < url.length ? text : null;
+  };
+
+  try {
+    const short = await shorten(
+      "https://tinyurl.com/api-create.php?url=" + encodeURIComponent(url)
+    );
+    if (short) return short;
+  } catch (error) {
+    // Try the next shortener.
+  }
+
+  try {
+    const short = await shorten(
+      "https://is.gd/create.php?format=simple&url=" + encodeURIComponent(url)
+    );
+    if (short) return short;
+  } catch (error) {
+    // Fall back to the long link.
+  }
+
+  return url;
+}
+
+function composeCaption(product, nameHe, shortLink) {
   const price = salePrice(product);
   const original = originalPrice(product);
   const discount = discountPercent(product);
   const rating = ratingOutOfFive(product);
   const sales = toNumber(product.lastest_volume);
 
-  const caption = [
+  return [
     nameHe,
+    pick(HOOKS),
     "",
-    `${shekels(price)} במקום ${shekels(original)}`,
+    original && original > price
+      ? `${shekels(price)} במקום ${shekels(original)}`
+      : `${shekels(price)} בלבד`,
     discount ? `${discount}% הנחה` : "",
-    `קטגוריה: ${categoryHe}`,
-  ].filter((line) => line !== "");
+    rating ? `דירוג ${rating.toFixed(1)} מתוך 5` : "",
+    sales ? `${sales.toLocaleString("he-IL")} מכירות` : "",
+    "",
+    "משלוח לישראל",
+    shortLink,
+  ]
+    .filter((line) => line !== "")
+    .join("\n");
+}
+
+async function postProductToTelegram(product, affiliateLink, nameHe) {
+  const shortLink = await shortenUrl(affiliateLink);
+  const caption = composeCaption(product, nameHe, shortLink);
 
   await telegramRequest("sendPhoto", {
     chat_id: TELEGRAM_CHANNEL,
     photo: mainImage(product),
-    caption: caption.join("\n"),
-  });
-
-  const details = [
-    nameHe,
-    "",
-    `${pick(HOOKS)}:`,
-    rating ? `דירוג ${rating.toFixed(1)} מתוך 5` : "",
-    sales ? `${sales.toLocaleString("he-IL")} מכירות` : "",
-    "",
-    `המחיר עכשיו ${shekels(price)} בלבד, במקום ${shekels(original)}`,
-    discount ? `כלומר ${discount}% הנחה` : "",
-    "",
-    "משלוח לישראל.",
-    pick(CLOSERS),
-  ].filter((line) => line !== "");
-
-  await telegramRequest("sendMessage", {
-    chat_id: TELEGRAM_CHANNEL,
-    text: details.join("\n"),
-    disable_web_page_preview: true,
-    reply_markup: affiliateLink
-      ? {inline_keyboard: [[{text: "לקנייה באתר", url: affiliateLink}]]}
-      : undefined,
+    caption: caption,
   });
 }
 
@@ -669,7 +687,7 @@ async function runRecommendedProducts() {
       categoryCreated = await ensureCategory(categoryHe);
     }
 
-    await postProductToTelegram(product, affiliateLink, nameHe, categoryHe);
+    await postProductToTelegram(product, affiliateLink, nameHe);
 
     published.push({
       id: product.product_id,
@@ -711,5 +729,7 @@ module.exports = {
     headForTranslation,
     cleanTitle,
     hebrewName,
+    shortenUrl,
+    composeCaption,
   },
 };
