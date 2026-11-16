@@ -16,7 +16,7 @@ import {
 import { auth, db } from '../firebase/firebase-config';
 import { fetchProducts } from '../lib/products.module';
 import { readGuestLikes, toggleGuestLike } from '../lib/likes';
-import { categoryHref, createdAtValue } from '../lib/urls';
+import { createdAtValue, dedupeProducts } from '../lib/urls';
 import ProductCard from '../components/ProductCard';
 
 export default function Home() {
@@ -74,7 +74,10 @@ export default function Home() {
   }, []);
 
   const sorted = useMemo(
-    () => [...products].sort((a, b) => createdAtValue(b) - createdAtValue(a)),
+    () =>
+      dedupeProducts(products).sort(
+        (a, b) => createdAtValue(b) - createdAtValue(a)
+      ),
     [products]
   );
 
@@ -156,15 +159,14 @@ export default function Home() {
       <main dir="rtl">
         <div className="page-shell">
           <section className="hero">
-            <p className="hero-eyebrow">✦ נבחרו במיוחד עבורך</p>
             <h1 className="hero-title">
               כל מה שחיפשתם,
               <br />
               <span>במקום אחד</span>
             </h1>
             <p className="hero-sub">
-              אנחנו מסננים אלפי מוצרים ומשאירים רק את אלה עם דירוג גבוה
-              ומכירות אמיתיות. מחירים בשקלים, משלוח לישראל, בלי הפתעות.
+              מוצרים נבחרים מאליאקספרס עם דירוג גבוה ומכירות אמיתיות, מסודרים
+              לפי קטגוריות, במחירים בשקלים ומשלוח לישראל.
             </p>
 
             <div className="search-wrap">
@@ -217,25 +219,6 @@ export default function Home() {
               <span className="hero-stat">מחירים בשקלים</span>
             </div>
           </section>
-
-          {categories.length > 0 ? (
-            <nav className="chip-row" aria-label="קטגוריות">
-              {categories.map((name) => {
-                const count = products.filter((product) => {
-                  const value = product.category;
-                  const list = Array.isArray(value) ? value : [value];
-                  return list.includes(name);
-                }).length;
-
-                return (
-                  <Link key={name} href={categoryHref(name)} className="chip">
-                    <span className="chip-count">{count}</span>
-                    {name}
-                  </Link>
-                );
-              })}
-            </nav>
-          ) : null}
 
           <section className="section">
             <div className="section-head">

@@ -16,7 +16,7 @@ import {
 import { auth, db } from '../firebase/firebase-config';
 import { fetchProducts } from '../lib/products.module';
 import { readGuestLikes, toggleGuestLike } from '../lib/likes';
-import { createdAtValue } from '../lib/urls';
+import { createdAtValue, dedupeProducts } from '../lib/urls';
 import ProductCard from '../components/ProductCard';
 
 function categoriesOf(product) {
@@ -80,7 +80,7 @@ export default function CategoryPage() {
   }, []);
 
   const products = useMemo(() => {
-    const list = [...allProducts].sort(
+    const list = dedupeProducts(allProducts).sort(
       (a, b) => createdAtValue(b) - createdAtValue(a)
     );
     if (!cat || cat === 'כל המוצרים') return list;
@@ -158,7 +158,6 @@ export default function CategoryPage() {
       <main dir="rtl">
         <div className="page-shell">
           <section className="hero">
-            <p className="hero-eyebrow">קטגוריה</p>
             <h1 className="hero-title">{title}</h1>
             <p className="hero-sub">
               {products.length} מוצרים נבחרים, מסודרים לפי החדשים ביותר.

@@ -2,7 +2,7 @@ import { useRouter } from 'next/router';
 import { useEffect, useState } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
-import { onAuthStateChanged } from 'firebase/auth';
+import { onAuthStateChanged, signInWithPopup } from 'firebase/auth';
 import {
   addDoc,
   collection,
@@ -16,7 +16,7 @@ import {
   updateDoc,
 } from 'firebase/firestore';
 
-import { auth, db } from '../../firebase/firebase-config';
+import { auth, db, provider } from '../../firebase/firebase-config';
 import { fetchProducts } from '../../lib/products';
 import { findProductByParam, formatPrice, discountOf } from '../../lib/urls';
 import { readGuestLikes, toggleGuestLike } from '../../lib/likes';
@@ -520,7 +520,17 @@ export default function ProductPage() {
                 </button>
               </form>
             ) : (
-              <div className={styles.loginHint}>התחברו כדי לכתוב ביקורת</div>
+              <div className={styles.loginHint}>
+                <span>רוצים לכתוב ביקורת?</span>
+                <button
+                  type="button"
+                  className={styles.loginBtn}
+                  onClick={() => signInWithPopup(auth, provider).catch(() => {})}
+                >
+                  <img src="/assets/images/google-Logo.png" alt="" />
+                  התחברות עם גוגל
+                </button>
+              </div>
             )}
           </section>
         </div>
