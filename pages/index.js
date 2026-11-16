@@ -15,6 +15,7 @@ import {
 
 import { auth, db } from '../firebase/firebase-config';
 import { fetchProducts } from '../lib/products.module';
+import { readGuestLikes, toggleGuestLike } from '../lib/likes';
 import { categoryHref, createdAtValue } from '../lib/urls';
 import ProductCard from '../components/ProductCard';
 
@@ -57,7 +58,7 @@ export default function Home() {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
       if (!currentUser) {
-        setLikedProducts(new Set());
+        setLikedProducts(readGuestLikes());
         return;
       }
       try {
@@ -95,7 +96,7 @@ export default function Home() {
 
   async function toggleLike(productId) {
     if (!user) {
-      alert('אנא התחבר כדי לשמור מוצרים');
+      setLikedProducts(toggleGuestLike(productId));
       return;
     }
 
@@ -219,11 +220,20 @@ export default function Home() {
 
           {categories.length > 0 ? (
             <nav className="chip-row" aria-label="קטגוריות">
-              {categories.map((name) => (
-                <Link key={name} href={categoryHref(name)} className="chip">
-                  {name}
-                </Link>
-              ))}
+              {categories.map((name) => {
+                const count = products.filter((product) => {
+                  const value = product.category;
+                  const list = Array.isArray(value) ? value : [value];
+                  return list.includes(name);
+                }).length;
+
+                return (
+                  <Link key={name} href={categoryHref(name)} className="chip">
+                    <span className="chip-count">{count}</span>
+                    {name}
+                  </Link>
+                );
+              })}
             </nav>
           ) : null}
 

@@ -262,6 +262,24 @@ main {
   box-shadow: var(--shadow-xs);
 }
 
+.chip-count {
+  display: inline-grid;
+  place-items: center;
+  min-width: 22px;
+  margin-right: 8px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.chip:hover .chip-count {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
 .chip-active,
 .chip-active:hover {
   background: linear-gradient(120deg, var(--accent), var(--accent-2));

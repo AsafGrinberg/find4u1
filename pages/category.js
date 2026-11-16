@@ -15,6 +15,7 @@ import {
 
 import { auth, db } from '../firebase/firebase-config';
 import { fetchProducts } from '../lib/products.module';
+import { readGuestLikes, toggleGuestLike } from '../lib/likes';
 import { createdAtValue } from '../lib/urls';
 import ProductCard from '../components/ProductCard';
 
@@ -63,7 +64,7 @@ export default function CategoryPage() {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
       if (!currentUser) {
-        setLikedProducts(new Set());
+        setLikedProducts(readGuestLikes());
         return;
       }
       try {
@@ -100,7 +101,7 @@ export default function CategoryPage() {
 
   async function toggleLike(productId) {
     if (!user) {
-      alert('אנא התחבר כדי לשמור מוצרים');
+      setLikedProducts(toggleGuestLike(productId));
       return;
     }
 

@@ -174,7 +174,7 @@ const toggleDarkMode = (enable) => {
 <Link href="/" legacyBehavior>
   <a>
 <img
-  src={darkMode ? "/assets/images/FIND4ULOGGO-dark.png" : "/assets/images/FIND4ULOGGO.png"}
+  src={darkMode ? "/assets/images/FIND4ULOGGO-white.png" : "/assets/images/FIND4ULOGGO.png"}
   alt="Find4U Logo"
   className={styles.logo}
 />
@@ -184,6 +184,15 @@ const toggleDarkMode = (enable) => {
         </div>
 
         <div className={styles.actionsWrapper}>
+          <Link
+            href="/liked"
+            className={styles.likedLink}
+            aria-label="מוצרים שמורים"
+            title="מוצרים שמורים"
+          >
+            ♥
+          </Link>
+
           {!user ? (
             <button className={styles.googleLoginBtn} onClick={handleLogin} aria-label="התחבר עם גוגל">
               <img src="/assets/images/google-Logo.png" alt="Google Logo" />

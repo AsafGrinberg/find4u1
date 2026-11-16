@@ -61,6 +61,26 @@
   gap: 10px;
 }
 
+.likedLink {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: #e0195e;
+  font-size: 1.05rem;
+  line-height: 1;
+  box-shadow: var(--shadow-xs);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.likedLink:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
+}
+
 .googleLoginBtn {
   display: inline-flex;
   align-items: center;

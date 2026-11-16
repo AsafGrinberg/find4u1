@@ -19,6 +19,7 @@ import {
 import { auth, db } from '../../firebase/firebase-config';
 import { fetchProducts } from '../../lib/products';
 import { findProductByParam, formatPrice, discountOf } from '../../lib/urls';
+import { readGuestLikes, toggleGuestLike } from '../../lib/likes';
 import styles from '../../styles/product.module.css';
 
 function categoriesOf(product) {
@@ -46,6 +47,11 @@ export default function ProductPage() {
   const [expandedReviews, setExpandedReviews] = useState({});
 
   const productId = product ? product.id : null;
+
+  useEffect(() => {
+    if (!productId || user) return;
+    setLiked(readGuestLikes().has(productId));
+  }, [productId, user]);
 
   useEffect(() => {
     if (!param) return;
@@ -78,10 +84,11 @@ export default function ProductPage() {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
-      if (!currentUser || !param) {
+      if (!currentUser) {
         setLiked(false);
         return;
       }
+      if (!param) return;
       getDoc(doc(db, 'users', currentUser.uid, 'likedProducts', String(param)))
         .then((snapshot) => setLiked(snapshot.exists()))
         .catch(() => setLiked(false));
@@ -126,11 +133,13 @@ export default function ProductPage() {
   }
 
   async function toggleLike() {
+    if (!productId) return;
+
     if (!user) {
-      alert('אנא התחבר כדי לשמור מוצרים');
+      const next = toggleGuestLike(productId);
+      setLiked(next.has(productId));
       return;
     }
-    if (!productId) return;
 
     const likeRef = doc(db, 'users', user.uid, 'likedProducts', productId);
     const productRef = doc(db, 'products', productId);
