@@ -97,6 +97,14 @@ const CATEGORY_LABELS = {
   "Toys & Hobbies": "צעצועים ותחביבים",
   "Office & School Supplies": "ציוד משרדי",
   "Tools": "כלים",
+  "Cleaning Appliances": "מוצרי ניקיון",
+  "Home Appliance Parts": "אביזרים למוצרי חשמל",
+  "Car Electronics": "אלקטרוניקה לרכב",
+  "Kitchen Appliances": "מוצרי מטבח",
+  "Home Storage & Organization": "אחסון וארגון לבית",
+  "Small Home Appliances": "מוצרי חשמל קטנים",
+  "Personal Care Appliances": "טיפוח אישי",
+  "Household Sundries": "מוצרי בית",
 };
 
 function db() {
@@ -179,10 +187,12 @@ async function searchProducts(keyword) {
   return list;
 }
 
-async function buildAffiliateLink(sourceUrl) {
+async function buildAffiliateLink(product) {
+  if (product.promotion_link) return product.promotion_link;
+
   const response = await aliexpressCall("aliexpress.affiliate.link.generate", {
     promotion_link_type: "0",
-    source_values: sourceUrl,
+    source_values: product.product_detail_url,
     tracking_id: ALIEXPRESS_TRACKING_ID,
   });
 
@@ -209,13 +219,36 @@ function toPercent(value) {
   return parsed === null ? 0 : parsed;
 }
 
+function mainImage(product) {
+  if (product.product_main_image_url) return product.product_main_image_url;
+
+  const small = product.product_small_image_urls &&
+    product.product_small_image_urls.string;
+  if (Array.isArray(small) && small.length > 0) return small[0];
+
+  return product.image_url || "";
+}
+
+function ratingOutOfFive(product) {
+  const raw = toNumber(product.evaluate_rate);
+  if (raw === null) return null;
+  // AliExpress sends the rating as a percentage like "94.1%".
+  return raw > 5 ? raw / 20 : raw;
+}
+
+function salePrice(product) {
+  const target = toNumber(product.target_sale_price);
+  if (target !== null) return target;
+  return toNumber(product.sale_price);
+}
+
 function isRecommended(product) {
-  const price = toNumber(product.target_sale_price);
-  const rating = toNumber(product.evaluate_rate);
+  const price = salePrice(product);
+  const rating = ratingOutOfFive(product);
   const sales = toNumber(product.lastest_volume);
   const commission = toPercent(product.commission_rate);
 
-  if (!product.image_url) return false;
+  if (!mainImage(product)) return false;
   if (!product.product_id) return false;
   if (price === null || price <= 0) return false;
   if (rating === null || rating < MIN_RATING) return false;
@@ -225,10 +258,16 @@ function isRecommended(product) {
 }
 
 function scoreProduct(product) {
-  const rating = toNumber(product.evaluate_rate) || 0;
+  const rating = ratingOutOfFive(product) || 0;
   const sales = toNumber(product.lastest_volume) || 0;
   const commission = toPercent(product.commission_rate);
-  return rating * 100 + Math.log10(sales + 1) * 40 + commission * 2;
+  const price = salePrice(product) || 0;
+  // Price is weighted so a real product beats a 2 dollar accessory
+  // with a similar rating and sales volume.
+  return rating * 100 +
+    Math.log10(sales + 1) * 40 +
+    commission * 2 +
+    Math.min(price, 200) * 0.5;
 }
 
 function categoryNameFor(product) {
@@ -268,9 +307,9 @@ async function telegramRequest(method, body) {
 
 async function postProductToTelegram(product, affiliateLink, categoryName) {
   const title = product.product_title || "מוצר מומלץ";
-  const price = toNumber(product.target_sale_price);
+  const price = salePrice(product);
   const originalPrice = toNumber(product.target_original_price);
-  const rating = toNumber(product.evaluate_rate);
+  const rating = ratingOutOfFive(product);
   const sales = toNumber(product.lastest_volume);
   const discount = product.discount ? String(product.discount).trim() : "";
 
@@ -284,7 +323,7 @@ async function postProductToTelegram(product, affiliateLink, categoryName) {
 
   await telegramRequest("sendPhoto", {
     chat_id: TELEGRAM_CHANNEL,
-    photo: product.image_url,
+    photo: mainImage(product),
     caption: captionLines.join("\n"),
   });
 
@@ -360,9 +399,9 @@ async function saveProduct(product, affiliateLink, categoryName) {
   const docRef = db().collection("products").doc(id);
   const existing = await docRef.get();
 
-  const price = toNumber(product.target_sale_price);
+  const price = salePrice(product);
   const originalPrice = toNumber(product.target_original_price);
-  const rating = toNumber(product.evaluate_rate);
+  const rating = ratingOutOfFive(product);
   const sales = toNumber(product.lastest_volume);
 
   const description = [
@@ -380,8 +419,8 @@ async function saveProduct(product, affiliateLink, categoryName) {
     link: affiliateLink || product.product_detail_url || "",
     price: price,
     category: [categoryName],
-    image: product.image_url || "",
-    gallery: product.image_url ? [product.image_url] : [],
+    image: mainImage(product),
+    gallery: mainImage(product) ? [mainImage(product)] : [],
     videos: [],
     updatedAt: new Date().toISOString(),
     source: "aliexpress",
@@ -440,9 +479,18 @@ async function runRecommendedProducts() {
   const products = await searchProducts(angle);
   console.log(`[recommended] ${products.length} products returned`);
 
+  // The same product can come back several times with different SKUs,
+  // so keep only the best scoring entry per product id.
+  const seen = new Set();
   const candidates = products
     .filter(isRecommended)
-    .sort((a, b) => scoreProduct(b) - scoreProduct(a));
+    .sort((a, b) => scoreProduct(b) - scoreProduct(a))
+    .filter((product) => {
+      const id = String(product.product_id);
+      if (seen.has(id)) return false;
+      seen.add(id);
+      return true;
+    });
 
   console.log(`[recommended] ${candidates.length} products passed the filter`);
 
@@ -458,7 +506,7 @@ async function runRecommendedProducts() {
 
     let affiliateLink = null;
     try {
-      affiliateLink = await buildAffiliateLink(product.product_detail_url);
+      affiliateLink = await buildAffiliateLink(product);
     } catch (error) {
       console.error(
         `[recommended] link generation failed for ${product.product_id}: ${error.message}`
@@ -487,4 +535,15 @@ async function runRecommendedProducts() {
   };
 }
 
-module.exports = {runRecommendedProducts};
+module.exports = {
+  runRecommendedProducts,
+  __test: {
+    searchProducts,
+    isRecommended,
+    mainImage,
+    ratingOutOfFive,
+    salePrice,
+    categoryNameFor,
+    scoreProduct,
+  },
+};
