@@ -29,6 +29,7 @@ const TELEGRAM_BOT_TOKEN =
   process.env.TELEGRAM_BOT_TOKEN ||
   "8825712163:AAERjc3Xec0oKwbsuEvT0YPF6P7Ho175Mb0";
 const TELEGRAM_CHANNEL = process.env.TELEGRAM_CHANNEL || "@Find4U_official";
+const SITE_URL = (process.env.SITE_URL || "https://find4u.vercel.app").replace(/\/$/, "");
 
 const MAX_POSTS_PER_RUN = 5;
 const SKIP_DAYS = 14;
@@ -103,6 +104,26 @@ function toPercent(value) {
 
 function pick(list) {
   return list[Math.floor(Math.random() * list.length)];
+}
+
+function escapeHtml(value) {
+  return String(value || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+// Two sellers often list the same item with slightly different titles,
+// so the key ignores case and punctuation.
+function titleKey(product) {
+  return String(product.product_title || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "")
+    .slice(0, 45);
+}
+
+function siteProductUrl(productId) {
+  return `${SITE_URL}/product/aliexpress_${productId}`;
 }
 
 function shekels(value) {
@@ -480,7 +501,7 @@ async function shortenUrl(url) {
   return url;
 }
 
-function composeCaption(product, nameHe, shortLink) {
+function composeCaption(product, nameHe, shortLink, siteUrl) {
   const price = salePrice(product);
   const original = originalPrice(product);
   const discount = discountPercent(product);
@@ -488,18 +509,23 @@ function composeCaption(product, nameHe, shortLink) {
   const sales = toNumber(product.lastest_volume);
 
   return [
-    nameHe,
-    pick(HOOKS),
+    escapeHtml(nameHe),
+    escapeHtml(pick(HOOKS)),
     "",
-    original && original > price
-      ? `${shekels(price)} במקום ${shekels(original)}`
-      : `${shekels(price)} בלבד`,
+    escapeHtml(
+      original && original > price
+        ? `${shekels(price)} במקום ${shekels(original)}`
+        : `${shekels(price)} בלבד`
+    ),
     discount ? `${discount}% הנחה` : "",
     rating ? `דירוג ${rating.toFixed(1)} מתוך 5` : "",
     sales ? `${sales.toLocaleString("he-IL")} מכירות` : "",
     "",
     "משלוח לישראל",
-    shortLink,
+    "",
+    "<b>לינק לרכישה מאלי אקספרס:</b>",
+    escapeHtml(shortLink),
+    siteUrl ? `\nעמוד המוצר באתר Find4U:\n${escapeHtml(siteUrl)}` : "",
   ]
     .filter((line) => line !== "")
     .join("\n");
@@ -507,12 +533,18 @@ function composeCaption(product, nameHe, shortLink) {
 
 async function postProductToTelegram(product, affiliateLink, nameHe) {
   const shortLink = await shortenUrl(affiliateLink);
-  const caption = composeCaption(product, nameHe, shortLink);
+  const caption = composeCaption(
+    product,
+    nameHe,
+    shortLink,
+    siteProductUrl(product.product_id)
+  );
 
   await telegramRequest("sendPhoto", {
     chat_id: TELEGRAM_CHANNEL,
     photo: mainImage(product),
     caption: caption,
+    parse_mode: "HTML",
   });
 }
 
@@ -590,6 +622,7 @@ async function saveProduct(product, affiliateLink, nameHe, categoryHe) {
     sourceId: String(product.product_id),
     sourceTitle: product.product_title || "",
     sourceCategory: product.second_level_category_name || "",
+    titleKey: titleKey(product),
     originalPrice: original,
     discountPercent: discount,
     rating: rating,
@@ -616,6 +649,8 @@ async function pickAngle() {
   const stateRef = db().doc(STATE_DOC);
   const state = await stateRef.get();
   const recent = (state.exists && state.get("recentAngles")) || [];
+  const recentTitleKeys =
+    (state.exists && state.get("recentTitleKeys")) || [];
 
   const available = ANGLES.filter(
     (angle) => !recent.includes(angle.q)
@@ -632,7 +667,16 @@ async function pickAngle() {
     {merge: true}
   );
 
-  return chosen;
+  return {angle: chosen, recentTitleKeys: recentTitleKeys};
+}
+
+async function rememberTitleKeys(keys, previous) {
+  if (keys.length === 0) return;
+  const merged = keys.concat(previous).slice(0, 300);
+  await db().doc(STATE_DOC).set(
+    {recentTitleKeys: merged},
+    {merge: true}
+  );
 }
 
 // ---------------------------------------------------------------------
@@ -640,8 +684,10 @@ async function pickAngle() {
 // ---------------------------------------------------------------------
 
 async function runRecommendedProducts() {
-  const angle = await pickAngle();
+  const picked = await pickAngle();
+  const angle = picked.angle;
   const categoryHe = angle.he;
+  const recentTitleKeys = new Set(picked.recentTitleKeys);
   console.log(`[recommended] angle for this run: ${angle.q} (${categoryHe})`);
 
   const products = await searchProducts(angle.q);
@@ -655,8 +701,15 @@ async function runRecommendedProducts() {
     .sort((a, b) => scoreProduct(b) - scoreProduct(a))
     .filter((product) => {
       const id = String(product.product_id);
+      const key = titleKey(product);
+
       if (seen.has(id)) return false;
       seen.add(id);
+
+      // Same item, different seller: skip it.
+      if (key && (seen.has(key) || recentTitleKeys.has(key))) return false;
+      if (key) seen.add(key);
+
       return true;
     });
 
@@ -690,15 +743,24 @@ async function runRecommendedProducts() {
     await postProductToTelegram(product, affiliateLink, nameHe);
 
     published.push({
-      id: product.product_id,
+      id: String(product.product_id),
       name: nameHe,
       price: salePrice(product),
       category: categoryHe,
+      titleKey: titleKey(product),
+      docId: `aliexpress_${product.product_id}`,
     });
   }
 
   if (!categoryCreated && published.length > 0) {
     categoryCreated = await ensureCategory(categoryHe);
+  }
+
+  if (published.length > 0) {
+    const keys = published
+      .map((item) => item.titleKey)
+      .filter(Boolean);
+    await rememberTitleKeys(keys, picked.recentTitleKeys);
   }
 
   console.log(
@@ -731,5 +793,7 @@ module.exports = {
     hebrewName,
     shortenUrl,
     composeCaption,
+    siteProductUrl,
+    titleKey,
   },
 };
