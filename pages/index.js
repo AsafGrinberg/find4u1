@@ -15,15 +15,33 @@ import {
 
 import { auth, db } from '../firebase/firebase-config';
 import { fetchProducts } from '../lib/products.module';
+import { fetchProductsServer, fetchCategoriesServer } from '../lib/firestore-server';
 import { readGuestLikes, toggleGuestLike } from '../lib/likes';
 import { createdAtValue, dedupeProducts, SITE_URL } from '../lib/urls';
 import ProductCard from '../components/ProductCard';
 
-export default function Home() {
-  const [products, setProducts] = useState([]);
-  const [categories, setCategories] = useState([]);
+export async function getStaticProps() {
+  const [products, categories] = await Promise.all([
+    fetchProductsServer(),
+    fetchCategoriesServer(),
+  ]);
+
+  return {
+    props: {
+      initialProducts: products,
+      initialCategories: categories
+        .map((category) => category.name)
+        .filter(Boolean),
+    },
+    revalidate: 300,
+  };
+}
+
+export default function Home({ initialProducts = [], initialCategories = [] }) {
+  const [products, setProducts] = useState(initialProducts);
+  const [categories, setCategories] = useState(initialCategories);
   const [searchTerm, setSearchTerm] = useState('');
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(initialProducts.length === 0);
   const [user, setUser] = useState(null);
   const [likedProducts, setLikedProducts] = useState(new Set());
 
@@ -33,11 +51,18 @@ export default function Home() {
     async function load() {
       const data = await fetchProducts();
       if (cancelled) return;
-      setProducts(data);
+      setProducts((previous) => (data.length ? data : previous));
       setLoading(false);
     }
 
     load();
+
+    if (initialCategories.length > 0) {
+      setLoading(initialProducts.length === 0);
+      return () => {
+        cancelled = true;
+      };
+    }
 
     getDocs(collection(db, 'categories'))
       .then((snapshot) => {

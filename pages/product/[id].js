@@ -18,6 +18,7 @@ import {
 
 import { auth, db, provider } from '../../firebase/firebase-config';
 import { fetchProducts } from '../../lib/products';
+import { fetchProductsServer } from '../../lib/firestore-server';
 import {
   findProductByParam,
   formatPrice,
@@ -35,17 +36,28 @@ function categoriesOf(product) {
   return [];
 }
 
-export default function ProductPage() {
+export async function getServerSideProps({ params }) {
+  const products = await fetchProductsServer();
+  const product = findProductByParam(products, params.id);
+
+  if (!product) {
+    return { notFound: true };
+  }
+
+  return { props: { initialProduct: product } };
+}
+
+export default function ProductPage({ initialProduct }) {
   const router = useRouter();
   const param = router.query.id;
 
-  const [product, setProduct] = useState(null);
+  const [product, setProduct] = useState(initialProduct || null);
   const [reviews, setReviews] = useState([]);
   const [user, setUser] = useState(null);
   const [reviewText, setReviewText] = useState('');
   const [rating, setRating] = useState(5);
   const [hoverRating, setHoverRating] = useState(0);
-  const [loadingProduct, setLoadingProduct] = useState(true);
+  const [loadingProduct, setLoadingProduct] = useState(!initialProduct);
   const [loadingReviews, setLoadingReviews] = useState(true);
   const [error, setError] = useState(null);
   const [liked, setLiked] = useState(false);
@@ -62,6 +74,17 @@ export default function ProductPage() {
   useEffect(() => {
     if (!param) return;
     let cancelled = false;
+
+    if (
+      initialProduct &&
+      findProductByParam([initialProduct], param) === initialProduct
+    ) {
+      setProduct(initialProduct);
+      setLoadingProduct(false);
+      return () => {
+        cancelled = true;
+      };
+    }
 
     setLoadingProduct(true);
     fetchProducts()
