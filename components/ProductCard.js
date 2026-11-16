@@ -52,6 +52,18 @@ export default function ProductCard({ product, liked, onLike }) {
           </div>
         </div>
       </Link>
+
+      {product.link ? (
+        <a
+          href={product.link}
+          target="_blank"
+          rel="noopener noreferrer sponsored"
+          className="card-buy"
+        >
+          לרכישה מאליאקספרס
+          <span aria-hidden="true">←</span>
+        </a>
+      ) : null}
     </article>
   );
 }

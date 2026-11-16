@@ -123,6 +123,32 @@
   color: var(--muted);
 }
 
+.card-buy {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin: 0 12px 12px;
+  padding: 9px 12px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  color: #fff;
+  font-size: 0.84rem;
+  font-weight: 700;
+  text-align: center;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
+}
+
+.card-buy:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.05);
+  box-shadow: 0 10px 20px -12px var(--accent);
+}
+
+body.dark .card-buy {
+  color: #0b1020;
+}
+
 .card-like,
 .like-button,
 .like-btn {

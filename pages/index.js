@@ -208,7 +208,7 @@ export default function Home({ initialProducts = [], initialCategories = [] }) {
             </h1>
             <p className="hero-sub">
               מוצרים נבחרים מאליאקספרס עם דירוג גבוה ומכירות אמיתיות, מסודרים
-              לפי קטגוריות, במחירים בשקלים ומשלוח לישראל.
+              לפי קטגוריות, עם משלוח לישראל.
             </p>
 
             <div className="search-wrap">
@@ -253,12 +253,11 @@ export default function Home({ initialProducts = [], initialCategories = [] }) {
 
             <div className="hero-stats">
               <span className="hero-stat">
-                <b>{products.length}</b> מוצרים נבחרים
+                <b>{sorted.length}</b> מוצרים נבחרים
               </span>
               <span className="hero-stat">
                 <b>{categories.length}</b> קטגוריות
               </span>
-              <span className="hero-stat">מחירים בשקלים</span>
             </div>
           </section>
 
