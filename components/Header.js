@@ -24,6 +24,7 @@ export default function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [categories, setCategories] = useState([ALL_PRODUCTS]);
   const [darkMode, setDarkMode] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
 
   const dropdownRef = useRef(null);
   const avatarRef = useRef(null);
@@ -111,6 +112,7 @@ export default function Header() {
   function handleCategoryClick(name) {
     router.push(`/category?cat=${encodeURIComponent(name)}`);
     setMenuOpen(false);
+    setMoreOpen(false);
     setProfileDropdownVisible(false);
   }
 
@@ -123,6 +125,9 @@ export default function Header() {
   }
 
   const activeCategory = router.query.cat || ALL_PRODUCTS;
+  // שורת הניווט מציגה קבוצה מצומצמת, וכל השאר נפתח בתפריט "עוד קטגוריות".
+  const featuredCategories = categories.slice(0, 8);
+  const restCategories = categories.slice(8);
 
   return (
     <header className={styles.stickyHeader}>
@@ -242,7 +247,7 @@ export default function Header() {
           }`}
           aria-label="קטגוריות"
         >
-          {categories.map((name) => (
+          {featuredCategories.map((name) => (
             <button
               key={name}
               type="button"
@@ -254,6 +259,41 @@ export default function Header() {
               {name}
             </button>
           ))}
+
+          {restCategories.length > 0 ? (
+            <button
+              type="button"
+              className={`${styles.navCategoriesButton} ${styles.navMore} ${
+                restCategories.includes(activeCategory) ? styles.activeButton : ''
+              }`}
+              onClick={() => setMoreOpen((previous) => !previous)}
+              aria-expanded={moreOpen ? 'true' : 'false'}
+            >
+              עוד קטגוריות
+              <span aria-hidden="true">{moreOpen ? '▴' : '▾'}</span>
+            </button>
+          ) : null}
+
+          {restCategories.length > 0 ? (
+            <div
+              className={`${styles.navRest} ${
+                moreOpen ? styles.navRestOpen : ''
+              }`}
+            >
+              {restCategories.map((name) => (
+                <button
+                  key={name}
+                  type="button"
+                  onClick={() => handleCategoryClick(name)}
+                  className={`${styles.navRestButton} ${
+                    activeCategory === name ? styles.navRestButtonActive : ''
+                  }`}
+                >
+                  {name}
+                </button>
+              ))}
+            </div>
+          ) : null}
         </nav>
       </div>
     </header>

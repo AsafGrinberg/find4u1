@@ -16,7 +16,7 @@ import {
 import { auth, db } from '../firebase/firebase-config';
 import { fetchProducts } from '../lib/products.module';
 import { readGuestLikes, toggleGuestLike } from '../lib/likes';
-import { createdAtValue, dedupeProducts } from '../lib/urls';
+import { createdAtValue, dedupeProducts, SITE_URL } from '../lib/urls';
 import ProductCard from '../components/ProductCard';
 
 export default function Home() {
@@ -154,6 +154,23 @@ export default function Home() {
         />
         <meta property="og:type" content="website" />
         <meta property="og:locale" content="he_IL" />
+        <meta property="og:site_name" content="Find4U" />
+        <link rel="canonical" href={SITE_URL} />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              '@context': 'https://schema.org',
+              '@type': 'WebSite',
+              name: 'Find4U',
+              alternateName: 'Find4U — כל מה שחיפשתם במקום אחד',
+              url: SITE_URL,
+              inLanguage: 'he-IL',
+              description:
+                'מוצרים נבחרים מאליאקספרס במקום אחד, מסודרים לפי קטגוריות, במחירים בשקלים ומשלוח לישראל.',
+            }),
+          }}
+        />
       </Head>
 
       <main dir="rtl">

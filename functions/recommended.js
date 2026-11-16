@@ -147,14 +147,58 @@ function shekels(value) {
   return `${value.toFixed(2)} ₪`;
 }
 
+function imageUrl(value) {
+  const url = String(value || "").trim();
+  if (!url) return "";
+  if (url.startsWith("//")) return `https:${url}`;
+  return url.replace(/^http:\/\//, "https://");
+}
+
+function smallImages(product) {
+  const small = product.product_small_image_urls;
+  if (!small) return [];
+  if (Array.isArray(small)) return small;
+  if (Array.isArray(small.string)) return small.string;
+  if (typeof small.string === "string") return [small.string];
+  return [];
+}
+
 function mainImage(product) {
-  if (product.product_main_image_url) return product.product_main_image_url;
+  if (product.product_main_image_url) {
+    return imageUrl(product.product_main_image_url);
+  }
 
-  const small = product.product_small_image_urls &&
-    product.product_small_image_urls.string;
-  if (Array.isArray(small) && small.length > 0) return small[0];
+  const first = smallImages(product)[0];
+  if (first) return imageUrl(first);
 
-  return product.image_url || "";
+  return imageUrl(product.image_url);
+}
+
+// כל תמונות המוצר: הראשית ואחריה כל התמונות שהחיפוש מחזיר.
+function galleryImages(product) {
+  const all = [mainImage(product)]
+    .concat(smallImages(product).map(imageUrl))
+    .filter(Boolean);
+  return [...new Set(all)].slice(0, 9);
+}
+
+// קישור לסרטון המוצר, אם המוכר העלה כזה. ה-API מחזיר אותו בשדה
+// product_video_url, ולפעמים בתוך ae_multimedia_info_dto.
+function productVideoUrl(product) {
+  const direct = imageUrl(product.product_video_url);
+  if (direct) return direct;
+
+  const media = product.ae_multimedia_info_dto;
+  if (!media) return "";
+
+  if (typeof media.video_urls === "string") {
+    const first = media.video_urls.split(";")[0];
+    if (first) return imageUrl(first);
+  }
+  if (Array.isArray(media.video_urls) && media.video_urls.length > 0) {
+    return imageUrl(media.video_urls[0]);
+  }
+  return "";
 }
 
 function ratingOutOfFive(product) {
@@ -562,6 +606,24 @@ async function postProductToTelegram(product, affiliateLink, nameHe, slug) {
     caption: caption,
     parse_mode: "HTML",
   });
+
+  // אם למוצר יש סרטון, עולה כפוסט נוסף מיד אחרי התמונה.
+  const video = productVideoUrl(product);
+  if (video) {
+    try {
+      await telegramRequest("sendVideo", {
+        chat_id: TELEGRAM_CHANNEL,
+        video: video,
+        caption: `סרטון של ${escapeHtml(nameHe)}`,
+        parse_mode: "HTML",
+        supports_streaming: true,
+      });
+    } catch (error) {
+      console.error(
+        `[recommended] video upload failed for ${product.product_id}: ${error.message}`
+      );
+    }
+  }
 }
 
 // ---------------------------------------------------------------------
@@ -632,8 +694,9 @@ async function saveProduct(product, affiliateLink, nameHe, categoryHe, slug) {
     currency: "ILS",
     category: [categoryHe],
     image: mainImage(product),
-    gallery: mainImage(product) ? [mainImage(product)] : [],
+    gallery: galleryImages(product),
     videos: [],
+    videoUrl: productVideoUrl(product),
     updatedAt: new Date().toISOString(),
     source: "aliexpress",
     sourceId: String(product.product_id),
@@ -801,6 +864,8 @@ module.exports = {
     searchProducts,
     isRecommended,
     mainImage,
+    galleryImages,
+    productVideoUrl,
     ratingOutOfFive,
     salePrice,
     originalPrice,

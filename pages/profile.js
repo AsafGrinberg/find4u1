@@ -1,203 +1,205 @@
-// pages/profile.js
-import { useState, useEffect } from 'react';
-import { auth, db } from '../firebase/firebase-config';
-import { onAuthStateChanged } from 'firebase/auth';
-import { signOut } from 'firebase/auth';
-import { doc, getDoc, collection, getDocs, deleteDoc, setDoc } from 'firebase/firestore';
+import { useEffect, useState } from 'react';
+import Head from 'next/head';
 import { useRouter } from 'next/router';
-import { updateDoc, increment } from 'firebase/firestore';
-import Tabs from '../components/ProfileCards';
+import { onAuthStateChanged, signOut } from 'firebase/auth';
+import {
+  collection,
+  deleteDoc,
+  doc,
+  getDoc,
+  getDocs,
+  increment,
+  setDoc,
+  updateDoc,
+} from 'firebase/firestore';
+
+import { auth, db } from '../firebase/firebase-config';
+import { fetchProducts } from '../lib/products.module';
+import ProfileCards from '../components/ProfileCards';
 
 export default function Profile() {
   const router = useRouter();
 
-  // States
-  const [likedProductsArray, setLikedProductsArray] = useState([]);
   const [user, setUser] = useState(null);
   const [userData, setUserData] = useState(null);
-const [likedProducts, setLikedProducts] = useState(new Set());
+  const [likedProducts, setLikedProducts] = useState(new Set());
+  const [likedProductsArray, setLikedProductsArray] = useState([]);
   const [userReviews, setUserReviews] = useState([]);
-  const [loadingProfile, setLoadingProfile] = useState(true);
   const [loadingLikes, setLoadingLikes] = useState(true);
   const [loadingReviews, setLoadingReviews] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
-const [hoveredProductId, setHoveredProductId] = useState(null);
 
-async function toggleLike(productId) {
-  if (!user) {
-    alert('אנא התחבר כדי לעשות לייק למוצר');
-    return;
-  }
-
-  const userLikeRef = doc(db, 'users', user.uid, 'likedProducts', productId);
-  const productRef = doc(db, 'products', productId);
-
-  if (likedProducts.has(productId)) {
-    await deleteDoc(userLikeRef);
-    await updateDoc(productRef, { likesCount: increment(-1) });
-    setLikedProducts(prev => {
-      const newSet = new Set(prev);
-      newSet.delete(productId);
-      return newSet;
-    });
-    setLikedProductsArray(prev => prev.filter(p => p.id !== productId));
-  } else {
-    await setDoc(userLikeRef, {
-      productId,
-      timestamp: new Date().toISOString(),
-    });
-    await updateDoc(productRef, { likesCount: increment(1) });
-    setLikedProducts(prev => new Set(prev).add(productId));
-    // לא צריך להוסיף למערך כי זה פרופיל, מוצרים מגיעים מ־loadLikedProducts
-  }
-}
-
-
-  // Helper to load user profile data
-  async function loadUserProfileData(user) {
-    const userDocRef = doc(db, "users", user.uid);
-    const userDocSnap = await getDoc(userDocRef);
-    if (userDocSnap.exists()) {
-      const data = userDocSnap.data();
-      setUserData(data);
-      setIsAdmin(data.isAdmin === true);
-    } else {
-      // Create user doc if missing
-      await setDoc(userDocRef, {
-        uid: user.uid,
-        email: user.email,
-        displayName: user.displayName || user.email,
-        createdAt: new Date().toISOString(),
-        isAdmin: false,
-      });
-      setUserData({
-        uid: user.uid,
-        email: user.email,
-        displayName: user.displayName || user.email,
-        isAdmin: false,
-      });
-      setIsAdmin(false);
-    }
-  }
-
-  // Load liked products
-async function loadLikedProducts(uid) {
-  const likedSnapshot = await getDocs(collection(db, 'users', uid, 'likedProducts'));
-  const likedSet = new Set();
-  const productsArray = [];
-
-  for (const docSnap of likedSnapshot.docs) {
-    const productId = docSnap.id;
-    likedSet.add(productId);
-    const productDoc = await getDoc(doc(db, 'products', productId));
-    if (productDoc.exists()) {
-      productsArray.push({ id: productDoc.id, ...productDoc.data() });
-    }
-  }
-
-  setLikedProducts(likedSet);
-  setLikedProductsArray(productsArray); // ניצור state חדש למוצרים עצמם
-}
-
-
-
-
-  // Load user reviews
-  async function loadUserReviews(uid) {
-    const reviews = [];
-    const productsSnapshot = await getDocs(collection(db, 'products'));
-    for (const productDoc of productsSnapshot.docs) {
-      const reviewsRef = collection(db, 'products', productDoc.id, 'reviews');
-      const reviewsSnap = await getDocs(reviewsRef);
-      reviewsSnap.forEach((docSnap) => {
-        const data = docSnap.data();
-        if (data.userId === uid) {
-          reviews.push({
-            id: docSnap.id,
-            productId: productDoc.id,
-            productTitle: productDoc.data().name,
-            ...data,
-          });
-        }
-      });
-    }
-    setUserReviews(reviews);
-  }
-function removeReviewById(id) {
-  setUserReviews(prev => prev.filter(review => review.id !== id));
-}
-
-  // Sign out handler
-  const handleLogout = async () => {
-    try {
-      await signOut(auth);
-      router.push('/');
-    } catch (err) {
-      alert("שגיאה בהתנתקות: " + err.message);
-    }
-  };
-
-  // On mount: listen to auth changes
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (!user) {
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      if (!currentUser) {
         router.push('/');
         return;
       }
-      setUser(user);
-      await loadUserProfileData(user);
-      setLoadingProfile(false);
+      setUser(currentUser);
 
-      await loadLikedProducts(user.uid);
-      setLoadingLikes(false);
+      try {
+        const userRef = doc(db, 'users', currentUser.uid);
+        const snapshot = await getDoc(userRef);
 
-      await loadUserReviews(user.uid);
-      setLoadingReviews(false);
+        if (snapshot.exists()) {
+          setUserData(snapshot.data());
+          setIsAdmin(snapshot.data().isAdmin === true);
+        } else {
+          const fresh = {
+            uid: currentUser.uid,
+            email: currentUser.email,
+            displayName: currentUser.displayName || currentUser.email,
+            createdAt: new Date().toISOString(),
+            isAdmin: false,
+          };
+          await setDoc(userRef, fresh);
+          setUserData(fresh);
+        }
+      } catch {
+        setUserData({ displayName: currentUser.displayName, email: currentUser.email });
+      }
+
+      loadLikedProducts(currentUser.uid).finally(() => setLoadingLikes(false));
+      loadUserReviews(currentUser.uid).finally(() => setLoadingReviews(false));
     });
+
     return () => unsubscribe();
   }, [router]);
 
+  // שאיבת כל המוצרים פעם אחת במקום בקשה נפרדת לכל מוצר שאהבנו.
+  async function loadLikedProducts(uid) {
+    try {
+      const [likedSnapshot, products] = await Promise.all([
+        getDocs(collection(db, 'users', uid, 'likedProducts')),
+        fetchProducts(),
+      ]);
+      const byId = new Map(products.map((product) => [product.id, product]));
+      const ids = likedSnapshot.docs.map((item) => item.id);
+
+      setLikedProducts(new Set(ids));
+      setLikedProductsArray(
+        ids.map((id) => byId.get(id)).filter(Boolean)
+      );
+    } catch {
+      setLikedProducts(new Set());
+      setLikedProductsArray([]);
+    }
+  }
+
+  async function loadUserReviews(uid) {
+    try {
+      const products = await fetchProducts();
+      const results = [];
+
+      for (const product of products) {
+        const snapshot = await getDocs(
+          collection(db, 'products', product.id, 'reviews')
+        );
+        snapshot.forEach((item) => {
+          const data = item.data();
+          if (data.userId === uid) {
+            results.push({
+              id: item.id,
+              productId: product.id,
+              productTitle: product.name,
+              ...data,
+            });
+          }
+        });
+      }
+
+      setUserReviews(results);
+    } catch {
+      setUserReviews([]);
+    }
+  }
+
+  async function toggleLike(productId) {
+    if (!user) return;
+
+    const likeRef = doc(db, 'users', user.uid, 'likedProducts', productId);
+    const productRef = doc(db, 'products', productId);
+
+    try {
+      if (likedProducts.has(productId)) {
+        await deleteDoc(likeRef);
+        await updateDoc(productRef, { likesCount: increment(-1) });
+        setLikedProducts((previous) => {
+          const next = new Set(previous);
+          next.delete(productId);
+          return next;
+        });
+        setLikedProductsArray((previous) =>
+          previous.filter((product) => product.id !== productId)
+        );
+      } else {
+        await setDoc(likeRef, {
+          productId,
+          timestamp: new Date().toISOString(),
+        });
+        await updateDoc(productRef, { likesCount: increment(1) });
+        setLikedProducts((previous) => new Set(previous).add(productId));
+      }
+    } catch {
+      // לא חוסמים את המשתמש על מונה לייקים
+    }
+  }
+
+  function removeReviewById(id) {
+    setUserReviews((previous) => previous.filter((review) => review.id !== id));
+  }
+
+  async function handleLogout() {
+    try {
+      await signOut(auth);
+      router.push('/');
+    } catch {
+      // התנתקות נכשלה - נשארים בדף
+    }
+  }
+
   return (
-<main style={{ paddingTop: '160px', maxWidth: 800, margin: 'auto', textAlign: 'center' }}>
-  {loadingProfile ? (
-    <p>טוען פרופיל...</p>
-  ) : (
     <>
-      {isAdmin && (
-        <button
-          style={{
-            backgroundColor: '#28a745',
-            color: 'white',
-            border: 'none',
-            borderRadius: 5,
-            cursor: 'pointer',
-            marginBottom: 10,
-            padding: '10px 20px',
-          }}
-          onClick={() => router.push('/admin')}
-        >
-          לוח בקרה לאדמין
-        </button>
-      )}
+      <Head>
+        <title>הפרופיל שלי — Find4U</title>
+        <meta name="robots" content="noindex" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+      </Head>
 
-      <h1>הפרופיל שלי</h1>
+      <main dir="rtl">
+        <div className="page-shell profile-shell">
+          <section className="hero profile-hero">
+            <h1 className="hero-title">הפרופיל שלי</h1>
+            <p className="hero-sub">
+              {userData?.displayName
+                ? `שלום ${userData.displayName}`
+                : 'המוצרים ששמרת והביקורות שכתבת'}
+            </p>
 
-      {/* טאבים */}
-      <Tabs
-        userData={userData}
-        likedProductsArray={likedProductsArray}
-        likedProducts={likedProducts}
-        toggleLike={toggleLike}
-        hoveredProductId={hoveredProductId}
-        setHoveredProductId={setHoveredProductId}
-        userReviews={userReviews}
-        loadingLikes={loadingLikes}
-        loadingReviews={loadingReviews}
-        handleLogout={handleLogout}
-          removeReviewById={removeReviewById}   // הוסף פה
-      />
+            {isAdmin ? (
+              <button
+                type="button"
+                className="profile-admin-btn"
+                onClick={() => router.push('/admin')}
+              >
+                לוח הבקרה לאדמין
+              </button>
+            ) : null}
+          </section>
+
+          <ProfileCards
+            userData={userData}
+            likedProductsArray={likedProductsArray}
+            likedProducts={likedProducts}
+            toggleLike={toggleLike}
+            userReviews={userReviews}
+            loadingLikes={loadingLikes}
+            loadingReviews={loadingReviews}
+            handleLogout={handleLogout}
+            removeReviewById={removeReviewById}
+          />
+        </div>
+      </main>
     </>
-  )}
-</main>
   );
 }

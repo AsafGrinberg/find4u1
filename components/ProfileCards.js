@@ -1,181 +1,186 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import Link from 'next/link';
 import { deleteDoc, doc } from 'firebase/firestore';
-import { db } from '../firebase/firebase-config'; // אם לא יובא כבר
 
-function ProfileCards({
+import { db } from '../firebase/firebase-config';
+import { productHref, formatPrice } from '../lib/urls';
+
+function Stars({ value }) {
+  const filled = Math.max(0, Math.min(5, Number(value) || 0));
+  return (
+    <span className="profile-stars" aria-label={`${filled} מתוך 5`}>
+      {'★'.repeat(filled)}
+      <span className="profile-stars-empty">{'★'.repeat(5 - filled)}</span>
+    </span>
+  );
+}
+
+export default function ProfileCards({
   userData,
   likedProductsArray,
   likedProducts,
   toggleLike,
-  hoveredProductId,
-  setHoveredProductId,
   userReviews,
   loadingLikes,
   loadingReviews,
   handleLogout,
   removeReviewById,
 }) {
-
   const [expandedReviews, setExpandedReviews] = useState({});
-function toggleReviewExpand(id) {
-  setExpandedReviews(prev => ({
-    ...prev,
-    [id]: !prev[id],
-  }));
-}
-
-  const cardStyle = {
-    border: '1px solid #ccc',
-    borderRadius: 8,
-    padding: 20,
-    marginBottom: 30,
-    background: '#fff',
-    boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-    textAlign: 'right',
-  };
 
   return (
     <>
-      <section style={cardStyle}>
-        <h2>פרטים אישיים</h2>
-        <p>ברוך הבא, <strong>{userData?.displayName || 'משתמש'}</strong></p>
+      <section className="profile-card">
+        <div className="profile-card-head">
+          <h2>פרטים אישיים</h2>
+        </div>
+        <div className="profile-details">
+          <div className="profile-detail">
+            <span className="profile-detail-label">שם</span>
+            <span className="profile-detail-value">
+              {userData?.displayName || 'משתמש'}
+            </span>
+          </div>
+          <div className="profile-detail">
+            <span className="profile-detail-label">אימייל</span>
+            <span className="profile-detail-value">{userData?.email || '—'}</span>
+          </div>
+        </div>
       </section>
 
-      <section style={cardStyle}>
-        <h2>מוצרים שאהבתי</h2>
+      <section className="profile-card">
+        <div className="profile-card-head">
+          <h2>מוצרים שמורים</h2>
+          <span className="profile-card-count">
+            {loadingLikes ? 'טוען...' : `${likedProductsArray.length} מוצרים`}
+          </span>
+        </div>
+
         {loadingLikes ? (
-          <p>טוען...</p>
+          <p className="profile-muted">טוען מוצרים...</p>
         ) : likedProductsArray.length === 0 ? (
-          <p>לא סימנת לייק עדיין</p>
+          <p className="profile-muted">
+            עדיין לא שמרת מוצרים. לחצו על הלב בכל כרטיס מוצר והוא יופיע כאן.
+          </p>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(150px,1fr))', gap: 10 }}>
-            {likedProductsArray.map(product => (
-              <div key={product.id} style={{ position: 'relative', border: '1px solid #ccc', borderRadius: 6, overflow: 'hidden', background: '#fff' }}>
-                {/* לייק */}
+          <div className="profile-liked-grid">
+            {likedProductsArray.map((product) => (
+              <article key={product.id} className="profile-liked">
                 <button
-                  onClick={(e) => {
-                    e.preventDefault();
-                    toggleLike(product.id);
-                  }}
-                  onMouseEnter={() => setHoveredProductId(product.id)}
-                  onMouseLeave={() => setHoveredProductId(null)}
-                  style={{
-                    position: 'absolute',
-                    top: 10,
-                    left: 10,
-                    background: 'none',
-                    border: 'none',
-                    cursor: 'pointer',
-                    fontSize: 24,
-                    color: hoveredProductId === product.id ? '#ff69b4' : likedProducts.has(product.id) ? 'red' : 'black',
-                  }}
+                  type="button"
+                  className="profile-liked-remove"
+                  onClick={() => toggleLike(product.id)}
+                  aria-label="הסר מהמוצרים השמורים"
+                  title="הסר מהמוצרים השמורים"
                 >
-                  {hoveredProductId === product.id ? '💗' : likedProducts.has(product.id) ? '❤️' : '🤍'}
+                  {likedProducts.has(product.id) ? '♥' : '♡'}
                 </button>
 
-                <a href={`/product/${product.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
-                  <img src={product.image} alt={product.name} style={{ width: '100%', height: 200, objectFit: 'cover' }} />
-                  <div style={{ padding: 10 }}>
-                    <p style={{ margin: 0, fontWeight: 'bold' }}>{product.name}</p>
-                    {typeof product.price === 'number' && product.price > 0 && (
-                      <p style={{ margin: 0 }}>₪{product.price.toFixed(2)}</p>
-                    )}
+                <Link href={productHref(product)} className="profile-liked-link">
+                  {product.image ? (
+                    <img src={product.image} alt={product.name} loading="lazy" />
+                  ) : null}
+                  <div className="profile-liked-body">
+                    <h3>{product.name}</h3>
+                    {formatPrice(product.price) ? (
+                      <span className="profile-liked-price">
+                        {formatPrice(product.price)} ₪
+                      </span>
+                    ) : null}
                   </div>
-                </a>
-              </div>
+                </Link>
+              </article>
             ))}
           </div>
         )}
       </section>
 
-      <section style={cardStyle}>
-        <h2>הביקורות שלי</h2>
-        {loadingReviews ? (
-          <p>טוען...</p>
-        ) : userReviews.length === 0 ? (
-          <p>לא כתבת ביקורות</p>
-        ) : (
-          <div>
-            {userReviews.map((review) => {
-              const dateObj = review.createdAt?.toDate ? review.createdAt.toDate() : new Date(review.createdAt);
-              const dateStr = dateObj.toLocaleDateString('he-IL');
-              const timeStr = dateObj.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
-              const stars = '⭐'.repeat(review.rating);
-              return (
-                <div key={review.id} style={{ border: '1px solid #ccc', borderRadius: 6, padding: 10, marginBottom: 10, background: '#fff', position: 'relative' }}>
-                  <div style={{ fontWeight: 'bold' }}>
-                    {review.userName || 'משתמש'} - {stars} <a href={`/product/${review.productId}`}>{review.productTitle}</a>
-                  </div>
-<div style={{
-  whiteSpace: 'normal',
-  wordWrap: 'break-word',
-  overflowWrap: 'break-word',
-}}>                
-  {expandedReviews[review.id] || review.text.length <= 200
-    ? review.text
-    : review.text.slice(0, 200) + '...'}
-  {review.text.length > 200 && (
-    <button
-      onClick={() => toggleReviewExpand(review.id)}
-      style={{
-        color: 'blue',
-        background: 'none',
-        border: 'none',
-        cursor: 'pointer',
-        padding: 0,
-        marginLeft: '8px',
-        textDecoration: 'underline',
-        fontSize: '0.9rem',
-      }}
-      aria-label={expandedReviews[review.id] ? 'הצג פחות' : 'קרא עוד'}
-    >
-      {expandedReviews[review.id] ? 'קרא פחות' : 'קרא עוד'}
-    </button>
-  )}
-</div>
-                  <div style={{ fontSize: 12, color: '#666', marginTop: 5 }}>{dateStr} בשעה {timeStr}</div>
-                  <button
-  onClick={async () => {
-    if (confirm('למחוק ביקורת?')) {
-      try {
-        await deleteDoc(doc(db, 'products', review.productId, 'reviews', review.id));
-        removeReviewById(review.id);  // כאן מעדכנים את ה־state בפרופיל
-      } catch (err) {
-        alert('שגיאה: ' + err.message);
-      }
-    }
-  }}
-  style={{ position: 'absolute', top: 5, left: 5, background: 'none', border: 'none', fontSize: 18, color: 'red' }}
->
-  ×
-</button>
+      <section className="profile-card">
+        <div className="profile-card-head">
+          <h2>הביקורות שלי</h2>
+          <span className="profile-card-count">
+            {loadingReviews ? 'טוען...' : `${userReviews.length} ביקורות`}
+          </span>
+        </div>
 
-                </div>
+        {loadingReviews ? (
+          <p className="profile-muted">טוען ביקורות...</p>
+        ) : userReviews.length === 0 ? (
+          <p className="profile-muted">עדיין לא כתבת ביקורות.</p>
+        ) : (
+          <div className="profile-review-list">
+            {userReviews.map((review) => {
+              const date = review.createdAt?.toDate
+                ? review.createdAt.toDate()
+                : new Date(review.createdAt);
+              const text = review.text || '';
+              const expanded = expandedReviews[review.id];
+              const isLong = text.length > 200;
+
+              return (
+                <article key={review.id} className="profile-review">
+                  <div className="profile-review-head">
+                    <Link
+                      href={`/product/${encodeURIComponent(review.productId)}`}
+                      className="profile-review-product"
+                    >
+                      {review.productTitle}
+                    </Link>
+                    <Stars value={review.rating} />
+                  </div>
+
+                  <p className="profile-review-text">
+                    {expanded || !isLong ? text : `${text.slice(0, 200)}...`}
+                    {isLong ? (
+                      <button
+                        type="button"
+                        className="profile-review-more"
+                        onClick={() =>
+                          setExpandedReviews((previous) => ({
+                            ...previous,
+                            [review.id]: !previous[review.id],
+                          }))
+                        }
+                      >
+                        {expanded ? 'הצג פחות' : 'קרא עוד'}
+                      </button>
+                    ) : null}
+                  </p>
+
+                  <div className="profile-review-foot">
+                    <span>
+                      {Number.isNaN(date.getTime())
+                        ? ''
+                        : date.toLocaleDateString('he-IL')}
+                    </span>
+                    <button
+                      type="button"
+                      className="profile-review-delete"
+                      onClick={async () => {
+                        if (!confirm('למחוק את הביקורת?')) return;
+                        try {
+                          await deleteDoc(
+                            doc(db, 'products', review.productId, 'reviews', review.id)
+                          );
+                          removeReviewById(review.id);
+                        } catch {
+                          // מחיקה נכשלה - הביקורת נשארת ברשימה
+                        }
+                      }}
+                    >
+                      מחיקה
+                    </button>
+                  </div>
+                </article>
               );
             })}
           </div>
         )}
       </section>
 
-      <button
-        onClick={handleLogout}
-        style={{
-          backgroundColor: '#c0392b',
-          color: 'white',
-          border: 'none',
-          borderRadius: 5,
-          cursor: 'pointer',
-          width: '90%',
-          maxWidth: 80,
-          margin: '40px auto',
-          display: 'block',
-          padding: '10px 10px',
-        }}
-      >
-        התנתק
+      <button type="button" className="profile-logout" onClick={handleLogout}>
+        התנתקות
       </button>
     </>
   );
 }
-
-export default ProfileCards;

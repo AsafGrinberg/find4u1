@@ -192,6 +192,7 @@
 /* ---------- Category bar (single source of navigation) ---------- */
 
 .navBar {
+  position: relative;
   border-top: 1px solid var(--border);
   background: color-mix(in srgb, var(--surface-2) 55%, transparent);
 }
@@ -247,6 +248,62 @@ body.dark .activeButton:hover {
   color: var(--text);
 }
 
+.navMore {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--accent);
+}
+
+.navRest {
+  display: none;
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 20px;
+  z-index: 30;
+  width: min(560px, calc(100vw - 40px));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  padding: 12px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  box-shadow: var(--shadow-lg);
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.navRestOpen {
+  display: grid;
+}
+
+.navRestButton {
+  padding: 10px 12px;
+  border-radius: 9px;
+  border: 1px solid transparent;
+  background: var(--surface-2);
+  color: var(--text-soft);
+  font-size: 0.86rem;
+  font-weight: 600;
+  text-align: right;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.navRestButton:hover {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.navRestButtonActive,
+.navRestButtonActive:hover {
+  background: var(--accent);
+  color: var(--accent-contrast);
+}
+
 @media (max-width: 980px) {
   .siteTitle {
     display: none;
@@ -298,5 +355,23 @@ body.dark .activeButton:hover {
     background: var(--surface-2);
     border-color: var(--border);
     border-radius: 10px;
+  }
+
+  .navMore {
+    display: none;
+  }
+
+  .navRest,
+  .navRestOpen {
+    display: flex;
+    position: static;
+    flex-wrap: wrap;
+    width: auto;
+    max-height: none;
+    padding: 0;
+    border: none;
+    background: transparent;
+    box-shadow: none;
+    gap: 6px;
   }
 }

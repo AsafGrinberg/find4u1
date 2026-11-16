@@ -436,6 +436,17 @@ body.dark .chipStar {
   box-shadow: 0 14px 24px -16px var(--accent);
 }
 
+.productVideo {
+  display: block;
+  width: 100%;
+  max-width: 760px;
+  margin: 0 auto;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: #000;
+  box-shadow: var(--shadow-sm);
+}
+
 .loginHint {
   display: flex;
   align-items: center;

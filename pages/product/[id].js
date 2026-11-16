@@ -18,7 +18,13 @@ import {
 
 import { auth, db, provider } from '../../firebase/firebase-config';
 import { fetchProducts } from '../../lib/products';
-import { findProductByParam, formatPrice, discountOf } from '../../lib/urls';
+import {
+  findProductByParam,
+  formatPrice,
+  discountOf,
+  productSlug,
+  SITE_URL,
+} from '../../lib/urls';
 import { readGuestLikes, toggleGuestLike } from '../../lib/likes';
 import styles from '../../styles/product.module.css';
 
@@ -247,6 +253,70 @@ export default function ProductPage() {
         />
         {product.image ? <meta property="og:image" content={product.image} /> : null}
         <meta property="og:type" content="product" />
+        <link
+          rel="canonical"
+          href={`${SITE_URL}/product/${encodeURIComponent(productSlug(product))}`}
+        />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              '@context': 'https://schema.org',
+              '@type': 'Product',
+              name: product.name,
+              description: (product.description || product.name || '').slice(0, 300),
+              image: uniqueImages.slice(0, 6),
+              ...(product.sourceTitle ? { alternateName: product.sourceTitle } : {}),
+              ...(categoriesOf(product).length
+                ? { category: categoriesOf(product)[0] }
+                : {}),
+              ...(Number(product.rating)
+                ? {
+                    aggregateRating: {
+                      '@type': 'AggregateRating',
+                      ratingValue: Number(product.rating).toFixed(1),
+                      bestRating: '5',
+                      ratingCount: Math.max(1, Number(product.sales) || 1),
+                    },
+                  }
+                : {}),
+              offers: {
+                '@type': 'Offer',
+                priceCurrency: 'ILS',
+                price: Number(product.price) || 0,
+                availability: 'https://schema.org/InStock',
+                url: `${SITE_URL}/product/${encodeURIComponent(productSlug(product))}`,
+              },
+            }),
+          }}
+        />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              '@context': 'https://schema.org',
+              '@type': 'BreadcrumbList',
+              itemListElement: [
+                { '@type': 'ListItem', position: 1, name: 'בית', item: SITE_URL },
+                ...(productCategories[0]
+                  ? [
+                      {
+                        '@type': 'ListItem',
+                        position: 2,
+                        name: productCategories[0],
+                        item: `${SITE_URL}/category?cat=${encodeURIComponent(productCategories[0])}`,
+                      },
+                    ]
+                  : []),
+                {
+                  '@type': 'ListItem',
+                  position: productCategories[0] ? 3 : 2,
+                  name: product.name,
+                },
+              ],
+            }),
+          }}
+        />
       </Head>
 
       <main dir="rtl">
@@ -391,6 +461,20 @@ export default function ProductPage() {
               </ul>
             </section>
           </div>
+
+          {product.videoUrl ? (
+            <section className={styles.section} aria-label="סרטון המוצר">
+              <h2 className={styles.sectionTitle}>סרטון המוצר</h2>
+              <video
+                className={styles.productVideo}
+                src={product.videoUrl}
+                poster={uniqueImages[0] || undefined}
+                controls
+                playsInline
+                preload="none"
+              />
+            </section>
+          ) : null}
 
           {product.videos && product.videos.length > 0 ? (
             <section className={styles.section} aria-label="סרטונים">

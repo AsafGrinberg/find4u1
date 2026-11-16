@@ -12,6 +12,7 @@ import {
 } from '../firebase/firebase-config';
 
 import { CLOUDINARY_UPLOAD_PRESET, CLOUDINARY_API_URL } from '../lib/script';
+import AdminProductsTable from '../components/AdminProductsTable';
 
 // בדיקת משתמש אדמין לפי מייל
 function isAdminUser(user) {
@@ -254,6 +255,7 @@ if (!selectedCategory) {
       link: productLink.trim(),
       price: priceNum,
 category: selectedCategory,
+      categories: selectedCategory ? [selectedCategory] : [],
       image: mainImageUrl,
       gallery: galleryImageUrls,
       videos: [...videoEmbedUrls],
@@ -311,7 +313,11 @@ category: selectedCategory,
     setProductDescription(product.description || '');
     setProductLink(product.link || '');
     setProductPrice(product.price != null ? product.price.toString() : '');
-    setSelectedCategory(product.category || '');
+    setSelectedCategory(
+      Array.isArray(product.categories)
+        ? product.categories[0] || ''
+        : product.category || ''
+    );
     setMainImagePreviewUrl(product.image || '');
     setMainImageFile(null);
     setGalleryImagePreviews(product.gallery || []);
@@ -615,66 +621,13 @@ async function deleteCategory(id) {
   </ul>
 </section>
 
-      <section>
-        <h2>רשימת מוצרים ({loadingProducts ? 'טוען...' : allProducts.length})</h2>
-        <table
-          style={{
-            width: '100%',
-            borderCollapse: 'collapse',
-            direction: 'rtl',
-            textAlign: 'right',
-          }}
-        >
-          <thead>
-            <tr style={{ backgroundColor: '#ddd' }}>
-              <th style={{ border: '1px solid #aaa', padding: '8px' }}>תמונה</th>
-              <th style={{ border: '1px solid #aaa', padding: '8px' }}>שם מוצר</th>
-              <th style={{ border: '1px solid #aaa', padding: '8px' }}>קטגוריות</th>
-              <th style={{ border: '1px solid #aaa', padding: '8px' }}>מחיר</th>
-              <th style={{ border: '1px solid #aaa', padding: '8px' }}>פעולות</th>
-            </tr>
-          </thead>
-          <tbody>
-            {allProducts.map((p) => (
-              <tr key={p.id} style={{ borderBottom: '1px solid #ccc' }}>
-                <td style={{ border: '1px solid #aaa', padding: '4px' }}>
-                  {p.image ? (
-                    <img
-                      src={p.image}
-                      alt={p.name}
-                      style={{ width: 80, height: 80, objectFit: 'cover', borderRadius: 6 }}
-                    />
-                  ) : (
-                    'אין תמונה'
-                  )}
-                </td>
-                <td style={{ border: '1px solid #aaa', padding: '4px' }}>{p.name}</td>
-<td style={{ border: '1px solid #aaa', padding: '4px' }}>
-  {typeof p.category === 'string' ? p.category : (Array.isArray(p.category) ? p.category.join(', ') : '-')}
-</td>
-                <td style={{ border: '1px solid #aaa', padding: '4px' }}>
-                  {p.price != null ? p.price.toFixed(2) : '-'}
-                </td>
-                <td style={{ border: '1px solid #aaa', padding: '4px' }}>
-                  <button onClick={() => editProduct(p.id)} style={{ marginRight: 10 }}>
-                    עריכה
-                  </button>
-                  <button onClick={() => deleteProduct(p.id)} style={{ color: 'red' }}>
-                    מחיקה
-                  </button>
-                </td>
-              </tr>
-            ))}
-            {allProducts.length === 0 && (
-              <tr>
-                <td colSpan={5} style={{ padding: 15, textAlign: 'center' }}>
-                  לא נמצאו מוצרים
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </section>
+            <AdminProductsTable
+        products={allProducts}
+        loading={loadingProducts}
+        onEdit={editProduct}
+        onDelete={deleteProduct}
+      />
+
     </main>
   );
 }
