@@ -19,7 +19,7 @@ const admin = require("firebase-admin");
 const API_URL = "https://api-sg.aliexpress.com/sync";
 
 const ALIEXPRESS_APP_KEY =
-  process.env.ALIEXPRESS_APP_KEY || "516306";
+  process.env.ALIEXPRESS_APP_KEY || "517648";
 const ALIEXPRESS_APP_SECRET =
   process.env.ALIEXPRESS_APP_SECRET || "BaXt8XVfIl2kJhOU10vhgCfwkzYRIjp0";
 const ALIEXPRESS_TRACKING_ID =
