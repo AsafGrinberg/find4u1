@@ -1,54 +1,115 @@
-.search-text {
-  text-align: center;
-  font-weight: 600;
-  margin: 10px auto 4px;
-  font-size: 1rem;
+/* ============================================================
+   Search bar + autocomplete
+   ============================================================ */
+
+.search-wrap {
+  position: relative;
+  width: min(660px, 100%);
+  margin: 0 auto 8px;
 }
 
 .search-container {
-  text-align: center;
-  margin-bottom: 30px;
-  max-width: 1120px;
-  margin-left: auto;
-  margin-right: auto;
   position: relative;
+  width: min(660px, 100%);
+  margin: 0 auto;
 }
 
-.search-container input {
-  padding: 12px 20px;
-  border-radius: 30px;
-  border: 1px solid #ccc;
-  width: 300px;
-  max-width: 90%;
+.search-field {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px 6px 6px;
+  border-radius: 999px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-md);
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.search-field:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 4px var(--accent-soft), var(--shadow-md);
+}
+
+.search-icon {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--muted);
   font-size: 1rem;
-  direction: rtl;
-  text-align: right;
+}
+
+.search-input,
+#searchInput {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 12px 4px;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--text);
+  font-size: 1rem;
+  font-weight: 500;
+}
+
+.search-input::placeholder,
+#searchInput::placeholder {
+  color: var(--muted);
+  font-weight: 400;
+}
+
+.search-clear {
+  flex: 0 0 auto;
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  border: none;
+  background: var(--surface-2);
+  color: var(--muted);
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.search-clear:hover {
+  background: var(--surface-3);
+  color: var(--text);
 }
 
 .autocomplete-list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  background: #fff;
-  border: 1px solid #ccc;
-  border-radius: 0 0 10px 10px;
-  max-height: 200px;
-  overflow-y: auto;
   position: absolute;
-  top: 100%;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 300px;
-  z-index: 999;
-  direction: rtl;
-  text-align: right;
+  z-index: 60;
+  top: calc(100% + 10px);
+  right: 0;
+  left: 0;
+  margin: 0;
+  padding: 8px;
+  list-style: none;
+  border-radius: var(--radius);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-lg);
+  max-height: 340px;
+  overflow-y: auto;
 }
 
 .autocomplete-list li {
-  padding: 10px;
+  padding: 11px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 0.94rem;
+  color: var(--text-soft);
   cursor: pointer;
+  transition: background 0.14s ease, color 0.14s ease;
 }
 
-.autocomplete-list li:hover {
-  background: #f0f0f0;
+.autocomplete-list li:hover,
+.autocomplete-list li:focus {
+  background: var(--accent-soft);
+  color: var(--accent);
+  outline: none;
 }

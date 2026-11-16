@@ -1,211 +1,235 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/router';
-import {
-  collection,
-  query,
-  where,
-  getDocs,
-  doc,
-  setDoc,
-  deleteDoc,
-  updateDoc,
-  increment,
-} from 'firebase/firestore';
-import { db, auth } from '../firebase/firebase-config';
+import Head from 'next/head';
 import Link from 'next/link';
 import { onAuthStateChanged } from 'firebase/auth';
-import Head from 'next/head';
-import Fuse from 'fuse.js';
-import Header from '../components/Header';
+import {
+  collection,
+  deleteDoc,
+  doc,
+  getDocs,
+  increment,
+  setDoc,
+  updateDoc,
+} from 'firebase/firestore';
+
+import { auth, db } from '../firebase/firebase-config';
+import { fetchProducts } from '../lib/products.module';
+import { createdAtValue } from '../lib/urls';
+import ProductCard from '../components/ProductCard';
+
+function categoriesOf(product) {
+  const value = product.category;
+  if (Array.isArray(value)) return value;
+  if (typeof value === 'string' && value.trim()) return [value.trim()];
+  return [];
+}
 
 export default function CategoryPage() {
   const router = useRouter();
-  const { cat } = router.query;
+  const cat = router.query.cat;
 
-  const [products, setProducts] = useState([]);
+  const [allProducts, setAllProducts] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [loading, setLoading] = useState(true);
   const [user, setUser] = useState(null);
   const [likedProducts, setLikedProducts] = useState(new Set());
-  const [hoveredProductId, setHoveredProductId] = useState(null);
-
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filteredProducts, setFilteredProducts] = useState([]);
-  const autocompleteRef = useRef(null);
-
-  async function loadUserLikes(userId) {
-    const snapshot = await getDocs(collection(db, 'users', userId, 'likedProducts'));
-    const likedSet = new Set();
-    snapshot.forEach(doc => likedSet.add(doc.id));
-    setLikedProducts(likedSet);
-  }
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (u) => {
-      setUser(u);
-      if (u) loadUserLikes(u.uid);
-      else setLikedProducts(new Set());
+    let cancelled = false;
+
+    fetchProducts().then((data) => {
+      if (cancelled) return;
+      setAllProducts(data);
+      setLoading(false);
+    });
+
+    getDocs(collection(db, 'categories'))
+      .then((snapshot) => {
+        if (cancelled) return;
+        setCategories(
+          snapshot.docs.map((item) => item.data().name).filter(Boolean)
+        );
+      })
+      .catch(() => {});
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      setUser(currentUser);
+      if (!currentUser) {
+        setLikedProducts(new Set());
+        return;
+      }
+      try {
+        const snapshot = await getDocs(
+          collection(db, 'users', currentUser.uid, 'likedProducts')
+        );
+        setLikedProducts(new Set(snapshot.docs.map((item) => item.id)));
+      } catch {
+        setLikedProducts(new Set());
+      }
     });
     return () => unsubscribe();
   }, []);
 
-  useEffect(() => {
-    if (!cat) return;
+  const products = useMemo(() => {
+    const list = [...allProducts].sort(
+      (a, b) => createdAtValue(b) - createdAtValue(a)
+    );
+    if (!cat || cat === 'כל המוצרים') return list;
+    return list.filter((product) => categoriesOf(product).includes(cat));
+  }, [allProducts, cat]);
 
-    const fetchProducts = async () => {
-      try {
-        let q;
-        if (cat === 'כל המוצרים') {
-          q = collection(db, 'products');
-        } else {
-          q = query(
-            collection(db, 'products'),
-            where('category', 'array-contains', cat)
-          );
-        }
-
-        const snapshot = await getDocs(q);
-        const items = snapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        }));
-        setProducts(items);
-        setFilteredProducts(items);
-        setSearchTerm('');
-      } catch (error) {
-        console.error('שגיאה בטעינת מוצרים:', error);
-      }
-    };
-
-    fetchProducts();
-  }, [cat]);
-
-  useEffect(() => {
-    if (products.length === 0) return;
-
-    // כאן מחפשים לפי name ו-description (כמו ב-index.js)  
-    const fuse = new Fuse(products, {
-      keys: ['name', 'description'],
-      threshold: 0.4,
-    });
-
-    if (searchTerm.trim() === '') {
-      setFilteredProducts(products);
-    } else {
-      const results = fuse.search(searchTerm);
-      setFilteredProducts(results.map(r => r.item));
-    }
-  }, [searchTerm, products]);
+  const filteredProducts = useMemo(() => {
+    const term = searchTerm.trim().toLowerCase();
+    if (!term) return products;
+    return products.filter((product) =>
+      [product.name, product.description, ...categoriesOf(product)]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase()
+        .includes(term)
+    );
+  }, [products, searchTerm]);
 
   async function toggleLike(productId) {
     if (!user) {
-      alert('אנא התחבר כדי לעשות לייק למוצר');
+      alert('אנא התחבר כדי לשמור מוצרים');
       return;
     }
-    const userLikeRef = doc(db, 'users', user.uid, 'likedProducts', productId);
+
+    const likeRef = doc(db, 'users', user.uid, 'likedProducts', productId);
     const productRef = doc(db, 'products', productId);
 
     if (likedProducts.has(productId)) {
-      await deleteDoc(userLikeRef);
-      await updateDoc(productRef, { likesCount: increment(-1) });
-      setLikedProducts(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(productId);
-        return newSet;
+      setLikedProducts((prev) => {
+        const next = new Set(prev);
+        next.delete(productId);
+        return next;
       });
-    } else {
-      await setDoc(userLikeRef, {
+      try {
+        await deleteDoc(likeRef);
+        await updateDoc(productRef, { likesCount: increment(-1) });
+      } catch {
+        setLikedProducts((prev) => new Set(prev).add(productId));
+      }
+      return;
+    }
+
+    setLikedProducts((prev) => new Set(prev).add(productId));
+    try {
+      await setDoc(likeRef, {
         productId,
         timestamp: new Date().toISOString(),
       });
       await updateDoc(productRef, { likesCount: increment(1) });
-      setLikedProducts(prev => new Set(prev).add(productId));
+    } catch {
+      setLikedProducts((prev) => {
+        const next = new Set(prev);
+        next.delete(productId);
+        return next;
+      });
     }
   }
+
+  const title = cat && cat !== 'כל המוצרים' ? cat : 'כל המוצרים';
 
   return (
     <>
       <Head>
-        <title>קטגוריה: {cat}</title>
+        <title>{`${title} — Find4U`}</title>
         <meta charSet="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta
+          name="description"
+          content={`מוצרים נבחרים בקטגוריית ${title} עם מחירים בשקלים ומשלוח לישראל.`}
+        />
+        <meta property="og:title" content={`${title} — Find4U`} />
+        <meta property="og:type" content="website" />
       </Head>
 
       <main dir="rtl">
-        <Header />
+        <div className="page-shell">
+          <section className="hero">
+            <p className="hero-eyebrow">קטגוריה</p>
+            <h1 className="hero-title">{title}</h1>
+            <p className="hero-sub">
+              {products.length} מוצרים נבחרים, מסודרים לפי החדשים ביותר.
+            </p>
 
-        <p className="welcome-text">📦 קטגוריה: {cat}</p>
-
-        <div className="search-container">
-          <input
-            id="searchInput"
-            type="text"
-            placeholder="חפש מוצר בקטגוריה זו..."
-            dir="rtl"
-            autoComplete="off"
-            value={searchTerm}
-            onChange={e => setSearchTerm(e.target.value)}
-            className="search-input"
-          />
-          {searchTerm.trim() !== '' && (
-            <ul className="autocomplete-list" ref={autocompleteRef}>
-              {filteredProducts.slice(0, 5).map(product => (
-                <li
-                  key={product.id}
-                  onClick={() => {
-                    setSearchTerm(product.name);
-                    router.push(`/product/${product.id}`);
-                  }}
-                  tabIndex={0}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      setSearchTerm(product.name);
-                      router.push(`/product/${product.id}`);
-                    }
-                  }}
-                >
-                  {product.name}
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-
-        <div className="grid-container" id="productsGrid">
-          {filteredProducts.map(product => (
-            <div
-              key={product.id}
-              className="product-wrapper"
-              style={{ position: 'relative' }}
-            >
-              <button
-                onClick={(e) => {
-                  e.preventDefault();
-                  toggleLike(product.id);
-                }}
-                aria-label={likedProducts.has(product.id) ? 'הסר מהמועדפים' : 'הוסף למועדפים'}
-                onMouseEnter={() => setHoveredProductId(product.id)}
-                onMouseLeave={() => setHoveredProductId(null)}
-                className="like-btn"
-                style={{
-                  color: hoveredProductId === product.id ? '#ff69b4' : undefined,
-                  transform: hoveredProductId === product.id ? 'scale(1.2)' : 'scale(1)',
-                  transition: 'transform 0.2s ease',
-                }}
-              >
-                {hoveredProductId === product.id ? '💗' : likedProducts.has(product.id) ? '❤️' : '🤍'}
-              </button>
-
-              <Link href={`/product/${product.id}`} className="grid-item">
-                <img
-                  src={product.image}
-                  alt={product.name}
-                  loading="lazy"
+            <div className="search-wrap">
+              <div className="search-field">
+                <span className="search-icon" aria-hidden="true">
+                  ⌕
+                </span>
+                <input
+                  id="searchInput"
+                  className="search-input"
+                  type="search"
+                  placeholder="חפשו בתוך הקטגוריה..."
+                  dir="rtl"
+                  autoComplete="off"
+                  value={searchTerm}
+                  onChange={(event) => setSearchTerm(event.target.value)}
                 />
-
-                <p>{product.name}</p>
-
-              </Link>
+                {searchTerm ? (
+                  <button
+                    type="button"
+                    className="search-clear"
+                    aria-label="נקה חיפוש"
+                    onClick={() => setSearchTerm('')}
+                  >
+                    ✕
+                  </button>
+                ) : null}
+              </div>
             </div>
-          ))}
+          </section>
+
+          <nav className="chip-row" aria-label="קטגוריות">
+            <Link href="/" className="chip">
+              חזרה לכל המוצרים
+            </Link>
+            {categories
+              .filter((name) => name !== cat)
+              .map((name) => (
+                <Link
+                  key={name}
+                  href={`/category?cat=${encodeURIComponent(name)}`}
+                  className="chip"
+                >
+                  {name}
+                </Link>
+              ))}
+          </nav>
+
+          <section className="section">
+            {loading ? (
+              <div className="empty-state">טוען מוצרים...</div>
+            ) : filteredProducts.length === 0 ? (
+              <div className="empty-state">
+                <strong>אין מוצרים בקטגוריה הזאת עדיין</strong>
+                נסו קטגוריה אחרת, או חזרו לכל המוצרים.
+              </div>
+            ) : (
+              <div className="grid-container">
+                {filteredProducts.map((product) => (
+                  <ProductCard
+                    key={product.id}
+                    product={product}
+                    liked={likedProducts.has(product.id)}
+                    onLike={toggleLike}
+                  />
+                ))}
+              </div>
+            )}
+          </section>
         </div>
       </main>
     </>

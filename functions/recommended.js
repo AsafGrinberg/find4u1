@@ -122,8 +122,24 @@ function titleKey(product) {
     .slice(0, 45);
 }
 
-function siteProductUrl(productId) {
-  return `${SITE_URL}/product/aliexpress_${productId}`;
+function slugify(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/["'׳״]/g, "")
+    .replace(/[^\p{L}\p{N}]+/gu, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 60);
+}
+
+function slugFor(nameHe, productId) {
+  const base = slugify(nameHe);
+  const suffix = String(productId).slice(-6);
+  return base ? `${base}-${suffix}` : `aliexpress-${suffix}`;
+}
+
+function siteProductUrl(slug) {
+  return `${SITE_URL}/product/${encodeURIComponent(slug)}`;
 }
 
 function shekels(value) {
@@ -531,13 +547,13 @@ function composeCaption(product, nameHe, shortLink, siteUrl) {
     .join("\n");
 }
 
-async function postProductToTelegram(product, affiliateLink, nameHe) {
+async function postProductToTelegram(product, affiliateLink, nameHe, slug) {
   const shortLink = await shortenUrl(affiliateLink);
   const caption = composeCaption(
     product,
     nameHe,
     shortLink,
-    siteProductUrl(product.product_id)
+    siteProductUrl(slug)
   );
 
   await telegramRequest("sendPhoto", {
@@ -586,7 +602,7 @@ async function wasPostedRecently(productId) {
   return postedDate > cutoff;
 }
 
-async function saveProduct(product, affiliateLink, nameHe, categoryHe) {
+async function saveProduct(product, affiliateLink, nameHe, categoryHe, slug) {
   const id = `aliexpress_${product.product_id}`;
   const docRef = db().collection("products").doc(id);
   const existing = await docRef.get();
@@ -609,6 +625,7 @@ async function saveProduct(product, affiliateLink, nameHe, categoryHe) {
 
   const data = {
     name: nameHe,
+    slug: slug,
     description: description,
     link: affiliateLink || product.product_detail_url || "",
     price: price,
@@ -723,6 +740,7 @@ async function runRecommendedProducts() {
     if (await wasPostedRecently(product.product_id)) continue;
 
     const nameHe = await hebrewName(product);
+    const slug = slugFor(nameHe, product.product_id);
 
     let affiliateLink = null;
     try {
@@ -733,14 +751,14 @@ async function runRecommendedProducts() {
       );
     }
 
-    await saveProduct(product, affiliateLink, nameHe, categoryHe);
+    await saveProduct(product, affiliateLink, nameHe, categoryHe, slug);
 
     // Create the category once, right before the first product needs it.
     if (!categoryCreated) {
       categoryCreated = await ensureCategory(categoryHe);
     }
 
-    await postProductToTelegram(product, affiliateLink, nameHe);
+    await postProductToTelegram(product, affiliateLink, nameHe, slug);
 
     published.push({
       id: String(product.product_id),
@@ -749,6 +767,7 @@ async function runRecommendedProducts() {
       category: categoryHe,
       titleKey: titleKey(product),
       docId: `aliexpress_${product.product_id}`,
+      slug: slug,
     });
   }
 

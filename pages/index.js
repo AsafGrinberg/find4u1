@@ -1,173 +1,263 @@
-import { auth, db } from '../firebase/firebase-config'; // נתאם לנתיב שלך
-import { onAuthStateChanged } from 'firebase/auth';
-import { doc, setDoc, deleteDoc, getDocs, collection, updateDoc, increment } from 'firebase/firestore';
 import Head from 'next/head';
-import { useEffect, useState, useRef } from 'react';
-import Fuse from 'fuse.js';
-import { fetchProducts } from '../lib/products.module';
-import Header from '../components/Header';
 import Link from 'next/link';
+import { useEffect, useMemo, useState } from 'react';
+import Fuse from 'fuse.js';
+import { onAuthStateChanged } from 'firebase/auth';
+import {
+  collection,
+  deleteDoc,
+  doc,
+  getDocs,
+  increment,
+  setDoc,
+  updateDoc,
+} from 'firebase/firestore';
+
+import { auth, db } from '../firebase/firebase-config';
+import { fetchProducts } from '../lib/products.module';
+import { categoryHref, createdAtValue } from '../lib/urls';
+import ProductCard from '../components/ProductCard';
 
 export default function Home() {
   const [products, setProducts] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [filteredProducts, setFilteredProducts] = useState([]);
-  const autocompleteRef = useRef(null);
+  const [loading, setLoading] = useState(true);
   const [user, setUser] = useState(null);
-const [likedProducts, setLikedProducts] = useState(new Set());
-const [hoveredProductId, setHoveredProductId] = useState(null);
-
-async function loadUserLikes(userId) {
-  const snapshot = await getDocs(collection(db, 'users', userId, 'likedProducts'));
-  const likedSet = new Set();
-  snapshot.forEach(doc => likedSet.add(doc.id));
-  setLikedProducts(likedSet);
-}
-
-
-async function toggleLike(productId) {
-  if (!user) {
-    alert('אנא התחבר כדי לעשות לייק למוצר');
-    return;
-  }
-
-  const userLikeRef = doc(db, 'users', user.uid, 'likedProducts', productId);
-  const productRef = doc(db, 'products', productId);
-
-  if (likedProducts.has(productId)) {
-    await deleteDoc(userLikeRef);
-    await updateDoc(productRef, { likesCount: increment(-1) });
-    setLikedProducts(prev => {
-      const newSet = new Set(prev);
-      newSet.delete(productId);
-      return newSet;
-    });
-  } else {
-    await setDoc(userLikeRef, {
-      productId,
-      timestamp: new Date().toISOString(),
-    });
-    await updateDoc(productRef, { likesCount: increment(1) });
-    setLikedProducts(prev => new Set(prev).add(productId));
-  }
-}
-
-
+  const [likedProducts, setLikedProducts] = useState(new Set());
 
   useEffect(() => {
-    const loadProducts = async () => {
+    let cancelled = false;
+
+    async function load() {
       const data = await fetchProducts();
+      if (cancelled) return;
       setProducts(data);
-      setFilteredProducts(data);
+      setLoading(false);
+    }
+
+    load();
+
+    getDocs(collection(db, 'categories'))
+      .then((snapshot) => {
+        if (cancelled) return;
+        const names = snapshot.docs
+          .map((item) => item.data().name)
+          .filter(Boolean);
+        setCategories(names);
+      })
+      .catch(() => {});
+
+    return () => {
+      cancelled = true;
     };
-    loadProducts();
   }, []);
-useEffect(() => {
-  const unsubscribe = onAuthStateChanged(auth, (u) => {
-    setUser(u);
-    if (u) loadUserLikes(u.uid);
-    else setLikedProducts(new Set());
-  });
-  return () => unsubscribe();
-}, []);
 
   useEffect(() => {
-    if (products.length === 0) return;
-
-    const fuse = new Fuse(products, {
-      keys: ['title', 'description'],
-      threshold: 0.4,
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      setUser(currentUser);
+      if (!currentUser) {
+        setLikedProducts(new Set());
+        return;
+      }
+      try {
+        const snapshot = await getDocs(
+          collection(db, 'users', currentUser.uid, 'likedProducts')
+        );
+        setLikedProducts(new Set(snapshot.docs.map((item) => item.id)));
+      } catch {
+        setLikedProducts(new Set());
+      }
     });
+    return () => unsubscribe();
+  }, []);
 
-    if (searchTerm.trim() === '') {
-      setFilteredProducts(products);
-    } else {
-      const results = fuse.search(searchTerm);
-      setFilteredProducts(results.map(r => r.item));
+  const sorted = useMemo(
+    () => [...products].sort((a, b) => createdAtValue(b) - createdAtValue(a)),
+    [products]
+  );
+
+  const filteredProducts = useMemo(() => {
+    const term = searchTerm.trim();
+    if (!term) return sorted;
+    return new Fuse(sorted, {
+      keys: ['name', 'description', 'category'],
+      threshold: 0.4,
+    })
+      .search(term)
+      .map((result) => result.item);
+  }, [sorted, searchTerm]);
+
+  const suggestions = useMemo(
+    () => (searchTerm.trim() ? filteredProducts.slice(0, 5) : []),
+    [filteredProducts, searchTerm]
+  );
+
+  async function toggleLike(productId) {
+    if (!user) {
+      alert('אנא התחבר כדי לשמור מוצרים');
+      return;
     }
-  }, [searchTerm, products]);
+
+    const likeRef = doc(db, 'users', user.uid, 'likedProducts', productId);
+    const productRef = doc(db, 'products', productId);
+
+    if (likedProducts.has(productId)) {
+      setLikedProducts((prev) => {
+        const next = new Set(prev);
+        next.delete(productId);
+        return next;
+      });
+      try {
+        await deleteDoc(likeRef);
+        await updateDoc(productRef, { likesCount: increment(-1) });
+      } catch {
+        setLikedProducts((prev) => new Set(prev).add(productId));
+      }
+      return;
+    }
+
+    setLikedProducts((prev) => new Set(prev).add(productId));
+    try {
+      await setDoc(likeRef, {
+        productId,
+        timestamp: new Date().toISOString(),
+      });
+      await updateDoc(productRef, { likesCount: increment(1) });
+    } catch {
+      setLikedProducts((prev) => {
+        const next = new Set(prev);
+        next.delete(productId);
+        return next;
+      });
+    }
+  }
 
   return (
     <>
       <Head>
-        <title>Find4U</title>
+        <title>Find4U — כל מה שחיפשתם במקום אחד</title>
         <meta charSet="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta
+          name="description"
+          content="Find4U מרכז מוצרים נבחרים מאליאקספרס במקום אחד, מסודרים לפי קטגוריות, עם מחירים בשקלים וביקורות אמיתיות."
+        />
+        <meta property="og:title" content="Find4U — כל מה שחיפשתם במקום אחד" />
+        <meta
+          property="og:description"
+          content="מוצרים נבחרים עם דירוג גבוה ומכירות אמיתיות, במקום אחד."
+        />
+        <meta property="og:type" content="website" />
+        <meta property="og:locale" content="he_IL" />
       </Head>
 
       <main dir="rtl">
-        <Header /> {/* כאן אנחנו מציגים את ההדר האמיתי */}
+        <div className="page-shell">
+          <section className="hero">
+            <p className="hero-eyebrow">✦ נבחרו במיוחד עבורך</p>
+            <h1 className="hero-title">
+              כל מה שחיפשתם,
+              <br />
+              <span>במקום אחד</span>
+            </h1>
+            <p className="hero-sub">
+              אנחנו מסננים אלפי מוצרים ומשאירים רק את אלה עם דירוג גבוה
+              ומכירות אמיתיות. מחירים בשקלים, משלוח לישראל, בלי הפתעות.
+            </p>
 
-        <p className="welcome-text">🎉 ברוכים הבאים ל-Find4U 🎉</p>
-        <p className="subtitle">
-          אנחנו מוצאים עבורכם את המוצרים השווים ביותר אחרי שבדקנו אותם
-        </p>
+            <div className="search-wrap">
+              <div className="search-field">
+                <span className="search-icon" aria-hidden="true">
+                  ⌕
+                </span>
+                <input
+                  id="searchInput"
+                  className="search-input"
+                  type="search"
+                  placeholder="חפשו מוצר, קטגוריה או מותג..."
+                  dir="rtl"
+                  autoComplete="off"
+                  value={searchTerm}
+                  onChange={(event) => setSearchTerm(event.target.value)}
+                />
+                {searchTerm ? (
+                  <button
+                    type="button"
+                    className="search-clear"
+                    aria-label="נקה חיפוש"
+                    onClick={() => setSearchTerm('')}
+                  >
+                    ✕
+                  </button>
+                ) : null}
+              </div>
 
-        <div className="social-links"></div>
+              {suggestions.length > 0 ? (
+                <ul className="autocomplete-list">
+                  {suggestions.map((product) => (
+                    <li key={product.id}>
+                      <Link href={`/product/${encodeURIComponent(product.slug || product.id)}`}>
+                        {product.name}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+            </div>
 
-        <p className="subtitle search-text">חפש מוצר:</p>
-        <div className="search-container">
-  <input
-    id="searchInput"
-    type="text"
-    placeholder="חפש מוצר..."
-    dir="rtl"
-    autoComplete="off"
-    value={searchTerm}
-    onChange={e => setSearchTerm(e.target.value)}
-  />
-  {searchTerm.trim() !== '' && (
-    <ul id="autocomplete-list" className="autocomplete-list" ref={autocompleteRef}>
-      {filteredProducts.slice(0, 5).map(product => (
-        <li key={product.id}>{product.title}</li>
-      ))}
-    </ul>
-  )}
-</div>
+            <div className="hero-stats">
+              <span className="hero-stat">
+                <b>{products.length}</b> מוצרים נבחרים
+              </span>
+              <span className="hero-stat">
+                <b>{categories.length}</b> קטגוריות
+              </span>
+              <span className="hero-stat">מחירים בשקלים</span>
+            </div>
+          </section>
 
-<div id="productsGrid" className="grid-container">
-  {filteredProducts.map(product => (
-  <div key={product.id} className="product-wrapper" style={{ position: 'relative' }}>
-    <button
-      onClick={(e) => {
-        e.preventDefault();
-        toggleLike(product.id);
-      }}
-      aria-label={likedProducts.has(product.id) ? 'הסר מהמועדפים' : 'הוסף למועדפים'}
-      onMouseEnter={() => setHoveredProductId(product.id)}
-      onMouseLeave={() => setHoveredProductId(null)}
-      className="like-button"
-      style={{
-        position: 'absolute',
-        top: 10,
-        left: 10,
-        background: 'none',
-        border: 'none',
-        cursor: 'pointer',
-        fontSize: '24px',
-        padding: 0,
-        lineHeight: 1,
-        userSelect: 'none',
-        zIndex: 10,
-        color: hoveredProductId === product.id ? '#ff69b4' : likedProducts.has(product.id) ? 'red' : 'black',
-        transition: 'transform 0.2s ease',
-        transform: hoveredProductId === product.id ? 'scale(1.2)' : 'scale(1)',
-      }}
-    >
-      {hoveredProductId === product.id ? '💗' : likedProducts.has(product.id) ? '❤️' : '🤍'}
-    </button>
+          {categories.length > 0 ? (
+            <nav className="chip-row" aria-label="קטגוריות">
+              {categories.map((name) => (
+                <Link key={name} href={categoryHref(name)} className="chip">
+                  {name}
+                </Link>
+              ))}
+            </nav>
+          ) : null}
 
-    <Link href={`/product/${product.id}`} className="grid-item">
-      <img src={product.image} alt={product.title} />
-      <p>{product.name}</p>
-    </Link>
-  </div>
-))}
+          <section className="section">
+            <div className="section-head">
+              <h2 className="section-title">
+                {searchTerm.trim() ? 'תוצאות חיפוש' : 'המוצרים שלנו'}
+              </h2>
+              <span className="section-count">
+                {filteredProducts.length} מוצרים
+              </span>
+            </div>
 
-</div>
-
-
-
+            {loading ? (
+              <div className="empty-state">טוען מוצרים...</div>
+            ) : filteredProducts.length === 0 ? (
+              <div className="empty-state">
+                <strong>לא נמצאו מוצרים</strong>
+                נסו מילה אחרת, או עברו לקטגוריה מהתפריט למעלה.
+              </div>
+            ) : (
+              <div className="grid-container">
+                {filteredProducts.map((product) => (
+                  <ProductCard
+                    key={product.id}
+                    product={product}
+                    liked={likedProducts.has(product.id)}
+                    onLike={toggleLike}
+                  />
+                ))}
+              </div>
+            )}
+          </section>
+        </div>
       </main>
     </>
   );

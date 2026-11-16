@@ -1,27 +1,40 @@
+/* ============================================================
+   Responsive adjustments
+   ============================================================ */
+
+@media (max-width: 1024px) {
+  .hero-stats {
+    gap: 8px;
+  }
+}
+
 @media (max-width: 768px) {
-  .grid-container {
-    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  .hero-title {
+    font-size: 2rem;
   }
 
-  .search-container input {
-    width: 90%;
+  .hero-sub {
+    font-size: 0.98rem;
   }
 
-  .profile-page-content {
-    padding: 10px;
+  .section-head {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
   }
 
-  #profileDropdown {
-    right: 10px;
-    top: 40px;
+  .chip-row {
+    margin: 0 -14px;
+    padding: 4px 14px 10px;
   }
 
-  .review-form textarea {
-    min-height: 100px;
+  .search-field {
+    box-shadow: var(--shadow-sm);
   }
+}
 
-  .lightbox-image {
-    max-width: 95%;
-    max-height: 70%;
+@media (min-width: 769px) {
+  .mobileOnly {
+    display: none;
   }
 }

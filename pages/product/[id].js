@@ -1,28 +1,36 @@
 import { useRouter } from 'next/router';
 import { useEffect, useState } from 'react';
 import Head from 'next/head';
-import { fetchProducts } from '../../lib/products';
-import { auth, db } from '../../firebase/firebase-config';
+import Link from 'next/link';
 import { onAuthStateChanged } from 'firebase/auth';
 import {
-  collection,
   addDoc,
-  getDocs,
+  collection,
   deleteDoc,
   doc,
-  setDoc,
   getDoc,
-  updateDoc,
+  getDocs,
+  increment,
+  setDoc,
   Timestamp,
-  query,
-  where,
-  increment
+  updateDoc,
 } from 'firebase/firestore';
+
+import { auth, db } from '../../firebase/firebase-config';
+import { fetchProducts } from '../../lib/products';
+import { findProductByParam, formatPrice, discountOf } from '../../lib/urls';
 import styles from '../../styles/product.module.css';
+
+function categoriesOf(product) {
+  const value = product.category;
+  if (Array.isArray(value)) return value;
+  if (typeof value === 'string' && value.trim()) return [value.trim()];
+  return [];
+}
 
 export default function ProductPage() {
   const router = useRouter();
-  const { id: productId } = router.query;
+  const param = router.query.id;
 
   const [product, setProduct] = useState(null);
   const [reviews, setReviews] = useState([]);
@@ -30,144 +38,129 @@ export default function ProductPage() {
   const [reviewText, setReviewText] = useState('');
   const [rating, setRating] = useState(5);
   const [hoverRating, setHoverRating] = useState(0);
-  const [avgRating, setAvgRating] = useState(null);
-const [hovered, setHovered] = useState(false);
-
-  const [lightboxOpen, setLightboxOpen] = useState(false);
-  const [lightboxIndex, setLightboxIndex] = useState(0);
-
   const [loadingProduct, setLoadingProduct] = useState(true);
   const [loadingReviews, setLoadingReviews] = useState(true);
-  const [loadingLike, setLoadingLike] = useState(false);
   const [error, setError] = useState(null);
-
-  // לייק
   const [liked, setLiked] = useState(false);
-const [expandedReviews, setExpandedReviews] = useState({});
+  const [lightboxIndex, setLightboxIndex] = useState(null);
+  const [expandedReviews, setExpandedReviews] = useState({});
 
-  function toggleReviewExpand(id) {
-    setExpandedReviews(prev => ({
-      ...prev,
-      [id]: !prev[id],
-    }));
-  }
-  const images = product ? [product.image, ...(product.gallery || [])] : [];
+  const productId = product ? product.id : null;
 
-  // טעינת מוצר
   useEffect(() => {
-    if (!productId) return;
+    if (!param) return;
+    let cancelled = false;
+
     setLoadingProduct(true);
     fetchProducts()
-      .then(all => {
-        const p = all.find(item => item.id === productId);
-        if (p) {
-          setProduct(p);
+      .then((all) => {
+        if (cancelled) return;
+        const found = findProductByParam(all, param);
+        if (found) {
+          setProduct(found);
           setError(null);
         } else {
           setError('המוצר לא נמצא');
         }
       })
-      .catch(() => setError('שגיאה בטעינת המוצר'))
-      .finally(() => setLoadingProduct(false));
-  }, [productId]);
+      .catch(() => {
+        if (!cancelled) setError('שגיאה בטעינת המוצר');
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingProduct(false);
+      });
 
-  // אימות משתמש
+    return () => {
+      cancelled = true;
+    };
+  }, [param]);
+
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, currentUser => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
-      if (currentUser) checkIfLiked(currentUser.uid);
-      else setLiked(false);
+      if (!currentUser || !param) {
+        setLiked(false);
+        return;
+      }
+      getDoc(doc(db, 'users', currentUser.uid, 'likedProducts', String(param)))
+        .then((snapshot) => setLiked(snapshot.exists()))
+        .catch(() => setLiked(false));
     });
     return () => unsubscribe();
-  }, [productId]);
+  }, [param]);
 
-  // בדיקה אם המשתמש כבר לחץ לייק למוצר
-async function checkIfLiked(userId) {
-  if (!productId) return;
-  try {
-    const likeDocRef = doc(db, 'users', userId, 'likedProducts', productId);
-    const likeDocSnap = await getDoc(likeDocRef);
-    setLiked(likeDocSnap.exists());
-  } catch {
-    // שגיאה בבדיקת לייק - לא עושים כלום כרגע
-  }
-}
-
-
-  // טעינת ביקורות
   useEffect(() => {
     if (!productId) return;
-    setLoadingReviews(true);
-    const loadReviews = async () => {
+    let cancelled = false;
+
+    async function loadReviews() {
+      setLoadingReviews(true);
       try {
-        const reviewsRef = collection(db, 'products', productId, 'reviews');
-        const querySnapshot = await getDocs(reviewsRef);
-        let sum = 0;
-        const data = [];
-        querySnapshot.forEach(docSnap => {
-          const d = docSnap.data();
-          sum += d.rating;
-          data.push({ ...d, id: docSnap.id });
-        });
-        setReviews(data);
-        setAvgRating(data.length ? (sum / data.length).toFixed(1) : null);
+        const snapshot = await getDocs(
+          collection(db, 'products', productId, 'reviews')
+        );
+        if (cancelled) return;
+        setReviews(
+          snapshot.docs.map((item) => ({ id: item.id, ...item.data() }))
+        );
       } catch {
-        setError('שגיאה בטעינת הביקורות');
+        if (!cancelled) setError('שגיאה בטעינת הביקורות');
       } finally {
-        setLoadingReviews(false);
+        if (!cancelled) setLoadingReviews(false);
       }
-    };
+    }
+
     loadReviews();
+
+    return () => {
+      cancelled = true;
+    };
   }, [productId]);
 
-  // טיפול בלייק
-async function toggleLike() {
-  if (!user) {
-    alert('אנא התחבר כדי לבצע לייק');
-    return;
+  async function reloadReviews() {
+    if (!productId) return;
+    const snapshot = await getDocs(
+      collection(db, 'products', productId, 'reviews')
+    );
+    setReviews(snapshot.docs.map((item) => ({ id: item.id, ...item.data() })));
   }
-  if (!productId) return;
 
-  setLoadingLike(true);
-
-  try {
-    const userLikeRef = doc(db, 'users', user.uid, 'likedProducts', productId);
-    const productRef = doc(db, 'products', productId);
-
-    if (liked) {
-      // הסרת לייק - עדכן מיד את הסטייט ל־false לפני הקריאות האסינכרוניות
-      setLiked(false);
-      await deleteDoc(userLikeRef);
-      await updateDoc(productRef, { likesCount: increment(-1) });
-    } else {
-      // הוספת לייק - עדכן מיד את הסטייט ל־true
-      setLiked(true);
-      await setDoc(userLikeRef, { productId, timestamp: new Date().toISOString() });
-      await updateDoc(productRef, { likesCount: increment(1) });
+  async function toggleLike() {
+    if (!user) {
+      alert('אנא התחבר כדי לשמור מוצרים');
+      return;
     }
-  } catch (err) {
-    alert('שגיאה בעדכון הלייק: ' + err.message);
-    // אם קרתה שגיאה אפשר לשקם את הסטייט ל־מצב קודם
-    setLiked(!liked);
-  } finally {
-    setLoadingLike(false);
+    if (!productId) return;
+
+    const likeRef = doc(db, 'users', user.uid, 'likedProducts', productId);
+    const productRef = doc(db, 'products', productId);
+    const nextLiked = !liked;
+    setLiked(nextLiked);
+
+    try {
+      if (nextLiked) {
+        await setDoc(likeRef, {
+          productId,
+          timestamp: new Date().toISOString(),
+        });
+        await updateDoc(productRef, { likesCount: increment(1) });
+      } else {
+        await deleteDoc(likeRef);
+        await updateDoc(productRef, { likesCount: increment(-1) });
+      }
+    } catch (err) {
+      setLiked(!nextLiked);
+      alert('שגיאה בעדכון השמירה: ' + err.message);
+    }
   }
-}
 
-
-
-  // שליחת ביקורת
-  const handleReviewSubmit = async (e) => {
-    e.preventDefault();
+  async function handleReviewSubmit(event) {
+    event.preventDefault();
     if (!user) {
       alert('אנא התחבר כדי לכתוב ביקורת');
       return;
     }
-    if (!reviewText.trim()) {
-      alert('אנא כתוב טקסט לביקורת');
-      return;
-    }
-    if (!productId) return;
+    if (!reviewText.trim() || !productId) return;
 
     try {
       await addDoc(collection(db, 'products', productId, 'reviews'), {
@@ -175,286 +168,394 @@ async function toggleLike() {
         text: reviewText.trim(),
         userId: user.uid,
         userName: user.displayName || user.email || 'משתמש',
-        createdAt: Timestamp.now()
+        createdAt: Timestamp.now(),
       });
       setReviewText('');
       setRating(5);
-      // טען מחדש ביקורות
-      const reviewsRef = collection(db, 'products', productId, 'reviews');
-      const querySnapshot = await getDocs(reviewsRef);
-      let sum = 0;
-      const data = [];
-      querySnapshot.forEach(docSnap => {
-        const d = docSnap.data();
-        sum += d.rating;
-        data.push({ ...d, id: docSnap.id });
-      });
-      setReviews(data);
-      setAvgRating(data.length ? (sum / data.length).toFixed(1) : null);
+      await reloadReviews();
     } catch (err) {
       alert('שגיאה בשליחת הביקורת: ' + err.message);
     }
-  };
+  }
 
-  // מחיקת ביקורת
   async function deleteReview(reviewId) {
-    if (!confirm('האם אתה בטוח שברצונך למחוק את הביקורת?')) return;
+    if (!confirm('למחוק את הביקורת?')) return;
     if (!productId) return;
     try {
       await deleteDoc(doc(db, 'products', productId, 'reviews', reviewId));
-      // טען מחדש ביקורות
-      const reviewsRef = collection(db, 'products', productId, 'reviews');
-      const querySnapshot = await getDocs(reviewsRef);
-      let sum = 0;
-      const data = [];
-      querySnapshot.forEach(docSnap => {
-        const d = docSnap.data();
-        sum += d.rating;
-        data.push({ ...d, id: docSnap.id });
-      });
-      setReviews(data);
-      setAvgRating(data.length ? (sum / data.length).toFixed(1) : null);
+      await reloadReviews();
     } catch (err) {
       alert('שגיאה במחיקת הביקורת: ' + err.message);
     }
   }
 
-  if (loadingProduct) return <p className="text-center mt-20">טוען מוצר...</p>;
-  if (error) return <p className="text-center mt-20 text-red-600">{error}</p>;
-  if (!product) return <p className="text-center mt-20">המוצר לא נמצא.</p>;
+  if (loadingProduct) {
+    return <p className={styles.loading}>טוען מוצר...</p>;
+  }
+
+  if (error || !product) {
+    return (
+      <main dir="rtl">
+        <div className="page-shell">
+          <div className="empty-state" style={{ marginTop: 60 }}>
+            <strong>{error || 'המוצר לא נמצא'}</strong>
+            <Link href="/" style={{ color: 'var(--accent)', fontWeight: 600 }}>
+              חזרה לכל המוצרים
+            </Link>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  const images = [product.image, ...(product.gallery || [])].filter(Boolean);
+  const uniqueImages = [...new Set(images)];
+  const price = formatPrice(product.price);
+  const original = formatPrice(product.originalPrice);
+  const discount = discountOf(product);
+  const productCategories = categoriesOf(product);
+  const averageRating = reviews.length
+    ? (
+        reviews.reduce((sum, item) => sum + (Number(item.rating) || 0), 0) /
+        reviews.length
+      ).toFixed(1)
+    : null;
 
   return (
-  <>
-    <Head>
-      <title>{product.name} - Find4U</title>
-    </Head>
-
-<main dir="rtl" className={styles.mainContainer}>
-  <h1>{product.name}</h1>
-  <p>{product.description}</p>
-
-<button
-  onClick={toggleLike}
-  aria-label={liked ? 'ביטול לייק' : 'לייק'}
-  onMouseEnter={() => setHovered(true)}
-  onMouseLeave={() => setHovered(false)}
-  style={{
-    background: 'none',
-    border: 'none',
-    cursor: 'pointer',
-    fontSize: '24px',
-    padding: 0,
-    lineHeight: 1,
-    userSelect: 'none',
-    color: hovered ? '#ff69b4' : liked ? 'red' : 'black',
-    transition: 'transform 0.2s ease, color 0.3s ease',
-    transform: hovered ? 'scale(1.2)' : 'scale(1)'
-  }}
->
-  {hovered ? '💗' : liked ? '❤️' : '🤍'}
-</button>
-
-
-
-  <div className={styles.galleryWrapper}>
-  <div className={styles.mainImageContainer}>
-    <img
-      src={images[lightboxIndex]}
-      alt={`${product.name} - תצוגה`}
-      onClick={() => setLightboxOpen(true)}
-      className={styles.mainImage}
-    />
-  </div>
-  <div className={styles.thumbnailContainer}>
-    {images.map((imgSrc, i) => (
-      <img
-        key={i}
-        src={imgSrc}
-        alt={`תמונה ${i + 1}`}
-        className={`${styles.thumbnail} ${lightboxIndex === i ? styles.active : ''}`}
-        onClick={() => setLightboxIndex(i)}
-      />
-    ))}
-  </div>
-</div>
-{product.videos && product.videos.length > 0 && (
-  <section className={styles.videoSection} aria-label="סרטוני וידאו">
-  <h2>סרטוני וידאו</h2>
-  <div className={styles.videoContainer}>
-    {product.videos.map((videoUrl, index) => {
-      const isTikTok = videoUrl.includes('tiktok.com');
-      return (
-        <iframe
-          key={index}
-          src={videoUrl}
-          scrolling="no"
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-          allowFullScreen
-          className={isTikTok ? styles.videoIframeTikTok : styles.videoIframeYouTube}
+    <>
+      <Head>
+        <title>{`${product.name} — Find4U`}</title>
+        <meta charSet="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta
+          name="description"
+          content={(product.description || product.name || '').slice(0, 155)}
         />
-      );
-    })}
-  </div>
-</section>
+        <meta property="og:title" content={product.name} />
+        <meta
+          property="og:description"
+          content={(product.description || '').slice(0, 155)}
+        />
+        {product.image ? <meta property="og:image" content={product.image} /> : null}
+        <meta property="og:type" content="product" />
+      </Head>
 
-)}
+      <main dir="rtl">
+        <div className={styles.page}>
+          <nav className={styles.breadcrumb} aria-label="ניווט">
+            <Link href="/">בית</Link>
+            <span>/</span>
+            {productCategories[0] ? (
+              <>
+                <Link href={`/category?cat=${encodeURIComponent(productCategories[0])}`}>
+                  {productCategories[0]}
+                </Link>
+                <span>/</span>
+              </>
+            ) : null}
+            <span>{product.name}</span>
+          </nav>
 
-
-  <a
-    href={product.link}
-    target="_blank"
-    rel="noopener noreferrer"
-    className={styles.buyNowButton}
-  >
-    קנה עכשיו
-  </a> {/* <-- חשוב לסגור את תג ה-a */}
-
-        {/* לייטבוקס */}
-        {lightboxOpen && (
-  <div
-    onClick={() => setLightboxOpen(false)}
-    className={styles.lightboxBackdrop}
-  >
-    <img
-      src={images[lightboxIndex]}
-      alt="תמונה מוגדלת"
-      className={styles.lightboxImage}
-      onClick={e => e.stopPropagation()}
-    />
-    {images.length > 1 && (
-      <>
-        <button
-          className={styles.lightboxNavLeft}
-          onClick={e => {
-            e.stopPropagation();
-            setLightboxIndex((lightboxIndex - 1 + images.length) % images.length);
-          }}
-        >
-          ‹
-        </button>
-        <button
-          className={styles.lightboxNavRight}
-          onClick={e => {
-            e.stopPropagation();
-            setLightboxIndex((lightboxIndex + 1) % images.length);
-          }}
-        >
-          ›
-        </button>
-      </>
-    )}
-  </div>
-)}
-
-
-        {/* ביקורות */}
-        <section className="mt-10 w-full text-right" aria-label="ביקורות">
-          <h2 className="text-2xl font-semibold mb-4 text-center">ביקורות</h2>
-
-          {loadingReviews ? (
-            <p className="text-center">טוען ביקורות...</p>
-          ) : (
-            <>
-              {avgRating ? (
-                <p className="mb-4 text-center">דירוג ממוצע: {avgRating} ⭐</p>
-              ) : (
-                <p className="mb-4 text-center">עדיין אין דירוגים</p>
-              )}
-
-              <div className={`${styles.spaceY4} w-full`}>
-                {reviews.map(r => (
-                  <div key={r.id} className={`${styles.reviewCard} text-right`}>
-<div className="font-bold">{r.userName}</div>
-<div style={{ color: '#ffc107', fontSize: '18px' }}>
-  {'★'.repeat(r.rating)}{'☆'.repeat(5 - r.rating)}
-</div>
-<p
-  onClick={() => {
-    if (r.text.length > 200) toggleReviewExpand(r.id);
-  }}
-  style={{
-    whiteSpace: 'pre-wrap',
-    wordBreak: 'break-word',
-    cursor: r.text.length > 200 ? 'pointer' : 'default',
-    userSelect: 'text',
-  }}
-  aria-expanded={expandedReviews[r.id] ? 'true' : 'false'}
-  aria-label={expandedReviews[r.id] ? 'הצג פחות' : 'קרא עוד'}
->
-  {expandedReviews[r.id] || r.text.length <= 200
-    ? r.text
-    : r.text.slice(0, 200) + '...'}
-</p>
-<small className="text-gray-600">
-  {new Date(r.createdAt?.seconds * 1000).toLocaleString('he-IL')}
-</small>
-
-
-                    {user && user.uid === r.userId && (
-                      <button
-                        onClick={() => deleteReview(r.id)}
-                        aria-label="מחק ביקורת"
-                        title="מחק ביקורת"
-                        className={styles.reviewDeleteBtn}
-                      >
-                        ✖
-                      </button>
-                    )}
-                  </div>
-                ))}
+          <div className={styles.layout}>
+            <section className={styles.galleryCol} aria-label="תמונות המוצר">
+              <div
+                className={styles.mainImageWrap}
+                onClick={() => setLightboxIndex(0)}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') setLightboxIndex(0);
+                }}
+              >
+                {uniqueImages.length > 0 ? (
+                  <img
+                    src={uniqueImages[0]}
+                    alt={product.name}
+                    className={styles.mainImage}
+                  />
+                ) : null}
+                {discount ? (
+                  <span className={styles.offBadge}>{discount}%−</span>
+                ) : null}
               </div>
 
-              {user ? (
-                <form
-                  onSubmit={handleReviewSubmit}
-                  className="mt-6 text-right w-full"
-                  aria-label="טופס הוספת ביקורת"
-                >
-                  <div className={styles.starRating}>
-  דירוג:
-  {[1, 2, 3, 4, 5].map(star => (
-    <span
-      key={star}
-      onClick={() => setRating(star)}
-      onMouseEnter={() => setHoverRating(star)}
-      onMouseLeave={() => setHoverRating(0)}
-      style={{
-        cursor: 'pointer',
-        fontSize: '24px',
-        color: (hoverRating || rating) >= star ? '#ffc107' : '#ccc',
-        transition: 'color 0.2s ease'
-      }}
-      aria-label={`${star} כוכבים`}
-    >
-      ★
-    </span>
-  ))}
-</div>
+              {uniqueImages.length > 1 ? (
+                <div className={styles.thumbs}>
+                  {uniqueImages.map((src, index) => (
+                    <img
+                      key={src}
+                      src={src}
+                      alt={`תמונה ${index + 1}`}
+                      className={`${styles.thumb} ${
+                        (lightboxIndex ?? 0) === index ? styles.thumbActive : ''
+                      }`}
+                      onClick={() => setLightboxIndex(index)}
+                    />
+                  ))}
+                </div>
+              ) : null}
+            </section>
 
+            <section className={styles.infoCol}>
+              <h1 className={styles.title}>{product.name}</h1>
 
-                  <textarea
-                    value={reviewText}
-                    onChange={e => setReviewText(e.target.value)}
-                    placeholder="כתוב ביקורת..."
-                    className={styles.reviewTextarea}
-                    rows={4}
-                    required
-                    aria-required="true"
-                  />
+              <div className={styles.metaRow}>
+                {productCategories.map((name) => (
+                  <span key={name} className={styles.chip}>
+                    {name}
+                  </span>
+                ))}
+                {Number(product.rating) ? (
+                  <span className={`${styles.chip} ${styles.chipStar}`}>
+                    ★ {Number(product.rating).toFixed(1)}
+                  </span>
+                ) : null}
+                {averageRating ? (
+                  <span className={`${styles.chip} ${styles.chipStar}`}>
+                    {averageRating} מדירוגי הגולשים
+                  </span>
+                ) : null}
+              </div>
 
-                  <button type="submit" className={styles.submitReviewBtn}>
-                    שלח
-                  </button>
-                </form>
-              ) : (
-                <p className="text-red-600 mt-4 text-center">
-                  יש להתחבר כדי לכתוב ביקורת
+              {product.description ? (
+                <p style={{ margin: 0, color: 'var(--text-soft)', lineHeight: 1.75 }}>
+                  {product.description}
                 </p>
-              )}
-            </>
-          )}
-        </section>
-    </main>
-  </>
-);
+              ) : null}
+
+              <div className={styles.priceCard}>
+                <div className={styles.priceRow}>
+                  <span className={styles.price}>
+                    {price ? `${price} ₪` : 'לפרטים'}
+                  </span>
+                  {original && Number(product.originalPrice) > Number(product.price) ? (
+                    <>
+                      <span className={styles.original}>{original} ₪</span>
+                      {discount ? (
+                        <span className={styles.saveNote}>
+                          חוסכים {discount}%
+                        </span>
+                      ) : null}
+                    </>
+                  ) : null}
+                </div>
+
+                <a
+                  href={product.link}
+                  target="_blank"
+                  rel="noopener noreferrer sponsored"
+                  className={styles.buyBtn}
+                >
+                  לרכישה מאליאקספרס
+                  <span aria-hidden="true">←</span>
+                </a>
+
+                <div className={styles.secondaryRow}>
+                  <button
+                    type="button"
+                    className={`${styles.ghostBtn} ${
+                      liked ? styles.ghostBtnActive : ''
+                    }`}
+                    onClick={toggleLike}
+                    aria-pressed={liked ? 'true' : 'false'}
+                  >
+                    {liked ? '♥ שמור אצלי' : '♡ שמור למועדפים'}
+                  </button>
+                </div>
+              </div>
+
+              <ul className={styles.perks}>
+                <li className={styles.perk}>
+                  <span className={styles.perkIcon}>🚚</span>
+                  משלוח לישראל
+                </li>
+                {product.sales ? (
+                  <li className={styles.perk}>
+                    <span className={styles.perkIcon}>🔥</span>
+                    {Number(product.sales).toLocaleString('he-IL')} מכירות
+                  </li>
+                ) : null}
+                <li className={styles.perk}>
+                  <span className={styles.perkIcon}>🔒</span>
+                  רכישה מאובטחת דרך AliExpress
+                </li>
+              </ul>
+            </section>
+          </div>
+
+          {product.videos && product.videos.length > 0 ? (
+            <section className={styles.section} aria-label="סרטונים">
+              <h2 className={styles.sectionTitle}>סרטונים</h2>
+              <div className={styles.videoGrid}>
+                {product.videos.map((videoUrl) => (
+                  <iframe
+                    key={videoUrl}
+                    src={videoUrl}
+                    title="סרטון המוצר"
+                    scrolling="no"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                    className={styles.videoFrame}
+                  />
+                ))}
+              </div>
+            </section>
+          ) : null}
+
+          <section className={styles.section} aria-label="ביקורות">
+            <div className="section-head">
+              <h2 className={styles.sectionTitle}>ביקורות</h2>
+              <span className="section-count">
+                {averageRating
+                  ? `דירוג ממוצע ${averageRating} ★`
+                  : 'אין דירוגים עדיין'}
+              </span>
+            </div>
+
+            {loadingReviews ? (
+              <p style={{ color: 'var(--muted)' }}>טוען ביקורות...</p>
+            ) : reviews.length === 0 ? (
+              <div className={styles.loginHint}>היו הראשונים לכתוב ביקורת</div>
+            ) : (
+              <div className={styles.reviewList}>
+                {reviews.map((review) => (
+                  <article key={review.id} className={styles.reviewCard}>
+                    <div className={styles.reviewHead}>
+                      <span className={styles.reviewer}>
+                        {review.userName || 'משתמש'}
+                      </span>
+                      <span className={styles.stars}>
+                        {'★'.repeat(review.rating || 0)}
+                        {'☆'.repeat(5 - (review.rating || 0))}
+                      </span>
+                    </div>
+
+                    <p
+                      className={styles.reviewText}
+                      onClick={() => {
+                        if ((review.text || '').length > 200) {
+                          setExpandedReviews((prev) => ({
+                            ...prev,
+                            [review.id]: !prev[review.id],
+                          }));
+                        }
+                      }}
+                      style={{
+                        cursor:
+                          (review.text || '').length > 200
+                            ? 'pointer'
+                            : 'default',
+                      }}
+                    >
+                      {expandedReviews[review.id] ||
+                      (review.text || '').length <= 200
+                        ? review.text
+                        : `${(review.text || '').slice(0, 200)}...`}
+                    </p>
+
+                    <small className={styles.reviewDate}>
+                      {review.createdAt?.seconds
+                        ? new Date(
+                            review.createdAt.seconds * 1000
+                          ).toLocaleDateString('he-IL')
+                        : ''}
+                    </small>
+
+                    {user && user.uid === review.userId ? (
+                      <button
+                        type="button"
+                        className={styles.deleteBtn}
+                        onClick={() => deleteReview(review.id)}
+                        aria-label="מחק ביקורת"
+                      >
+                        ✕
+                      </button>
+                    ) : null}
+                  </article>
+                ))}
+              </div>
+            )}
+
+            {user ? (
+              <form className={styles.form} onSubmit={handleReviewSubmit}>
+                <div className={styles.ratingPicker}>
+                  דירוג:
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <button
+                      key={star}
+                      type="button"
+                      className={`${styles.star} ${
+                        (hoverRating || rating) >= star ? styles.starActive : ''
+                      }`}
+                      onMouseEnter={() => setHoverRating(star)}
+                      onMouseLeave={() => setHoverRating(0)}
+                      onClick={() => setRating(star)}
+                      aria-label={`${star} כוכבים`}
+                    >
+                      ★
+                    </button>
+                  ))}
+                </div>
+
+                <textarea
+                  className={styles.textarea}
+                  value={reviewText}
+                  onChange={(event) => setReviewText(event.target.value)}
+                  placeholder="ספרו לנו מה דעתכם על המוצר..."
+                  rows={4}
+                  required
+                />
+
+                <button type="submit" className={styles.submitBtn}>
+                  פרסם ביקורת
+                </button>
+              </form>
+            ) : (
+              <div className={styles.loginHint}>התחברו כדי לכתוב ביקורת</div>
+            )}
+          </section>
+        </div>
+
+        {lightboxIndex !== null && uniqueImages[lightboxIndex] ? (
+          <div className={styles.lightbox} onClick={() => setLightboxIndex(null)}>
+            <img
+              src={uniqueImages[lightboxIndex]}
+              alt={product.name}
+              className={styles.lightboxImage}
+              onClick={(event) => event.stopPropagation()}
+            />
+            {uniqueImages.length > 1 ? (
+              <>
+                <button
+                  type="button"
+                  className={styles.lightboxPrev}
+                  aria-label="הקודם"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    setLightboxIndex(
+                      (lightboxIndex - 1 + uniqueImages.length) %
+                        uniqueImages.length
+                    );
+                  }}
+                >
+                  ‹
+                </button>
+                <button
+                  type="button"
+                  className={styles.lightboxNext}
+                  aria-label="הבא"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    setLightboxIndex((lightboxIndex + 1) % uniqueImages.length);
+                  }}
+                >
+                  ›
+                </button>
+              </>
+            ) : null}
+          </div>
+        ) : null}
+      </main>
+    </>
+  );
 }
