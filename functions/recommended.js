@@ -31,6 +31,14 @@ const TELEGRAM_BOT_TOKEN =
 const TELEGRAM_CHANNEL = process.env.TELEGRAM_CHANNEL || "@Find4U_official";
 const SITE_URL = (process.env.SITE_URL || "https://find4u.vercel.app").replace(/\/$/, "");
 
+// חנויות מועדפות: מזהי חנות (shop_id) של אליאקספרס, מופרדים בפסיק במשתנה
+// הסביבה PREFERRED_SHOP_IDS. ל-API אין סינון לפי חנות, לכן הבוט מדרג את
+// המוצרים של החנויות האלה גבוה יותר ומעדיף אותם כשיש כאלה.
+const PREFERRED_SHOP_IDS = String(process.env.PREFERRED_SHOP_IDS || "")
+  .split(/[,\s]+/)
+  .map((id) => id.trim())
+  .filter(Boolean);
+
 const MAX_POSTS_PER_RUN = 5;
 const SKIP_DAYS = 14;
 const MIN_RATING = 4.3;
@@ -199,6 +207,30 @@ function productVideoUrl(product) {
     return imageUrl(media.video_urls[0]);
   }
   return "";
+}
+
+// מזהה החנות של המוכר. ה-API מחזיר אותו בשמות שונים בין המתודות,
+// ולפעמים רק בתוך כתובת החנות.
+function shopIdOf(product) {
+  if (!product) return "";
+
+  const direct = product.shop_id || product.seller_id || product.store_id;
+  if (direct) return String(direct).trim();
+
+  const info = product.store_info;
+  if (info && (info.store_id || info.shop_id)) {
+    return String(info.store_id || info.shop_id).trim();
+  }
+
+  const url = String(product.shop_url || product.store_url || "");
+  const match = url.match(/\/(?:store|shop)\/(\d+)/i) || url.match(/(\d{6,})/);
+  return match ? match[1] : "";
+}
+
+function isPreferredShop(product) {
+  if (PREFERRED_SHOP_IDS.length === 0) return false;
+  const id = shopIdOf(product);
+  return Boolean(id) && PREFERRED_SHOP_IDS.includes(id);
 }
 
 function ratingOutOfFive(product) {
@@ -608,7 +640,9 @@ function scoreProduct(product) {
   return rating * 100 +
     Math.log10(sales + 1) * 40 +
     commission * 2 +
-    Math.min(price, 800) * 0.05;
+    Math.min(price, 800) * 0.05 +
+    // מוצר מחנות מועדפת עוקף פער דירוג קטן, אבל לא מוצר חלש באמת.
+    (isPreferredShop(product) ? 160 : 0);
 }
 
 // ---------------------------------------------------------------------
@@ -705,6 +739,31 @@ async function postProductToTelegram(product, affiliateLink, nameHe, slug) {
   const siteShortUrl = await shortenUrl(siteProductUrl(slug));
   const caption = composeCaption(product, nameHe, shortLink, siteShortUrl);
 
+  // סרטון עולה יחד עם התמונה והטקסט באותה הודעה (אלבום של טלגרם),
+  // ולא כהודעה נפרדת. הכיתוב יושב על הפריט הראשון.
+  const video = productVideoUrl(product);
+  if (video) {
+    try {
+      await telegramRequest("sendMediaGroup", {
+        chat_id: TELEGRAM_CHANNEL,
+        media: [
+          {
+            type: "photo",
+            media: mainImage(product),
+            caption: caption,
+            parse_mode: "HTML",
+          },
+          {type: "video", media: video, supports_streaming: true},
+        ],
+      });
+      return;
+    } catch (error) {
+      console.error(
+        `[recommended] album failed for ${product.product_id}: ${error.message}`
+      );
+    }
+  }
+
   await telegramRequest("sendPhoto", {
     chat_id: TELEGRAM_CHANNEL,
     photo: mainImage(product),
@@ -718,24 +777,6 @@ async function postProductToTelegram(product, affiliateLink, nameHe, slug) {
         }
       : undefined,
   });
-
-  // אם למוצר יש סרטון, עולה כפוסט נוסף מיד אחרי התמונה.
-  const video = productVideoUrl(product);
-  if (video) {
-    try {
-      await telegramRequest("sendVideo", {
-        chat_id: TELEGRAM_CHANNEL,
-        video: video,
-        caption: `סרטון של ${escapeHtml(nameHe)}`,
-        parse_mode: "HTML",
-        supports_streaming: true,
-      });
-    } catch (error) {
-      console.error(
-        `[recommended] video upload failed for ${product.product_id}: ${error.message}`
-      );
-    }
-  }
 }
 
 // ---------------------------------------------------------------------
@@ -827,6 +868,7 @@ async function saveProduct(product, affiliateLink, nameHe, categoryHe, slug) {
     rating: rating,
     sales: sales,
     commissionRate: toPercent(product.commission_rate),
+    shopId: shopIdOf(product) || null,
     postedAt: admin.firestore.FieldValue.serverTimestamp(),
     postedToTelegram: true,
     likesCount: existing.exists ? (existing.get("likesCount") || 0) : 0,
@@ -968,6 +1010,23 @@ async function runRecommendedProducts() {
   const products = await searchProducts(angle.q);
   console.log(`[recommended] ${products.length} products returned`);
 
+  // מדפיס את החנויות הנפוצות בתוצאות, כדי שאפשר יהיה להעתיק מזהי חנות
+  // אמיתיים ל-PREFERRED_SHOP_IDS.
+  const shopCounts = new Map();
+  products.forEach((product) => {
+    const id = shopIdOf(product);
+    if (!id) return;
+    shopCounts.set(id, (shopCounts.get(id) || 0) + 1);
+  });
+  const topShops = [...shopCounts.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 6);
+  console.log(
+    `[recommended] top shops: ${JSON.stringify(topShops)} | preferred: ${
+      PREFERRED_SHOP_IDS.length > 0 ? PREFERRED_SHOP_IDS.join(",") : "(empty)"
+    }`
+  );
+
   // The same product can come back several times with different SKUs,
   // so keep only the best scoring entry per product id.
   const seen = new Set();
@@ -1082,6 +1141,8 @@ module.exports = {
     composeCaption,
     siteProductUrl,
     titleKey,
+    shopIdOf,
+    isPreferredShop,
     dedupeRepeatedWords,
     angleKey,
     angleScore,

@@ -6,7 +6,8 @@ import { collection, getDocs } from 'firebase/firestore';
 import { FaMoon, FaSun } from 'react-icons/fa';
 
 import { auth, db, provider } from '../firebase/firebase-config';
-import { categoryHref, categorySlug } from '../lib/urls';
+import Logo from './Logo';
+import { categoryHref, categoryLabel, categorySlug } from '../lib/urls';
 import styles from '../styles/Header.module.css';
 
 const ALL_PRODUCTS = 'כל המוצרים';
@@ -30,6 +31,7 @@ export default function Header() {
   const dropdownRef = useRef(null);
   const avatarRef = useRef(null);
   const menuRef = useRef(null);
+  const moreRef = useRef(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -103,6 +105,27 @@ export default function Header() {
     return () => document.removeEventListener('click', handleClickOutsideMenu);
   }, []);
 
+  // תפריט "עוד קטגוריות" נסגר בלחיצה על רקע האתר, לא רק בלחיצה על הכפתור.
+  useEffect(() => {
+    if (!moreOpen) return undefined;
+
+    const handleOutside = (event) => {
+      if (moreRef.current && !moreRef.current.contains(event.target)) {
+        setMoreOpen(false);
+      }
+    };
+    const handleEscape = (event) => {
+      if (event.key === 'Escape') setMoreOpen(false);
+    };
+
+    document.addEventListener('click', handleOutside);
+    document.addEventListener('keydown', handleEscape);
+    return () => {
+      document.removeEventListener('click', handleOutside);
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, [moreOpen]);
+
   function toggleTheme() {
     const next = !darkMode;
     setDarkMode(next);
@@ -150,15 +173,7 @@ export default function Header() {
           </button>
 
           <Link href="/" className={styles.logoWrapper} aria-label="Find4U — לדף הבית">
-            <img
-              src={
-                darkMode
-                  ? '/assets/images/FIND4ULOGGO-white.png'
-                  : '/assets/images/FIND4ULOGGO.png'
-              }
-              alt="Find4U"
-              className={styles.logo}
-            />
+            <Logo />
           </Link>
         </div>
 
@@ -262,42 +277,42 @@ export default function Header() {
                 activeCategory === name ? styles.activeButton : ''
               }`}
             >
-              {name}
+              {categoryLabel(name)}
             </button>
           ))}
 
           {restCategories.length > 0 ? (
-            <button
-              type="button"
-              className={`${styles.navCategoriesButton} ${styles.navMore} ${
-                restCategories.includes(activeCategory) ? styles.activeButton : ''
-              }`}
-              onClick={() => setMoreOpen((previous) => !previous)}
-              aria-expanded={moreOpen ? 'true' : 'false'}
-            >
-              עוד קטגוריות
-              <span aria-hidden="true">{moreOpen ? '▴' : '▾'}</span>
-            </button>
-          ) : null}
+            <div className={styles.moreWrap} ref={moreRef}>
+              <button
+                type="button"
+                className={`${styles.navCategoriesButton} ${styles.navMore} ${
+                  restCategories.includes(activeCategory) ? styles.activeButton : ''
+                }`}
+                onClick={() => setMoreOpen((previous) => !previous)}
+                aria-expanded={moreOpen ? 'true' : 'false'}
+              >
+                עוד קטגוריות
+                <span aria-hidden="true">{moreOpen ? '▴' : '▾'}</span>
+              </button>
 
-          {restCategories.length > 0 ? (
-            <div
-              className={`${styles.navRest} ${
-                moreOpen ? styles.navRestOpen : ''
-              }`}
-            >
-              {restCategories.map((name) => (
-                <button
-                  key={name}
-                  type="button"
-                  onClick={() => handleCategoryClick(name)}
-                  className={`${styles.navRestButton} ${
-                    activeCategory === name ? styles.navRestButtonActive : ''
-                  }`}
-                >
-                  {name}
-                </button>
-              ))}
+              <div
+                className={`${styles.navRest} ${
+                  moreOpen ? styles.navRestOpen : ''
+                }`}
+              >
+                {restCategories.map((name) => (
+                  <button
+                    key={name}
+                    type="button"
+                    onClick={() => handleCategoryClick(name)}
+                    className={`${styles.navRestButton} ${
+                      activeCategory === name ? styles.navRestButtonActive : ''
+                    }`}
+                  >
+                    {categoryLabel(name)}
+                  </button>
+                ))}
+              </div>
             </div>
           ) : null}
         </nav>

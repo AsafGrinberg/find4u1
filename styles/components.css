@@ -387,3 +387,195 @@ body.dark .alerts-btn {
     justify-content: flex-end;
   }
 }
+
+/* ---------- שורות קטגוריה אופקיות (בסגנון אתרי אופנה) ---------- */
+
+.cat-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  margin: 30px 0 12px;
+}
+
+.cat-row-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.cat-row-title {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 800;
+  letter-spacing: -0.3px;
+  color: var(--text);
+}
+
+.cat-row-more {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+/* "הצג עוד" מימין, והחצים משמאל לו, כל אחד לכיוון שהוא מגליל אליו. */
+.cat-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
+.cat-row-viewport {
+  position: relative;
+}
+
+.cat-row-track {
+  display: flex;
+  gap: 14px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-behavior: smooth;
+  scroll-snap-type: x proximity;
+  padding: 4px 2px 14px;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+  cursor: grab;
+  user-select: none;
+}
+
+/* בזמן גרירה מכבים את ההחלקה וההצמדה כדי שהשורה תלך אחרי העכבר. */
+.cat-row-track.is-dragging {
+  cursor: grabbing;
+  scroll-behavior: auto;
+  scroll-snap-type: none;
+}
+
+.cat-row-track:active {
+  cursor: grabbing;
+}
+
+.cat-row-track::-webkit-scrollbar {
+  display: none;
+}
+
+.cat-row-item {
+  display: flex;
+  flex: 0 0 230px;
+  scroll-snap-align: start;
+}
+
+.cat-row-item > * {
+  width: 100%;
+}
+
+.cat-row-all {
+  display: flex;
+  flex: 0 0 190px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-radius: var(--radius);
+  border: 1px dashed var(--border-strong);
+  background: var(--surface-2);
+  color: var(--accent);
+  font-size: 0.9rem;
+  font-weight: 700;
+  scroll-snap-align: start;
+}
+
+.cat-row-all:hover {
+  border-color: var(--accent);
+}
+
+.cat-row-arrow {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border-radius: 999px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 1.15rem;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: var(--shadow-xs);
+  transition: color 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+}
+
+.cat-row-arrow:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+  transform: translateY(-1px);
+}
+
+.show-more-wrap {
+  display: flex;
+  justify-content: center;
+  margin: -6px 0 38px;
+}
+
+.show-more-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 28px;
+  border-radius: 999px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 0.92rem;
+  font-weight: 700;
+  box-shadow: var(--shadow-xs);
+}
+
+.show-more-btn:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+/* ---------- אייקון וואטסאפ ---------- */
+
+.share-icon {
+  width: 17px;
+  height: 17px;
+  flex: 0 0 auto;
+  color: #25d366;
+}
+
+.card-share .share-icon {
+  width: 19px;
+  height: 19px;
+}
+
+@media (max-width: 720px) {
+  .cat-row-item {
+    flex: 0 0 168px;
+  }
+
+  .cat-row-title {
+    font-size: 1.1rem;
+  }
+
+  .cat-row-arrow {
+    width: 30px;
+    height: 30px;
+    font-size: 1.05rem;
+  }
+
+  .cat-row-actions {
+    gap: 6px;
+  }
+
+  .cat-row-all {
+    flex: 0 0 150px;
+  }
+}
