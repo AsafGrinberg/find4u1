@@ -2,6 +2,8 @@
 
 .wordmark {
   display: inline-flex;
+  /* האתר ב-RTL, והלוגו עצמו חייב להיקרא Find4U משמאל לימין. */
+  direction: ltr;
   align-items: baseline;
   padding-top: 0.55em;
   font-size: 26px;
@@ -35,7 +37,7 @@
 .smiley {
   position: absolute;
   top: -0.62em;
-  right: 0.02em;
+  right: 0.1em;
   width: 0.5em;
   height: 0.5em;
   color: var(--accent-2);
