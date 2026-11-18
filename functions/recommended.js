@@ -40,9 +40,12 @@ const PREFERRED_SHOP_IDS = String(process.env.PREFERRED_SHOP_IDS || "")
   .filter(Boolean);
 
 const MAX_POSTS_PER_RUN = 5;
+// כל ריצה שולפת כמה זוויות חיפוש שונות, ולא חמישה מוצרים מאותה קטגוריה.
+const ANGLES_PER_RUN = 3;
+const MAX_PER_ANGLE = 2;
 const SKIP_DAYS = 14;
-const MIN_RATING = 4.3;
-const MIN_SALES = 50;
+const MIN_RATING = 4.5;
+const MIN_SALES = 300;
 const SEARCH_PAGE_SIZE = 50;
 
 const STATE_DOC = "job_state/recommendedProducts";
@@ -51,8 +54,18 @@ const TRANSLATION_CACHE = "translation_cache";
 // ---- Search angles: one different angle per run -------------------------
 // q = the English query sent to AliExpress, he = the Hebrew category name.
 const ANGLES = [
-  {q: "air purifier", he: "מטהרי אוויר"},
-  {q: "robot vacuum", he: "שואבי אבק רובוטיים"},
+  {
+    q: "air purifier",
+    he: "מטהרי אוויר",
+    // "מטהר" למקרר או לרכב הוא לא מטהר אוויר לבית.
+    exclude: /\b(refrigerator|fridge|car\s*purifier|humidifier|shoe\s*box)\b/i,
+  },
+  {
+    q: "robot vacuum",
+    he: "שואבי אבק רובוטיים",
+    // החיפוש מחזיר גם שואבי רכב וחלקי חילוף, ולכן מסננים אותם במפורש.
+    exclude: /\b(car\s*vacuum|handheld|window\s+clean|dust\s*bag|side\s*brush|mop\s*pad)/i,
+  },
   {q: "key finder", he: "מחפשי מפתחות"},
   {q: "baby monitor", he: "מצלמות ומנטרים לתינוק"},
   {q: "smart light", he: "תאורה חכמה"},
@@ -615,6 +628,31 @@ async function hebrewName(product) {
 // Filtering
 // ---------------------------------------------------------------------
 
+// חלקי חילוף ואביזרים לא שייכים לקטגוריה של המוצר עצמו, והם מה שהציג
+// "שואב אבק רובוטי" ב־9 שקלים. מסננים אותם לפי הכותרת.
+const ACCESSORY_TITLE =
+  /^(for\s)|\b(replacement|spare\s+parts?|accessor(?:y|ies)|compatible\s+with|dust\s*bags?|side\s*brush|main\s*brush|roller\s*brush|mop\s*pads?|mop\s*cloths?|filter\s*cartridge|refill)\b/i;
+
+function isAccessoryListing(product) {
+  const title = String(product.product_title || "").trim();
+  return ACCESSORY_TITLE.test(title);
+}
+
+// החיפוש של אליאקספרס מחזיר גם דברים שלא קשורים לזווית ("שואב רכב" תחת
+// שואב רובוטי). מוצר נחשב רלוונטי אם כל מילות החיפוש מופיעות בכותרת.
+const QUERY_STOPWORDS = new Set(["for", "the", "and", "with"]);
+
+function matchesQuery(product, query) {
+  const words = String(query || "")
+    .toLowerCase()
+    .split(/\s+/)
+    .filter((word) => word.length > 2 && !QUERY_STOPWORDS.has(word));
+  if (words.length === 0) return true;
+
+  const title = String(product.product_title || "").toLowerCase();
+  return words.every((word) => title.includes(word));
+}
+
 function isRecommended(product) {
   const price = salePrice(product);
   const rating = ratingOutOfFive(product);
@@ -627,6 +665,7 @@ function isRecommended(product) {
   if (rating === null || rating < MIN_RATING) return false;
   if (sales === null || sales < MIN_SALES) return false;
   if (commission <= 0) return false;
+  if (isAccessoryListing(product)) return false;
   return true;
 }
 
@@ -635,14 +674,70 @@ function scoreProduct(product) {
   const sales = toNumber(product.lastest_volume) || 0;
   const commission = toPercent(product.commission_rate);
   const price = salePrice(product) || 0;
-  // Price is weighted so a real product beats a 2 shekel accessory
-  // with a similar rating and sales volume.
-  return rating * 100 +
-    Math.log10(sales + 1) * 40 +
+  // כמעט כל המוצרים בדירוג 4.9, ולכן דירוג לבדו לא מבדיל ביניהם. מכירות
+  // ועמלה הם מה שמפריד בין המוצר שבאמת נמכר לבין עוד אחד כזה.
+  return (rating - MIN_RATING) * 150 +
+    Math.log10(sales + 1) * 100 +
     commission * 2 +
     Math.min(price, 800) * 0.05 +
-    // מוצר מחנות מועדפת עוקף פער דירוג קטן, אבל לא מוצר חלש באמת.
-    (isPreferredShop(product) ? 160 : 0);
+    // מוצר מחנות מועדפת מקבל עדיפות, אבל לא עוקף מוצר חזק ממנו.
+    (isPreferredShop(product) ? 80 : 0);
+}
+
+// אותה כותרת עם מילים אחרות = אותו מוצר. משווים מילים משמעותיות בלבד.
+const TITLE_STOPWORDS = new Set([
+  "the", "and", "with", "for", "new", "hot", "sale", "free", "shipping",
+  "inch", "pcs", "set", "plus", "pro", "max", "mini", "smart", "best",
+]);
+
+function titleTokens(title) {
+  return new Set(
+    String(title || "")
+      .toLowerCase()
+      .replace(/[^a-z0-9\s]+/g, " ")
+      .split(/\s+/)
+      .filter((word) => word.length > 2 && !TITLE_STOPWORDS.has(word))
+  );
+}
+
+function similarTitles(first, second) {
+  const a = titleTokens(first);
+  const b = titleTokens(second);
+  if (a.size === 0 || b.size === 0) return false;
+
+  let shared = 0;
+  a.forEach((word) => {
+    if (b.has(word)) shared += 1;
+  });
+
+  const union = a.size + b.size - shared;
+  return union > 0 && shared / union >= 0.45;
+}
+
+// בוחרים מוצרים מגוונים: לא יותר משני מוצרים מאותה חנות, לא יותר משניים
+// מאותה זווית חיפוש, ובלי שני מוצרים שהם למעשה אותו מוצר.
+function pickDiverse(candidates, limit) {
+  const picked = [];
+  const perShop = new Map();
+  const perAngle = new Map();
+
+  for (const item of candidates) {
+    if (picked.length >= limit) break;
+
+    const shop = item.shopId || "";
+    const angleKey = item.angle.q;
+    const shopCap = picked.length < limit / 2 ? 1 : 2;
+
+    if (shop && (perShop.get(shop) || 0) >= shopCap) continue;
+    if ((perAngle.get(angleKey) || 0) >= MAX_PER_ANGLE) continue;
+    if (picked.some((other) => similarTitles(other.title, item.title))) continue;
+
+    picked.push(item);
+    if (shop) perShop.set(shop, (perShop.get(shop) || 0) + 1);
+    perAngle.set(angleKey, (perAngle.get(angleKey) || 0) + 1);
+  }
+
+  return picked;
 }
 
 // ---------------------------------------------------------------------
@@ -914,7 +1009,7 @@ function angleScore(stats) {
   return rate * 0.7 + demand;
 }
 
-async function pickAngle() {
+async function pickAngles(count) {
   const stateRef = db().doc(STATE_DOC);
   const state = await stateRef.get();
   const recent = (state.exists && state.get("recentAngles")) || [];
@@ -925,7 +1020,7 @@ async function pickAngle() {
   // לא חוזרים על ארבע הזוויות האחרונות, אבל אם נגמרו — מתחילים מחדש.
   const recentSet = new Set(recent.slice(0, 4));
   const pool = ANGLES.filter((angle) => !recentSet.has(angle.q));
-  const candidatesPool = pool.length > 0 ? pool : ANGLES;
+  const candidatesPool = pool.length >= count ? pool : ANGLES;
 
   const counts = await Promise.all(
     candidatesPool.map((angle) => categoryProductCount(angle.he))
@@ -943,21 +1038,33 @@ async function pickAngle() {
   });
 
   scored.sort((a, b) => b.score - a.score);
-  const chosen = scored[0].angle;
 
-  const nextRecent = [chosen.q].concat(recent).slice(0, 10);
+  // לא שתי זוויות לאותה קטגוריה, אחרת שוב מקבלים שורה של אותו דבר.
+  const chosen = [];
+  const usedCategories = new Set();
+  for (const item of scored) {
+    if (chosen.length >= count) break;
+    if (usedCategories.has(item.angle.he)) continue;
+    usedCategories.add(item.angle.he);
+    chosen.push(item.angle);
+  }
+
+  const nextRecent = chosen
+    .map((angle) => angle.q)
+    .concat(recent)
+    .slice(0, 10);
   await stateRef.set(
     {
       recentAngles: nextRecent,
       lastRunAt: admin.firestore.FieldValue.serverTimestamp(),
-      lastAngle: chosen.q,
+      lastAngle: chosen[0] ? chosen[0].q : null,
     },
     {merge: true}
   );
 
   console.log(
     `[recommended] angle scores: ${JSON.stringify(
-      scored.slice(0, 4).map((item) => ({
+      scored.slice(0, 6).map((item) => ({
         q: item.angle.q,
         score: Number(item.score.toFixed(3)),
         products: item.productCount,
@@ -965,7 +1072,7 @@ async function pickAngle() {
     )}`
   );
 
-  return {angle: chosen, recentTitleKeys: recentTitleKeys};
+  return {angles: chosen, recentTitleKeys: recentTitleKeys};
 }
 
 async function rememberAngleStats(angle, candidateCount, publishedCount, salesSum) {
@@ -1001,59 +1108,116 @@ async function rememberTitleKeys(keys, previous) {
 // ---------------------------------------------------------------------
 
 async function runRecommendedProducts() {
-  const picked = await pickAngle();
-  const angle = picked.angle;
-  const categoryHe = angle.he;
+  const picked = await pickAngles(ANGLES_PER_RUN);
+  const angles = picked.angles;
   const recentTitleKeys = new Set(picked.recentTitleKeys);
-  console.log(`[recommended] angle for this run: ${angle.q} (${categoryHe})`);
-
-  const products = await searchProducts(angle.q);
-  console.log(`[recommended] ${products.length} products returned`);
-
-  // מדפיס את החנויות הנפוצות בתוצאות, כדי שאפשר יהיה להעתיק מזהי חנות
-  // אמיתיים ל-PREFERRED_SHOP_IDS.
-  const shopCounts = new Map();
-  products.forEach((product) => {
-    const id = shopIdOf(product);
-    if (!id) return;
-    shopCounts.set(id, (shopCounts.get(id) || 0) + 1);
-  });
-  const topShops = [...shopCounts.entries()]
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 6);
   console.log(
-    `[recommended] top shops: ${JSON.stringify(topShops)} | preferred: ${
-      PREFERRED_SHOP_IDS.length > 0 ? PREFERRED_SHOP_IDS.join(",") : "(empty)"
-    }`
+    `[recommended] angles for this run: ${angles
+      .map((angle) => `${angle.q} (${angle.he})`)
+      .join(", ")}`
   );
 
-  // The same product can come back several times with different SKUs,
-  // so keep only the best scoring entry per product id.
-  const seen = new Set();
-  const candidates = products
-    .filter(isRecommended)
-    .sort((a, b) => scoreProduct(b) - scoreProduct(a))
-    .filter((product) => {
-      const id = String(product.product_id);
-      const key = titleKey(product);
+  // אוספים מועמדים מכל הזוויות, ואז בוחרים מתוכם את המגוון הטוב ביותר.
+  const seenIds = new Set();
+  const seenKeys = new Set();
+  const candidates = [];
+  const perAngleCandidates = new Map();
 
-      if (seen.has(id)) return false;
-      seen.add(id);
+  for (const angle of angles) {
+    let products = [];
+    try {
+      products = await searchProducts(angle.q);
+    } catch (error) {
+      console.error(
+        `[recommended] search failed for ${angle.q}: ${error.message}`
+      );
+      continue;
+    }
 
-      // Same item, different seller: skip it.
-      if (key && (seen.has(key) || recentTitleKeys.has(key))) return false;
-      if (key) seen.add(key);
+    const relevant = products.filter((product) => matchesQuery(product, angle.q));
+    const pool = relevant.length > 0 ? relevant : products;
+    console.log(
+      `[recommended] ${angle.q}: ${products.length} returned, ${relevant.length} relevant`
+    );
 
-      return true;
+    // מדפיס את החנויות הנפוצות בתוצאות, כדי שאפשר יהיה להעתיק מזהי חנות
+    // אמיתיים ל-PREFERRED_SHOP_IDS.
+    const shopCounts = new Map();
+    products.forEach((product) => {
+      const id = shopIdOf(product);
+      if (!id) return;
+      shopCounts.set(id, (shopCounts.get(id) || 0) + 1);
     });
+    const topShops = [...shopCounts.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 6);
+    console.log(
+      `[recommended] ${angle.q} top shops: ${JSON.stringify(topShops)} | preferred: ${
+        PREFERRED_SHOP_IDS.length > 0 ? PREFERRED_SHOP_IDS.join(",") : "(empty)"
+      }`
+    );
 
-  console.log(`[recommended] ${candidates.length} products passed the filter`);
+    const good = pool
+      .filter((product) => {
+        if (isRecommended(product)) return true;
+        return false;
+      })
+      .filter((product) => {
+        if (angle.exclude && angle.exclude.test(String(product.product_title || ""))) {
+          return false;
+        }
+
+        const id = String(product.product_id);
+        if (seenIds.has(id)) return false;
+        seenIds.add(id);
+
+        // Same item, different seller: skip it.
+        const key = titleKey(product);
+        if (key && (seenKeys.has(key) || recentTitleKeys.has(key))) return false;
+        if (key) seenKeys.add(key);
+
+        return true;
+      })
+      .map((product) => ({
+        product: product,
+        angle: angle,
+        shopId: shopIdOf(product),
+        title: String(product.product_title || ""),
+        score: scoreProduct(product),
+      }))
+      .sort((a, b) => b.score - a.score);
+
+    perAngleCandidates.set(angle.q, good.length);
+    candidates.push(...good);
+  }
+
+  candidates.sort((a, b) => b.score - a.score);
+  const shortlist = pickDiverse(candidates, MAX_POSTS_PER_RUN * 3);
+
+  console.log(
+    `[recommended] ${candidates.length} candidates passed the filter, ${shortlist.length} on the shortlist`
+  );
+  console.log(
+    `[recommended] shortlist: ${JSON.stringify(
+      shortlist.map((item) => ({
+        score: Number(item.score.toFixed(1)),
+        shop: item.shopId || null,
+        category: item.angle.he,
+        title: item.title.slice(0, 60),
+      }))
+    )}`
+  );
 
   const published = [];
-  let categoryCreated = false;
+  const categoriesCreated = [];
 
-  for (const product of candidates) {
+  for (const item of shortlist) {
     if (published.length >= MAX_POSTS_PER_RUN) break;
+
+    const product = item.product;
+    const angle = item.angle;
+    const categoryHe = angle.he;
+
     if (await wasPostedRecently(product.product_id)) continue;
 
     const nameHe = await hebrewName(product);
@@ -1070,9 +1234,8 @@ async function runRecommendedProducts() {
 
     await saveProduct(product, affiliateLink, nameHe, categoryHe, slug);
 
-    // Create the category once, right before the first product needs it.
-    if (!categoryCreated) {
-      categoryCreated = await ensureCategory(categoryHe);
+    if (await ensureCategory(categoryHe)) {
+      categoriesCreated.push(categoryHe);
     }
 
     await postProductToTelegram(product, affiliateLink, nameHe, slug);
@@ -1086,11 +1249,9 @@ async function runRecommendedProducts() {
       docId: `aliexpress_${product.product_id}`,
       slug: slug,
       sales: toNumber(product.lastest_volume),
+      score: Number(item.score.toFixed(1)),
+      shopId: item.shopId || null,
     });
-  }
-
-  if (!categoryCreated && published.length > 0) {
-    categoryCreated = await ensureCategory(categoryHe);
   }
 
   if (published.length > 0) {
@@ -1100,20 +1261,28 @@ async function runRecommendedProducts() {
     await rememberTitleKeys(keys, picked.recentTitleKeys);
   }
 
-  const salesSum = published.reduce(
-    (total, item) => total + (Number(item.sales) || 0),
-    0
-  );
-  await rememberAngleStats(angle, candidates.length, published.length, salesSum);
+  for (const angle of angles) {
+    const fromAngle = published.filter((item) => item.category === angle.he);
+    const salesSum = fromAngle.reduce(
+      (total, item) => total + (Number(item.sales) || 0),
+      0
+    );
+    await rememberAngleStats(
+      angle,
+      perAngleCandidates.get(angle.q) || 0,
+      fromAngle.length,
+      salesSum
+    );
+  }
 
   console.log(
     `[recommended] published ${published.length} products: ${JSON.stringify(published)}`
   );
 
   return {
-    angle: angle.q,
-    category: categoryHe,
-    categoryCreated: categoryCreated,
+    angles: angles.map((angle) => angle.q),
+    categories: angles.map((angle) => angle.he),
+    categoriesCreated: categoriesCreated,
     candidates: candidates.length,
     published: published,
   };
@@ -1143,6 +1312,10 @@ module.exports = {
     titleKey,
     shopIdOf,
     isPreferredShop,
+    isAccessoryListing,
+    matchesQuery,
+    similarTitles,
+    pickDiverse,
     dedupeRepeatedWords,
     angleKey,
     angleScore,
