@@ -1,4 +1,4 @@
-/* וורדמארק Find4U — צבע הטקסט למצב בהיר וכהה, גרדיאנט ל-4U וסמיילי קטן מעל ה-U. */
+/* וורדמארק Find4U — צבע הטקסט למצב בהיר וכהה, גרדיאנט ל-4U וסמיילי שיושב על ה-U. */
 
 .wordmark {
   display: inline-flex;
@@ -34,10 +34,12 @@
   animation: fourShift 8s ease-in-out infinite;
 }
 
+/* הסמיילי יושב על קו הבסיס מיד אחרי ה-U, כמו נקודה בסוף המילה.
+   בגרסה הקודמת הוא ריחף בפינה העליונה ונראה כמו סימן רשום (®). */
 .smiley {
   position: absolute;
-  top: -0.62em;
-  right: 0.1em;
+  top: 0.42em;
+  right: -0.54em;
   width: 0.5em;
   height: 0.5em;
   color: var(--accent-2);
@@ -58,10 +60,10 @@
 @keyframes smileyBob {
   0%,
   100% {
-    transform: translateY(0) rotate(-6deg);
+    transform: translateY(0);
   }
   50% {
-    transform: translateY(-0.08em) rotate(6deg);
+    transform: translateY(-0.05em);
   }
 }
 
