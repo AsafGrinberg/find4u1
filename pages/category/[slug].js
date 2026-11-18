@@ -19,6 +19,7 @@ import { readGuestLikes, toggleGuestLike } from '../../lib/likes';
 import {
   ALL_PRODUCTS,
   categoryHref,
+  categoryLabel,
   categoryNameFromSlug,
   categorySlug,
   categoriesOf,
@@ -181,7 +182,7 @@ export default function CategoryPage({
     }
   }
 
-  const title = isAll ? ALL_PRODUCTS : categoryName;
+  const title = isAll ? ALL_PRODUCTS : categoryLabel(categoryName);
   // דף "כל המוצרים" חוזר על דף הבית, ולכן הוא לא נכנס לאינדקס.
   const canonical = isAll
     ? `${SITE_URL}/category/${encodeURIComponent(categorySlug(ALL_PRODUCTS))}`
@@ -282,7 +283,7 @@ export default function CategoryPage({
               .filter((name) => name !== ALL_PRODUCTS && name !== categoryName)
               .map((name) => (
                 <Link key={name} href={categoryHref(name)} className="chip">
-                  {name}
+                  {categoryLabel(name)}
                 </Link>
               ))}
           </nav>

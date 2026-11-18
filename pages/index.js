@@ -18,6 +18,9 @@ import { fetchProducts } from '../lib/products.module';
 import { fetchProductsServer, fetchCategoriesServer } from '../lib/firestore-server';
 import { readGuestLikes, toggleGuestLike } from '../lib/likes';
 import {
+  ALL_PRODUCTS,
+  categorySlug,
+  categoriesOf,
   dedupeProducts,
   filterProducts,
   sortProducts,
@@ -25,6 +28,9 @@ import {
 } from '../lib/urls';
 import ProductCard from '../components/ProductCard';
 import SortBar from '../components/SortBar';
+import CategoryRow from '../components/CategoryRow';
+
+const GRID_PREVIEW = 24;
 
 export async function getStaticProps() {
   const [products, categories] = await Promise.all([
@@ -128,6 +134,31 @@ export default function Home({ initialProducts = [], initialCategories = [] }) {
     () => (searchTerm.trim() ? filteredProducts.slice(0, 5) : []),
     [filteredProducts, searchTerm]
   );
+
+  // שורה לכל קטגוריה, כמו בחנויות אופנה: גלילה אופקית + "הצג עוד".
+  const categoryRows = useMemo(() => {
+    const groups = new Map();
+    base.forEach((product) => {
+      categoriesOf(product).forEach((name) => {
+        if (!groups.has(name)) groups.set(name, []);
+        groups.get(name).push(product);
+      });
+    });
+
+    return [...groups.entries()]
+      .filter(([, items]) => items.length >= 4)
+      .sort((a, b) => b[1].length - a[1].length)
+      .slice(0, 6)
+      .map(([name, items]) => ({
+        name,
+        items: sortProducts(items, 'bestsellers').slice(0, 12),
+      }));
+  }, [base]);
+
+  const isSearching = Boolean(searchTerm.trim());
+  const gridProducts = isSearching
+    ? filteredProducts
+    : filteredProducts.slice(0, GRID_PREVIEW);
 
   async function toggleLike(productId) {
     if (!user) {
@@ -268,10 +299,24 @@ export default function Home({ initialProducts = [], initialCategories = [] }) {
             </div>
           </section>
 
+          {!isSearching && categoryRows.length > 0 ? (
+            <div className="cat-rows">
+              {categoryRows.map((row) => (
+                <CategoryRow
+                  key={row.name}
+                  category={row.name}
+                  products={row.items}
+                  likedProducts={likedProducts}
+                  onLike={toggleLike}
+                />
+              ))}
+            </div>
+          ) : null}
+
           <section className="section">
             <div className="section-head">
               <h2 className="section-title">
-                {searchTerm.trim() ? 'תוצאות חיפוש' : 'המוצרים שלנו'}
+                {isSearching ? 'תוצאות חיפוש' : 'כל המוצרים שלנו'}
               </h2>
               <span className="section-count">
                 {filteredProducts.length} מוצרים
@@ -296,7 +341,7 @@ export default function Home({ initialProducts = [], initialCategories = [] }) {
                 />
 
                 <div className="grid-container">
-                  {filteredProducts.map((product) => (
+                  {gridProducts.map((product) => (
                     <ProductCard
                       key={product.id}
                       product={product}
@@ -305,6 +350,20 @@ export default function Home({ initialProducts = [], initialCategories = [] }) {
                     />
                   ))}
                 </div>
+
+                {!isSearching && filteredProducts.length > GRID_PREVIEW ? (
+                  <div className="show-more-wrap">
+                    <Link
+                      href={`/category/${encodeURIComponent(
+                        categorySlug(ALL_PRODUCTS)
+                      )}`}
+                      className="show-more-btn"
+                    >
+                      הצג עוד מוצרים
+                      <span aria-hidden="true">←</span>
+                    </Link>
+                  </div>
+                ) : null}
               </>
             )}
           </section>

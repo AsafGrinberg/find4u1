@@ -26,6 +26,7 @@ import {
   productSlug,
   productUrl,
   categoryHref,
+  categoryLabel,
   priceDropped,
   SITE_URL,
 } from '../../lib/urls';
@@ -354,7 +355,7 @@ export default function ProductPage({ initialProduct }) {
             {productCategories[0] ? (
               <>
                 <Link href={categoryHref(productCategories[0])}>
-                  {productCategories[0]}
+                  {categoryLabel(productCategories[0])}
                 </Link>
                 <span>/</span>
               </>
@@ -408,7 +409,7 @@ export default function ProductPage({ initialProduct }) {
               <div className={styles.metaRow}>
                 {productCategories.map((name) => (
                   <span key={name} className={styles.chip}>
-                    {name}
+                    {categoryLabel(name)}
                   </span>
                 ))}
                 {Number(product.rating) ? (
