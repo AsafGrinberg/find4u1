@@ -309,6 +309,89 @@ async function searchProducts(keyword) {
   return list;
 }
 
+async function productDetails(ids) {
+  const response = await aliexpressCall(
+    "aliexpress.affiliate.productdetail.get",
+    {
+      product_ids: ids.join(","),
+      target_currency: "ILS",
+      target_language: "EN",
+      ship_to_country: "IL",
+      tracking_id: ALIEXPRESS_TRACKING_ID,
+    }
+  );
+
+  const result =
+    response.aliexpress_affiliate_productdetail_get_response &&
+    response.aliexpress_affiliate_productdetail_get_response.resp_result;
+  const products = result && result.result && result.result.products;
+  const list = products && products.product;
+  if (Array.isArray(list)) return list;
+  return list ? [list] : [];
+}
+
+// ממלא גלריה וסרטון למוצרים ותיקים שנוצרו כשהיה רק תמונה אחת.
+// ה-API מקבל עד 50 מזהים בקריאה, ולכן עובדים בקבוצות.
+async function refreshMissingGalleries({limit = 300, batchSize = 50} = {}) {
+  const snapshot = await db().collection("products").limit(limit).get();
+  const pending = snapshot.docs.filter((doc) => {
+    const gallery = doc.get("gallery");
+    const hasGallery = Array.isArray(gallery) && gallery.length >= 2;
+    return !hasGallery || !doc.get("videoUrl");
+  });
+
+  console.log(
+    `[galleries] scanned ${snapshot.size}, need refresh: ${pending.length}`
+  );
+
+  let updated = 0;
+
+  for (let start = 0; start < pending.length; start += batchSize) {
+    const batch = pending.slice(start, start + batchSize);
+    const ids = batch
+      .map((doc) => String(doc.get("sourceId") || "").trim())
+      .filter(Boolean);
+    if (ids.length === 0) continue;
+
+    let details = [];
+    try {
+      details = await productDetails(ids);
+    } catch (error) {
+      console.error(
+        `[galleries] detail call failed (${start}-${start + ids.length}): ${error.message}`
+      );
+      continue;
+    }
+
+    const byId = new Map(
+      details.map((item) => [String(item.product_id), item])
+    );
+
+    for (const doc of batch) {
+      const sourceId = String(doc.get("sourceId") || "");
+      const detail = byId.get(sourceId);
+      if (!detail) continue;
+
+      const gallery = galleryImages(detail);
+      const video = productVideoUrl(detail);
+      if (gallery.length < 2 && !video) continue;
+
+      const data = {updatedAt: new Date().toISOString()};
+      if (gallery.length > 1) {
+        data.image = gallery[0];
+        data.gallery = gallery;
+      }
+      if (video) data.videoUrl = video;
+
+      await doc.ref.set(data, {merge: true});
+      updated += 1;
+    }
+  }
+
+  console.log(`[galleries] updated ${updated} products`);
+  return {scanned: snapshot.size, pending: pending.length, updated: updated};
+}
+
 async function buildAffiliateLink(product) {
   if (product.promotion_link) return product.promotion_link;
 
@@ -459,6 +542,29 @@ async function translateToHebrew(text) {
   return hebrew;
 }
 
+// שמות מוצרים שנשאבו מכותרת ארוכה חוזרים על אותה מילה פעמיים
+// ("תרסיס ננו לפנים תרסיס ננו נייד לפנים"). משאירים מופע אחד לכל מילה.
+const DUPLICATE_WHITELIST = new Set(["של", "עם", "את", "על", "אל", "זה"]);
+
+function dedupeRepeatedWords(text) {
+  const words = String(text || "").split(/\s+/).filter(Boolean);
+  const seen = new Set();
+  const out = [];
+
+  words.forEach((word) => {
+    const key = word.replace(/[^\p{L}\p{N}]/gu, "").toLowerCase();
+    if (!key) {
+      out.push(word);
+      return;
+    }
+    if (seen.has(key) && key.length > 2 && !DUPLICATE_WHITELIST.has(key)) return;
+    seen.add(key);
+    out.push(word);
+  });
+
+  return out.join(" ").trim();
+}
+
 async function hebrewName(product) {
   const head = headForTranslation(product.product_title);
   const translated = await translateToHebrew(head);
@@ -470,7 +576,7 @@ async function hebrewName(product) {
   const hasQuantity = /יחידות/.test(body);
   const prefix = specs && hasQuantity ? "" : specs;
 
-  return [prefix, body].filter(Boolean).join(" ").trim();
+  return dedupeRepeatedWords([prefix, body].filter(Boolean).join(" ").trim());
 }
 
 // ---------------------------------------------------------------------
@@ -561,7 +667,7 @@ async function shortenUrl(url) {
   return url;
 }
 
-function composeCaption(product, nameHe, shortLink, siteUrl) {
+function composeCaption(product, nameHe, shortLink, siteShortUrl) {
   const price = salePrice(product);
   const original = originalPrice(product);
   const discount = discountPercent(product);
@@ -569,7 +675,7 @@ function composeCaption(product, nameHe, shortLink, siteUrl) {
   const sales = toNumber(product.lastest_volume);
 
   return [
-    escapeHtml(nameHe),
+    `<b>${escapeHtml(nameHe)}</b>`,
     escapeHtml(pick(HOOKS)),
     "",
     escapeHtml(
@@ -583,9 +689,11 @@ function composeCaption(product, nameHe, shortLink, siteUrl) {
     "",
     "משלוח לישראל",
     "",
-    "<b>לינק לרכישה מאלי אקספרס:</b>",
-    escapeHtml(shortLink),
-    siteUrl ? `\nעמוד המוצר באתר Find4U:\n${escapeHtml(siteUrl)}` : "",
+    "<b><u>🛒 לינק לרכישה מאלי אקספרס:</u></b>",
+    shortLink ? `<b><u>${escapeHtml(shortLink)}</u></b>` : "",
+    siteShortUrl
+      ? `\n🔗 <b>עמוד המוצר באתר Find4U:</b>\n${escapeHtml(siteShortUrl)}`
+      : "",
   ]
     .filter((line) => line !== "")
     .join("\n");
@@ -593,18 +701,22 @@ function composeCaption(product, nameHe, shortLink, siteUrl) {
 
 async function postProductToTelegram(product, affiliateLink, nameHe, slug) {
   const shortLink = await shortenUrl(affiliateLink);
-  const caption = composeCaption(
-    product,
-    nameHe,
-    shortLink,
-    siteProductUrl(slug)
-  );
+  // גם הקישור לאתר מקוצר, כי הכתובת בעברית מקבלת קידוד ארוך ומכוער.
+  const siteShortUrl = await shortenUrl(siteProductUrl(slug));
+  const caption = composeCaption(product, nameHe, shortLink, siteShortUrl);
 
   await telegramRequest("sendPhoto", {
     chat_id: TELEGRAM_CHANNEL,
     photo: mainImage(product),
     caption: caption,
     parse_mode: "HTML",
+    reply_markup: affiliateLink
+      ? {
+          inline_keyboard: [
+            [{text: "🛒 לרכישה עכשיו", url: affiliateLink}],
+          ],
+        }
+      : undefined,
   });
 
   // אם למוצר יש סרטון, עולה כפוסט נוסף מיד אחרי התמונה.
@@ -675,6 +787,12 @@ async function saveProduct(product, affiliateLink, nameHe, categoryHe, slug) {
   const rating = ratingOutOfFive(product);
   const sales = toNumber(product.lastest_volume);
 
+  // אם המחיר ירד מאז הריצה הקודמת — שומרים את המחיר הקודם, כדי שהאתר
+  // יציג תג "המחיר ירד" ויתריע למי ששמר את המוצר.
+  const previousPrice = existing.exists ? toNumber(existing.get("price")) : null;
+  const priceDroppedNow =
+    previousPrice !== null && price !== null && previousPrice > price + 0.009;
+
   const description = [
     nameHe + ".",
     rating ? `דירוג ${rating.toFixed(1)} מתוך 5.` : "",
@@ -704,6 +822,7 @@ async function saveProduct(product, affiliateLink, nameHe, categoryHe, slug) {
     sourceCategory: product.second_level_category_name || "",
     titleKey: titleKey(product),
     originalPrice: original,
+    ...(priceDroppedNow ? {previousPrice: previousPrice} : {}),
     discountPercent: discount,
     rating: rating,
     sales: sales,
@@ -725,17 +844,64 @@ async function saveProduct(product, affiliateLink, nameHe, categoryHe, slug) {
 // Focus rotation
 // ---------------------------------------------------------------------
 
+function angleKey(query) {
+  return String(query || "").replace(/[^a-z0-9]+/gi, "_").toLowerCase();
+}
+
+async function categoryProductCount(name) {
+  try {
+    const snapshot = await db()
+      .collection("products")
+      .where("category", "array-contains", name)
+      .count()
+      .get();
+    return snapshot.data().count;
+  } catch (error) {
+    return 0;
+  }
+}
+
+// ציון זווית: כמה מהמועמדים שלה באמת פורסמו, כמה מכירות יש להם,
+// ובונוס לקטגוריה ריקה כדי שלא יישארו קטגוריות בלי מוצרים.
+function angleScore(stats) {
+  const candidates = Number(stats.candidates) || 0;
+  const published = Number(stats.published) || 0;
+  const sales = Number(stats.sales) || 0;
+  const rate = candidates > 0 ? published / candidates : 0.55;
+  const demand = Math.min(sales / 500000, 0.3);
+  return rate * 0.7 + demand;
+}
+
 async function pickAngle() {
   const stateRef = db().doc(STATE_DOC);
   const state = await stateRef.get();
   const recent = (state.exists && state.get("recentAngles")) || [];
+  const angleStats = (state.exists && state.get("angleStats")) || {};
   const recentTitleKeys =
     (state.exists && state.get("recentTitleKeys")) || [];
 
-  const available = ANGLES.filter(
-    (angle) => !recent.includes(angle.q)
+  // לא חוזרים על ארבע הזוויות האחרונות, אבל אם נגמרו — מתחילים מחדש.
+  const recentSet = new Set(recent.slice(0, 4));
+  const pool = ANGLES.filter((angle) => !recentSet.has(angle.q));
+  const candidatesPool = pool.length > 0 ? pool : ANGLES;
+
+  const counts = await Promise.all(
+    candidatesPool.map((angle) => categoryProductCount(angle.he))
   );
-  const chosen = available.length > 0 ? available[0] : ANGLES[0];
+
+  const scored = candidatesPool.map((angle, index) => {
+    const stats = angleStats[angleKey(angle.q)] || {};
+    const count = counts[index];
+    const emptiness = count === 0 ? 0.3 : count < 3 ? 0.15 : 0;
+    return {
+      angle: angle,
+      score: angleScore(stats) + emptiness,
+      productCount: count,
+    };
+  });
+
+  scored.sort((a, b) => b.score - a.score);
+  const chosen = scored[0].angle;
 
   const nextRecent = [chosen.q].concat(recent).slice(0, 10);
   await stateRef.set(
@@ -747,7 +913,36 @@ async function pickAngle() {
     {merge: true}
   );
 
+  console.log(
+    `[recommended] angle scores: ${JSON.stringify(
+      scored.slice(0, 4).map((item) => ({
+        q: item.angle.q,
+        score: Number(item.score.toFixed(3)),
+        products: item.productCount,
+      }))
+    )}`
+  );
+
   return {angle: chosen, recentTitleKeys: recentTitleKeys};
+}
+
+async function rememberAngleStats(angle, candidateCount, publishedCount, salesSum) {
+  const stateRef = db().doc(STATE_DOC);
+  const state = await stateRef.get();
+  const stats = Object.assign({}, (state.exists && state.get("angleStats")) || {});
+  const key = angleKey(angle.q);
+  const current = stats[key] || {};
+
+  stats[key] = {
+    category: angle.he,
+    runs: (Number(current.runs) || 0) + 1,
+    candidates: (Number(current.candidates) || 0) + candidateCount,
+    published: (Number(current.published) || 0) + publishedCount,
+    sales: (Number(current.sales) || 0) + salesSum,
+    lastRunAt: new Date().toISOString(),
+  };
+
+  await stateRef.set({angleStats: stats}, {merge: true});
 }
 
 async function rememberTitleKeys(keys, previous) {
@@ -831,6 +1026,7 @@ async function runRecommendedProducts() {
       titleKey: titleKey(product),
       docId: `aliexpress_${product.product_id}`,
       slug: slug,
+      sales: toNumber(product.lastest_volume),
     });
   }
 
@@ -844,6 +1040,12 @@ async function runRecommendedProducts() {
       .filter(Boolean);
     await rememberTitleKeys(keys, picked.recentTitleKeys);
   }
+
+  const salesSum = published.reduce(
+    (total, item) => total + (Number(item.sales) || 0),
+    0
+  );
+  await rememberAngleStats(angle, candidates.length, published.length, salesSum);
 
   console.log(
     `[recommended] published ${published.length} products: ${JSON.stringify(published)}`
@@ -860,6 +1062,7 @@ async function runRecommendedProducts() {
 
 module.exports = {
   runRecommendedProducts,
+  refreshMissingGalleries,
   __test: {
     searchProducts,
     isRecommended,
@@ -879,5 +1082,8 @@ module.exports = {
     composeCaption,
     siteProductUrl,
     titleKey,
+    dedupeRepeatedWords,
+    angleKey,
+    angleScore,
   },
 };

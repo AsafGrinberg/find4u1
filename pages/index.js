@@ -17,8 +17,14 @@ import { auth, db } from '../firebase/firebase-config';
 import { fetchProducts } from '../lib/products.module';
 import { fetchProductsServer, fetchCategoriesServer } from '../lib/firestore-server';
 import { readGuestLikes, toggleGuestLike } from '../lib/likes';
-import { createdAtValue, dedupeProducts, SITE_URL } from '../lib/urls';
+import {
+  dedupeProducts,
+  filterProducts,
+  sortProducts,
+  SITE_URL,
+} from '../lib/urls';
 import ProductCard from '../components/ProductCard';
+import SortBar from '../components/SortBar';
 
 export async function getStaticProps() {
   const [products, categories] = await Promise.all([
@@ -41,6 +47,8 @@ export default function Home({ initialProducts = [], initialCategories = [] }) {
   const [products, setProducts] = useState(initialProducts);
   const [categories, setCategories] = useState(initialCategories);
   const [searchTerm, setSearchTerm] = useState('');
+  const [sort, setSort] = useState('newest');
+  const [filter, setFilter] = useState('all');
   const [loading, setLoading] = useState(initialProducts.length === 0);
   const [user, setUser] = useState(null);
   const [likedProducts, setLikedProducts] = useState(new Set());
@@ -98,24 +106,23 @@ export default function Home({ initialProducts = [], initialCategories = [] }) {
     return () => unsubscribe();
   }, []);
 
-  const sorted = useMemo(
-    () =>
-      dedupeProducts(products).sort(
-        (a, b) => createdAtValue(b) - createdAtValue(a)
-      ),
-    [products]
-  );
+  const base = useMemo(() => dedupeProducts(products), [products]);
 
-  const filteredProducts = useMemo(() => {
+  const searched = useMemo(() => {
     const term = searchTerm.trim();
-    if (!term) return sorted;
-    return new Fuse(sorted, {
+    if (!term) return base;
+    return new Fuse(base, {
       keys: ['name', 'description', 'category'],
       threshold: 0.4,
     })
       .search(term)
       .map((result) => result.item);
-  }, [sorted, searchTerm]);
+  }, [base, searchTerm]);
+
+  const filteredProducts = useMemo(
+    () => sortProducts(filterProducts(searched, filter), sort),
+    [searched, filter, sort]
+  );
 
   const suggestions = useMemo(
     () => (searchTerm.trim() ? filteredProducts.slice(0, 5) : []),
@@ -253,7 +260,7 @@ export default function Home({ initialProducts = [], initialCategories = [] }) {
 
             <div className="hero-stats">
               <span className="hero-stat">
-                <b>{sorted.length}</b> מוצרים נבחרים
+                <b>{base.length}</b> מוצרים נבחרים
               </span>
               <span className="hero-stat">
                 <b>{categories.length}</b> קטגוריות
@@ -279,16 +286,26 @@ export default function Home({ initialProducts = [], initialCategories = [] }) {
                 נסו מילה אחרת, או עברו לקטגוריה מהתפריט למעלה.
               </div>
             ) : (
-              <div className="grid-container">
-                {filteredProducts.map((product) => (
-                  <ProductCard
-                    key={product.id}
-                    product={product}
-                    liked={likedProducts.has(product.id)}
-                    onLike={toggleLike}
-                  />
-                ))}
-              </div>
+              <>
+                <SortBar
+                  sort={sort}
+                  filter={filter}
+                  onSortChange={setSort}
+                  onFilterChange={setFilter}
+                  count={filteredProducts.length}
+                />
+
+                <div className="grid-container">
+                  {filteredProducts.map((product) => (
+                    <ProductCard
+                      key={product.id}
+                      product={product}
+                      liked={likedProducts.has(product.id)}
+                      onLike={toggleLike}
+                    />
+                  ))}
+                </div>
+              </>
             )}
           </section>
         </div>

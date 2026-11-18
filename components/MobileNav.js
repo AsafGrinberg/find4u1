@@ -1,6 +1,9 @@
 import Link from 'next/link';
 import styles from './MobileNav.module.css';
 import { useRouter } from 'next/router';
+import { ALL_PRODUCTS, categorySlug } from '../lib/urls';
+
+const ALL_PATH = `/category/${encodeURIComponent(categorySlug(ALL_PRODUCTS))}`;
 
 export default function MobileNav() {
   const router = useRouter();
@@ -12,11 +15,8 @@ export default function MobileNav() {
       </Link>
 
       <Link
-        href={{
-          pathname: '/category',
-          query: { cat: 'כל המוצרים' }
-        }}
-        className={router.pathname === '/category' && router.query.cat === 'כל המוצרים' ? styles.active : ''}
+        href={ALL_PATH}
+        className={router.pathname.startsWith('/category') ? styles.active : ''}
       >
         <span>📂<br />קטגוריות</span>
       </Link>

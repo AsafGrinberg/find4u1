@@ -6,6 +6,7 @@ import { collection, getDocs } from 'firebase/firestore';
 import { FaMoon, FaSun } from 'react-icons/fa';
 
 import { auth, db, provider } from '../firebase/firebase-config';
+import { categoryHref, categorySlug } from '../lib/urls';
 import styles from '../styles/Header.module.css';
 
 const ALL_PRODUCTS = 'כל המוצרים';
@@ -110,7 +111,7 @@ export default function Header() {
   }
 
   function handleCategoryClick(name) {
-    router.push(`/category?cat=${encodeURIComponent(name)}`);
+    router.push(categoryHref(name));
     setMenuOpen(false);
     setMoreOpen(false);
     setProfileDropdownVisible(false);
@@ -124,7 +125,12 @@ export default function Header() {
     signOut(auth).catch(console.error);
   }
 
-  const activeCategory = router.query.cat || ALL_PRODUCTS;
+  const slugParam = router.query.slug
+    ? decodeURIComponent(String(router.query.slug))
+    : null;
+  const activeCategory = slugParam
+    ? categories.find((name) => categorySlug(name) === slugParam) || ''
+    : router.query.cat || ALL_PRODUCTS;
   // שורת הניווט מציגה קבוצה מצומצמת, וכל השאר נפתח בתפריט "עוד קטגוריות".
   const featuredCategories = categories.slice(0, 8);
   const restCategories = categories.slice(8);

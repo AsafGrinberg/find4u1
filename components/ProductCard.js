@@ -1,11 +1,20 @@
 import Link from 'next/link';
-import { productHref, formatPrice, discountOf } from '../lib/urls';
+import Image from 'next/image';
+import {
+  productHref,
+  productUrl,
+  formatPrice,
+  discountOf,
+  priceDropped,
+} from '../lib/urls';
+import ShareButton from './ShareButton';
 
 export default function ProductCard({ product, liked, onLike }) {
   const price = formatPrice(product.price);
   const original = formatPrice(product.originalPrice);
   const discount = discountOf(product);
   const rating = Number(product.rating);
+  const dropped = priceDropped(product);
 
   return (
     <article className="card">
@@ -25,9 +34,16 @@ export default function ProductCard({ product, liked, onLike }) {
       <Link href={productHref(product)} className="card-link">
         <div className="card-media">
           {product.image ? (
-            <img src={product.image} alt={product.name} loading="lazy" decoding="async" />
+            <Image
+              src={product.image}
+              alt={product.name || 'מוצר'}
+              fill
+              sizes="(max-width: 720px) 45vw, 260px"
+              style={{ objectFit: 'cover' }}
+            />
           ) : null}
           {discount ? <span className="card-badge">{discount}%−</span> : null}
+          {dropped ? <span className="card-drop">↓ המחיר ירד</span> : null}
         </div>
 
         <div className="card-body">
@@ -53,17 +69,26 @@ export default function ProductCard({ product, liked, onLike }) {
         </div>
       </Link>
 
-      {product.link ? (
-        <a
-          href={product.link}
-          target="_blank"
-          rel="noopener noreferrer sponsored"
-          className="card-buy"
-        >
-          לרכישה מאליאקספרס
-          <span aria-hidden="true">←</span>
-        </a>
-      ) : null}
+      <div className="card-actions">
+        {product.link ? (
+          <a
+            href={product.link}
+            target="_blank"
+            rel="noopener noreferrer sponsored"
+            className="card-buy"
+          >
+            לרכישה מאליאקספרס
+            <span aria-hidden="true">←</span>
+          </a>
+        ) : null}
+
+        <ShareButton
+          title={product.name}
+          url={productUrl(product)}
+          label=""
+          className="card-share"
+        />
+      </div>
     </article>
   );
 }

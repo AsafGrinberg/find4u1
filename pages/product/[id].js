@@ -24,9 +24,13 @@ import {
   formatPrice,
   discountOf,
   productSlug,
+  productUrl,
+  categoryHref,
+  priceDropped,
   SITE_URL,
 } from '../../lib/urls';
 import { readGuestLikes, toggleGuestLike } from '../../lib/likes';
+import ShareButton from '../../components/ShareButton';
 import styles from '../../styles/product.module.css';
 
 function categoriesOf(product) {
@@ -327,7 +331,7 @@ export default function ProductPage({ initialProduct }) {
                         '@type': 'ListItem',
                         position: 2,
                         name: productCategories[0],
-                        item: `${SITE_URL}/category?cat=${encodeURIComponent(productCategories[0])}`,
+                        item: `${SITE_URL}${categoryHref(productCategories[0])}`,
                       },
                     ]
                   : []),
@@ -349,7 +353,7 @@ export default function ProductPage({ initialProduct }) {
             <span>/</span>
             {productCategories[0] ? (
               <>
-                <Link href={`/category?cat=${encodeURIComponent(productCategories[0])}`}>
+                <Link href={categoryHref(productCategories[0])}>
                   {productCategories[0]}
                 </Link>
                 <span>/</span>
@@ -463,7 +467,20 @@ export default function ProductPage({ initialProduct }) {
                   >
                     {liked ? '♥ שמור אצלי' : '♡ שמור למועדפים'}
                   </button>
+
+                  <ShareButton
+                    title={product.name}
+                    url={productUrl(product)}
+                    label="שיתוף בוואטסאפ"
+                    className={styles.ghostBtn}
+                  />
                 </div>
+
+                {priceDropped(product) ? (
+                  <p className={styles.dropNote}>
+                    ↓ המחיר ירד מ־{formatPrice(product.previousPrice)} ₪
+                  </p>
+                ) : null}
               </div>
 
               <ul className={styles.perks}>
