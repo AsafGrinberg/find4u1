@@ -440,7 +440,6 @@ body.dark .alerts-btn {
   gap: 14px;
   overflow-x: auto;
   overflow-y: hidden;
-  scroll-behavior: smooth;
   padding: 4px 2px 14px;
   scrollbar-width: none;
   -webkit-overflow-scrolling: touch;
