@@ -441,7 +441,6 @@ body.dark .alerts-btn {
   overflow-x: auto;
   overflow-y: hidden;
   scroll-behavior: smooth;
-  scroll-snap-type: x proximity;
   padding: 4px 2px 14px;
   scrollbar-width: none;
   -webkit-overflow-scrolling: touch;
@@ -449,11 +448,10 @@ body.dark .alerts-btn {
   user-select: none;
 }
 
-/* בזמן גרירה מכבים את ההחלקה וההצמדה כדי שהשורה תלך אחרי העכבר. */
+/* בזמן גרירה מכבים את ההחלקה כדי שהשורה תלך אחרי העכבר בלי השהיה. */
 .cat-row-track.is-dragging {
   cursor: grabbing;
   scroll-behavior: auto;
-  scroll-snap-type: none;
 }
 
 .cat-row-track:active {
@@ -467,7 +465,6 @@ body.dark .alerts-btn {
 .cat-row-item {
   display: flex;
   flex: 0 0 230px;
-  scroll-snap-align: start;
 }
 
 .cat-row-item > * {
@@ -487,7 +484,6 @@ body.dark .alerts-btn {
   color: var(--accent);
   font-size: 0.9rem;
   font-weight: 700;
-  scroll-snap-align: start;
 }
 
 .cat-row-all:hover {
