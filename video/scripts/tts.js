@@ -203,6 +203,14 @@ async function tryElevenLabs(text, failures) {
   } catch (error) {
     failures.push(error.message);
     console.warn(`[tts] ElevenLabs failed: ${error.message}`);
+    // מפתח קיים אבל הקריאה נכשלה (מכסה, קול חסום, 401) — נופלים לגוגל,
+    // וזה מסביר קריינות רובוטית. שיהיה מסומן ב־annotations, לא רק בלוג.
+    console.log(
+      `::warning::ElevenLabs failed (${error.message.slice(
+        0,
+        140
+      )}) — narration fell back to the flat Google voice.`
+    );
   }
   return null;
 }
