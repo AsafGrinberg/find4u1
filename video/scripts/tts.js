@@ -5,7 +5,8 @@
  * ---------------------------------------------------------------
  * הקראה בעברית לשם הסרטון.
  *
- * 1. Google Cloud Text-to-Speech (חינמי בכמות החודשית) —
+ * 1. Google Cloud Text-to-Speech — קודם קולות Chirp 3 HD, שהם
+ *    הקולות הטבעיים (כמו בן אדם), ואחריהם WaveNet/Standard כגיבוי.
  *    GOOGLE_TTS_API_KEY.
  * 2. אם גוגל נגמרה המכסה שלה, החזירה 403/429 או שגיאה אחרת —
  *    עוברים ל־ElevenLabs (ELEVENLABS_API_KEY).
@@ -15,18 +16,25 @@
 
 const GOOGLE_ENDPOINT = "https://texttospeech.googleapis.com/v1/text:synthesize";
 
-// קולות עבריים בגוגל. אם הקול הראשון לא קיים בפרויקט — מנסים את הבא.
+// קולות עבריים בגוגל, מהטבעי לרובוטי. Chirp 3 HD הוא הקול השיווקי
+// (נוסף לעברית ב־10.11.2025); אם הוא לא זמין בפרויקט — WaveNet.
 const GOOGLE_VOICES = [
   process.env.GOOGLE_TTS_VOICE,
+  "he-IL-Chirp3-HD-Aoede",
+  "he-IL-Chirp3-HD-Zephyr",
+  "he-IL-Chirp3-HD-Charon",
   "he-IL-Wavenet-A",
   "he-IL-Standard-A",
-  "he-IL-Standard-B",
 ].filter(Boolean);
+
+// Chirp 3 HD לא תומך ב־SSML ולא בקצב/גובה קול, ולכן שולחים לו רק
+// את קידוד האודיו. שליחת speakingRate אליו מחזירה שגיאה.
+const isChirp = (voice) => /Chirp3?-HD/i.test(voice);
 
 const ELEVENLABS_VOICE = process.env.ELEVENLABS_VOICE_ID || "21m00Tcm4TlvDq8ikWAM";
 
-async function googleTts(text, voice) {
-  const response = await fetch(
+async function googleRequest(text, voice, audioConfig) {
+  return fetch(
     `${GOOGLE_ENDPOINT}?key=${encodeURIComponent(process.env.GOOGLE_TTS_API_KEY)}`,
     {
       method: "POST",
@@ -34,15 +42,18 @@ async function googleTts(text, voice) {
       body: JSON.stringify({
         input: {text},
         voice: {languageCode: "he-IL", name: voice},
-        audioConfig: {
-          audioEncoding: "MP3",
-          speakingRate: 1.05,
-          pitch: 0,
-          sampleRateHertz: 44100,
-        },
+        audioConfig,
       }),
     }
   );
+}
+
+async function googleTts(text, voice) {
+  const audioConfig = isChirp(voice)
+    ? {audioEncoding: "MP3"}
+    : {audioEncoding: "MP3", speakingRate: 1.02, pitch: 0, sampleRateHertz: 44100};
+
+  const response = await googleRequest(text, voice, audioConfig);
 
   if (!response.ok) {
     const details = await response.text().catch(() => "");

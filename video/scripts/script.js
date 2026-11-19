@@ -3,26 +3,19 @@
 /**
  * script.js
  * ---------------------------------------------------------------
- * בונה את הטקסט שנשמע בסרטון (עברית) ואת הכתוביות, עם זמנים
- * שמתחלקים לפי אורך כל משפט.
+ * בונה את הטקסט שנשמע בסרטון (עברית מדוברת, לא "קריאת טבלה")
+ * ואת הכתוביות, עם זמנים שמתחלקים לפי אורך כל משפט.
  */
 
 const HOOKS = [
-  "מצאתי לך משהו שווה",
-  "תראה מה מצאתי",
-  "מוצר ששווה לעצור בשבילו",
-  "מצאתי לך את הדיל הזה",
+  "תראו מה מצאתי",
+  "תקשיבו, יש פה משהו שווה",
+  "מצאתי לך דיל שווה",
+  "רגע, תסתכלו על זה",
 ];
 
 function pick(list) {
   return list[Math.floor(Math.random() * list.length)];
-}
-
-function spokenPrice(value) {
-  if (value === null || value === undefined) return "";
-  const rounded = Math.round(value);
-  if (rounded !== value && value < 20) return value.toFixed(1);
-  return String(rounded);
 }
 
 function shortTitle(name) {
@@ -49,49 +42,54 @@ function socialText(product) {
   return parts.join(" · ");
 }
 
+// מחיר מדובר: "5.90" נקרא רע, "פחות משישה שקלים" נשמע כמו בן אדם.
+function priceSentence(price) {
+  if (price === null || price === undefined) return "";
+  if (Number.isInteger(price)) return `המחיר? ${price} שקלים`;
+  if (price < 10) return `המחיר? פחות מ${Math.ceil(price)} שקלים`;
+  return `המחיר? ${Math.round(price)} שקלים`;
+}
+
+// "61,734 מכירות" נשמע כמו קריאת טבלה — אומרים "יותר משישים אלף".
+function salesSentence(sales) {
+  if (!sales) return "";
+  if (sales >= 1000) {
+    return `יותר מ${Math.floor(sales / 1000)} אלף מכירות`;
+  }
+  return `${Math.round(sales)} מכירות`;
+}
+
 // משפטי ההקראה. כל משפט מקבל משקל יחסי לפי מספר התווים, כך שקצב
 // הדיבור נשאר אחיד והכתוביות מסתנכרנות עם האודיו.
 function buildSentences(product) {
   const sentences = [];
-  const price = spokenPrice(product.price);
-  const original = spokenPrice(product.originalPrice);
+  const price = product.price;
+  const original = product.originalPrice;
   const discount = product.discount ? Math.round(product.discount) : null;
 
-  sentences.push({text: `${pick(HOOKS)} בקטגוריית ${product.category}`});
+  sentences.push({text: `${pick(HOOKS)}, בקטגוריית ${product.category}`});
 
-  if (product.title) {
-    sentences.push({text: shortTitle(product.title)});
+  const priceLine = priceSentence(price);
+  if (priceLine) sentences.push({text: priceLine});
+
+  if (original && price && original > price) {
+    sentences.push({text: `במקום ${Math.round(original)} שקלים`});
   }
 
-  if (price) {
-    sentences.push({
-      text: `הוא עולה ${price} שקל בלבד`,
-    });
+  if (discount && discount >= 10) {
+    sentences.push({text: `הנחה של ${discount} אחוז`});
   }
 
-  if (original && product.price && original > product.price) {
-    sentences.push({
-      text: `במקום ${original} שקל${
-        discount ? `, ${discount} אחוז הנחה` : ""
-      }`,
-    });
-  } else if (discount) {
-    sentences.push({text: `${discount} אחוז הנחה`});
-  }
+  const rating = product.rating
+    ? `דירוג של ${Number(product.rating).toFixed(1)} כוכבים`
+    : "";
+  const sales = salesSentence(product.sales);
 
-  if (product.rating && product.sales) {
-    sentences.push({
-      text: `דירוג ${Number(product.rating).toFixed(1)} מתוך חמש, עם ${Number(
-        product.sales
-      ).toLocaleString("he-IL")} מכירות`,
-    });
-  } else if (product.rating) {
-    sentences.push({
-      text: `דירוג ${Number(product.rating).toFixed(1)} מתוך חמש`,
-    });
-  }
+  if (rating && sales) sentences.push({text: `${rating}, ${sales}`});
+  else if (rating) sentences.push({text: rating});
+  else if (sales) sentences.push({text: sales});
 
-  sentences.push({text: "משלוח לישראל, והקישור בתיאור"});
+  sentences.push({text: "הקישור בתיאור, ומשלוח לישראל"});
 
   return sentences.map((item) => ({
     text: item.text.replace(/\s+/g, " ").trim(),

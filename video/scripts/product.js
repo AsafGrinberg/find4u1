@@ -3,8 +3,11 @@
 /**
  * product.js
  * ---------------------------------------------------------------
- * שולף מ־Firestore את המוצר הבא לסרטון, מוריד את תמונותיו ומסמן
- * אותו אחרי שהסרטון נשלח/פורסם כדי שלא ייווצר עליו סרטון פעמיים.
+ * שולף מ־Firestore את המוצר הבא לסרטון, מוריד את סרטון המוצר
+ * מאליאקספרס ומסמן את המוצר אחרי שהסרטון נשלח/פורסם כדי שלא
+ * ייווצר עליו ריל פעמיים.
+ *
+ * הריל נבנה אך ורק מסרטון שהמוכר העלה לאליאקספרס — לא מתמונות.
  */
 
 const admin = require("firebase-admin");
@@ -39,15 +42,21 @@ function imageList(data) {
   return [...new Set(list.filter((url) => typeof url === "string" && url))];
 }
 
+// רק MP4 ניתן לרנדר ב־Remotion. קישורי m3u8/HLS של אליאקספרס מדולגים.
+function isMp4(url) {
+  return /^https?:\/\//i.test(url) && /\.mp4(\?|$)/i.test(url);
+}
+
 /**
- * בוחר את המוצר שטרם קיבל סרטון. מעדיף מוצרים טריים עם כמה תמונות
- * ודירוג גבוה, ומדלג על כאלה שכבר הופיעו בריל.
+ * מחזיר את המוצרים הבאים שטרם קיבלו ריל ויש להם סרטון של המוכר,
+ * מהמבטיח לרצוי פחות. render.js מנסה אותם לפי הסדר, כך שסרטון
+ * שאי אפשר להוריד לא תוקע את כל הריצה.
  */
-async function pickProduct(db) {
+async function pickProducts(db, limit = 5) {
   const snapshot = await db
     .collection("products")
     .orderBy("postedAt", "desc")
-    .limit(100)
+    .limit(300)
     .get();
 
   const candidates = snapshot.docs
@@ -68,32 +77,35 @@ async function pickProduct(db) {
         slug: data.slug || doc.id,
         link: data.link || "",
         images: imageList(data),
+        videoUrl: String(data.videoUrl || "").trim(),
         videoPublishedAt: data.videoPublishedAt || null,
       };
     })
-    .filter((item) => item.name && item.images.length > 0)
+    .filter((item) => item.name && isMp4(item.videoUrl))
     .filter((item) => !item.videoPublishedAt);
 
-  if (candidates.length === 0) return null;
+  if (candidates.length === 0) return [];
 
   candidates.sort((a, b) => {
     const score = (item) =>
-      Math.min(item.images.length, 4) * 2 +
       (item.rating || 0) +
-      (item.sales ? Math.log10(item.sales + 1) : 0);
+      (item.sales ? Math.log10(item.sales + 1) : 0) +
+      Math.min(item.images.length, 4) * 0.5;
     return score(b) - score(a);
   });
 
-  return candidates[0];
+  return candidates.slice(0, limit);
 }
+
+const DOWNLOAD_HEADERS = {
+  "User-Agent":
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124 Safari/537.36",
+  Accept: "video/mp4,video/*,*/*;q=0.8",
+};
 
 async function downloadImage(url, target) {
   const response = await fetch(url, {
-    headers: {
-      "User-Agent":
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124 Safari/537.36",
-      Accept: "image/avif,image/webp,image/*,*/*;q=0.8",
-    },
+    headers: {...DOWNLOAD_HEADERS, Accept: "image/avif,image/webp,image/*,*/*;q=0.8"},
   });
 
   if (!response.ok) {
@@ -106,6 +118,28 @@ async function downloadImage(url, target) {
   }
 
   return Buffer.from(await response.arrayBuffer());
+}
+
+// מוריד את סרטון המוצר ומאמת שזה באמת וידאו (ולא דף שגיאה או פלייליסט HLS).
+async function downloadVideo(url) {
+  const response = await fetch(url, {headers: DOWNLOAD_HEADERS});
+
+  if (!response.ok) {
+    throw new Error(`video download failed: ${response.status} ${url}`);
+  }
+
+  const buffer = Buffer.from(await response.arrayBuffer());
+  const type = response.headers.get("content-type") || "";
+  const looksLikeMp4 = buffer.indexOf("ftyp", 0, "ascii") !== -1;
+
+  if (!looksLikeMp4) {
+    throw new Error(`not an mp4 (${type}, ${buffer.length} bytes): ${url}`);
+  }
+  if (buffer.length < 20 * 1024) {
+    throw new Error(`video is too small (${buffer.length} bytes): ${url}`);
+  }
+
+  return buffer;
 }
 
 async function markVideoPublished(db, product, details) {
@@ -125,8 +159,10 @@ async function markVideoPublished(db, product, details) {
 
 module.exports = {
   initFirebase,
-  pickProduct,
+  pickProducts,
   downloadImage,
+  downloadVideo,
   markVideoPublished,
   imageList,
+  isMp4,
 };

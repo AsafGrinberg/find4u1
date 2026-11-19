@@ -2,7 +2,8 @@ import React from 'react';
 import {
   AbsoluteFill,
   Audio,
-  Img,
+  Loop,
+  OffthreadVideo,
   interpolate,
   spring,
   staticFile,
@@ -110,91 +111,72 @@ const Logo = ({frame, opacity = 1}) => (
   </div>
 );
 
-// ---- תמונות המוצר -------------------------------------------------------
-const Gallery = ({images, start, end}) => {
+/**
+ * סרטון המוצר עצמו הוא הבסיס לריל.
+ * שכבת רקע: אותו סרטון מוגדל ומטושטש, כדי למלא את המסך האנכי בלי
+ * לחתוך את המוצר. מעליה כרטיס חד עם הסרטון בשלמותו (contain).
+ * הקול המקורי של הסרטון מושתק — הקריינות שלנו היא הפסקול.
+ */
+const ProductVideo = ({src, frames, start}) => {
   const frame = useCurrentFrame();
-  if (!images || images.length === 0) return null;
+  if (!src) return null;
 
-  const files = images.map((src) =>
-    /^(https?:|data:)/.test(src) ? src : staticFile(src)
-  );
-  const per = Math.max(1, (end - start) / images.length);
-  const index = clamp(Math.floor((frame - start) / per), 0, images.length - 1);
-  const local = frame - start - index * per;
-  const fade = 10;
+  const fade = interpolate(frame, [start - 8, start + 10], [0, 1], {
+    extrapolateLeft: 'clamp',
+    extrapolateRight: 'clamp',
+  });
+  const file = staticFile(src);
+  const loopFrames = Math.max(1, Number(frames) || 240);
 
   return (
-    <AbsoluteFill style={{justifyContent: 'flex-start'}}>
-      <div
-        style={{
-          position: 'absolute',
-          top: 270,
-          left: 90,
-          width: 900,
-          height: 800,
-          borderRadius: 56,
-          overflow: 'hidden',
-          background: '#ffffff',
-          boxShadow: '0 40px 90px rgba(0,0,0,.45)',
-        }}
-      >
-        {files.map((src, i) => {
-          if (i < index - 1 || i > index + 1) return null;
-          const isActive = i === index;
-          const imageStart = start + i * per;
-          const opacity = isActive
-            ? interpolate(local, [0, fade], [i === 0 ? 1 : 0, 1], {
-                extrapolateLeft: 'clamp',
-                extrapolateRight: 'clamp',
-              })
-            : interpolate(frame, [imageStart + per, imageStart + per + fade], [1, 0], {
-                extrapolateLeft: 'clamp',
-                extrapolateRight: 'clamp',
-              });
-          const zoom = 1.03 + clamp(local, 0, per) / per * 0.13;
-          return (
-            <Img
-              key={src}
-              src={src}
-              style={{
-                position: 'absolute',
-                inset: 0,
-                width: '100%',
-                height: '100%',
-                objectFit: 'cover',
-                opacity,
-                transform: `scale(${zoom})`,
-              }}
-            />
-          );
-        })}
-      </div>
+    <AbsoluteFill style={{opacity: fade}}>
+      <Loop durationInFrames={loopFrames}>
+        <OffthreadVideo
+          src={file}
+          muted
+          style={{
+            position: 'absolute',
+            inset: 0,
+            width: '100%',
+            height: '100%',
+            objectFit: 'cover',
+            filter: 'blur(42px) saturate(1.2)',
+            transform: 'scale(1.2)',
+          }}
+        />
+      </Loop>
 
-      {/* פס התקדמות בין התמונות */}
+      <AbsoluteFill
+        style={{
+          background:
+            'linear-gradient(180deg, rgba(6,9,18,.72) 0%, rgba(6,9,18,.18) 26%, rgba(6,9,18,.32) 56%, rgba(6,9,18,.9) 80%, rgba(6,9,18,.97) 100%)',
+        }}
+      />
+
       <div
         style={{
           position: 'absolute',
-          top: 1100,
+          top: 248,
           left: 90,
           width: 900,
-          display: 'flex',
-          gap: 10,
+          height: 860,
+          borderRadius: 52,
+          overflow: 'hidden',
+          border: '1px solid rgba(255,255,255,.10)',
+          boxShadow: '0 40px 90px rgba(0,0,0,.55)',
         }}
       >
-        {files.map((src, i) => {
-          const filled = frame >= start + i * per;
-          return (
-            <div
-              key={src}
-              style={{
-                flex: 1,
-                height: 8,
-                borderRadius: 8,
-                background: filled ? COLORS.accent : 'rgba(255,255,255,.18)',
-              }}
-            />
-          );
-        })}
+        <Loop durationInFrames={loopFrames}>
+          <OffthreadVideo
+            src={file}
+            muted
+            style={{
+              width: '100%',
+              height: '100%',
+              objectFit: 'contain',
+            }}
+          />
+        </Loop>
       </div>
     </AbsoluteFill>
   );
@@ -214,7 +196,7 @@ const ProductInfo = ({props, from}) => {
     <div
       style={{
         position: 'absolute',
-        top: 1150,
+        top: 1140,
         left: 80,
         width: 920,
         direction: 'rtl',
@@ -261,7 +243,7 @@ const ProductInfo = ({props, from}) => {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          gap: 22,
+          gap: 18,
           direction: 'rtl',
         }}
       >
@@ -297,11 +279,12 @@ const ProductInfo = ({props, from}) => {
         {props.discount ? (
           <div
             style={{
-              padding: '10px 20px',
+              padding: '8px 16px',
               borderRadius: 18,
               background: COLORS.gold,
               color: '#3a2500',
-              fontSize: 36,
+              fontSize: 30,
+              whiteSpace: 'nowrap',
               fontWeight: 800,
               transform: 'rotate(-4deg)',
             }}
@@ -399,7 +382,7 @@ const Outro = ({props, start}) => {
         style={{
           position: 'absolute',
           inset: 0,
-          background: 'rgba(6,9,18,.82)',
+          background: 'rgba(6,9,18,.86)',
         }}
       />
       <div
@@ -467,15 +450,17 @@ export const Reel = (props) => {
     <AbsoluteFill style={{backgroundColor: COLORS.bg}}>
       <Backdrop frame={frame} />
 
+      <ProductVideo
+        src={props.video}
+        frames={props.videoFrames}
+        start={audioStart - 14}
+      />
+
       {props.audio ? (
         <Audio src={staticFile(props.audio)} startFrom={0} />
       ) : null}
 
       <Logo frame={frame} />
-
-      {frame >= audioStart - 6 ? (
-        <Gallery images={props.images} start={audioStart} end={audioEnd} />
-      ) : null}
 
       {frame >= audioStart + 6 && frame < outroStart ? (
         <>
@@ -484,7 +469,7 @@ export const Reel = (props) => {
         </>
       ) : null}
 
-      {/* ההוק יושב מעל התמונות, כדי שיהיה קריא בפתיחה */}
+      {/* ההוק יושב מעל הווידאו, כדי שיהיה קריא בפתיחה */}
       {frame < audioStart + 18 ? (
         <AbsoluteFill
           style={{

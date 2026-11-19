@@ -4,10 +4,10 @@
  * render.js
  * ---------------------------------------------------------------
  * מייצר ריל אחד (1080x1920, 30fps) למוצר הבא בתור:
- *   1. שולף מוצר מ־Firestore
- *   2. כותב תסריט עברי ומקליט אותו (Google TTS / ElevenLabs)
- *   3. מוריד את תמונות המוצר
- *   4. מרנדר עם Remotion
+ *   1. שולף מוצר מ־Firestore שיש לו סרטון של המוכר באליאקספרס
+ *   2. מוריד את הסרטון (זה הבסיס לריל — לא תמונות)
+ *   3. כותב תסריט עברי ומקליט אותו (Google Chirp 3 HD / ElevenLabs)
+ *   4. מרנדר עם Remotion: הסרטון עם קריינות וכתוביות מעליו
  *   5. מעתיק את ה־MP4 ל־public/videos כדי שיהיה לו URL ציבורי
  *      (אינסטגרם מקבל רק קובץ שנגיש בכתובת ציבורית)
  *
@@ -19,9 +19,10 @@ const path = require("path");
 const {bundle} = require("@remotion/bundler");
 const {selectComposition, renderMedia} = require("@remotion/renderer");
 
-const {initFirebase, pickProduct, downloadImage} = require("./product");
+const {initFirebase, pickProducts, downloadVideo} = require("./product");
 const {synthesizeHebrew} = require("./tts");
 const {mp3DurationSeconds} = require("./mp3-duration");
+const {mp4DurationSeconds} = require("./mp4-duration");
 const {
   buildSentences,
   speechText,
@@ -65,25 +66,55 @@ function safeName(value) {
   return base || "reel";
 }
 
+// מנסה את המוצרים לפי הסדר עד שסרטון אחד יורד בהצלחה.
+async function resolveProduct(db) {
+  const candidates = await pickProducts(db, 5);
+
+  if (candidates.length === 0) {
+    console.log(
+      "[render] no product with a seller video is waiting for a reel. " +
+        "Every recent product either already has videoPublishedAt or has no videoUrl."
+    );
+    return null;
+  }
+
+  for (const product of candidates) {
+    try {
+      const bytes = await downloadVideo(product.videoUrl);
+      return {product, bytes};
+    } catch (error) {
+      console.warn(
+        `[render] video skipped for ${product.id}: ${error.message}`
+      );
+    }
+  }
+
+  console.log("[render] none of the candidate product videos could be downloaded.");
+  return null;
+}
+
 async function main() {
   ensureDir(OUT_DIR);
   ensureDir(MEDIA_DIR);
   cleanDir(MEDIA_DIR);
 
   const db = initFirebase();
-  const product = await pickProduct(db);
+  const chosen = await resolveProduct(db);
+  if (!chosen) return;
 
-  if (!product) {
-    console.log(
-      "[render] no product is waiting for a reel — every recent product already has videoPublishedAt. Nothing to do."
-    );
-    return;
-  }
+  const {product, bytes: videoBytes} = chosen;
+  const videoFile = path.join(MEDIA_DIR, "product.mp4");
+  fs.writeFileSync(videoFile, videoBytes);
+
+  const videoSeconds = mp4DurationSeconds(videoBytes);
+  const videoFrames = Math.max(1, Math.round((videoSeconds || 8) * FPS));
 
   console.log(
     `[render] product: ${product.id} | ${product.name} | ${formatShekels(
       product.price
-    )} | ${product.category} | ${product.images.length} images`
+    )} | ${product.category} | video ${videoSeconds
+      ? videoSeconds.toFixed(2) + "s"
+      : "unknown"} (${(videoBytes.length / 1024 / 1024).toFixed(1)} MB)`
   );
 
   // ---- 1. תסריט + הקראה ------------------------------------------------
@@ -104,25 +135,7 @@ async function main() {
     `[render] audio: ${audioSeconds.toFixed(2)}s (${audioFrames} frames) via ${audioSource}`
   );
 
-  // ---- 2. תמונות -------------------------------------------------------
-  const images = [];
-  const wanted = product.images.slice(0, 4);
-  for (let index = 0; index < wanted.length; index += 1) {
-    const fileName = `product-${index + 1}.jpg`;
-    try {
-      const bytes = await downloadImage(wanted[index], fileName);
-      fs.writeFileSync(path.join(MEDIA_DIR, fileName), bytes);
-      images.push(`media/${fileName}`);
-    } catch (error) {
-      console.warn(`[render] image ${index + 1} skipped: ${error.message}`);
-    }
-  }
-
-  if (images.length === 0) {
-    throw new Error("No product image could be downloaded — aborting render.");
-  }
-
-  // ---- 3. פריימים וכתוביות --------------------------------------------
+  // ---- 2. פריימים וכתוביות --------------------------------------------
   const totalFrames = AUDIO_START_FRAME + audioFrames + OUTRO_FRAMES;
   const captions = captionTimings(sentences, audioFrames, AUDIO_START_FRAME);
 
@@ -138,7 +151,8 @@ async function main() {
         : "",
     discount: product.discount ? `${Math.round(product.discount)}% הנחה` : "",
     social: socialText(product),
-    images,
+    video: "media/product.mp4",
+    videoFrames,
     audio: "tts.mp3",
     audioStartFrame: AUDIO_START_FRAME,
     audioFrames,
@@ -146,7 +160,7 @@ async function main() {
     totalFrames,
   };
 
-  // ---- 4. רינדור -------------------------------------------------------
+  // ---- 3. רינדור -------------------------------------------------------
   console.log(`[render] bundling Remotion… (${totalFrames} frames)`);
   const serveUrl = await bundle({
     entryPoint: path.join(VIDEO_DIR, "src", "index.js"),
@@ -181,7 +195,7 @@ async function main() {
     },
   });
 
-  // ---- 5. העתקה לאתר (URL ציבורי לאינסטגרם / טלגרם) --------------------
+  // ---- 4. העתקה לאתר (URL ציבורי לאינסטגרם / טלגרם) --------------------
   ensureDir(SITE_VIDEO_DIR);
   const fileName = `${safeName(product.slug || product.id)}.mp4`;
   const siteFile = path.join(SITE_VIDEO_DIR, fileName);
@@ -198,6 +212,8 @@ async function main() {
     rating: product.rating,
     sales: product.sales,
     slug: product.slug,
+    sourceVideo: product.videoUrl,
+    sourceVideoSeconds: videoSeconds ? Number(videoSeconds.toFixed(2)) : null,
     file: path.relative(VIDEO_DIR, outputLocation).split(path.sep).join("/"),
     publicFile: `public/videos/${fileName}`,
     publicUrl,
