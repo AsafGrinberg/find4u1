@@ -195,6 +195,15 @@ async function main() {
   const results = {};
   const channels = [];
 
+  // אין לאן לפרסם: הסרטון נשאר ב־out/ ומועלה כ־artifact, בלי כישלון.
+  if (!process.env.TELEGRAM_BOT_TOKEN && !igConfigured()) {
+    console.warn(
+      "[publish] no channel is configured (TELEGRAM_BOT_TOKEN / IG_USER_ID + IG_ACCESS_TOKEN) — " +
+        "the reel was only rendered. Download it from the run artifacts."
+    );
+    return;
+  }
+
   results.telegram = await sendTelegram(meta).catch((error) => ({
     ok: false,
     reason: error.message,
