@@ -13,6 +13,7 @@ import {
   categoriesOf,
   dedupeProducts,
   formatPrice,
+  goHref,
   priceDropped,
   productHref,
   productUrl,
@@ -248,7 +249,7 @@ function AlertRow({ product, highlighted }) {
       <div className="alert-actions">
         {product.link ? (
           <a
-            href={product.link}
+            href={goHref(product)}
             target="_blank"
             rel="noopener noreferrer sponsored"
             className="card-buy alert-buy"

@@ -1,6 +1,8 @@
 node_modules/
 dist/
 build/
+.next/
+dev.log
 *.log
 .DS_Store
 backup10-07-25-NEW.zip

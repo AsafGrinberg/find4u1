@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
+import { useRouter } from 'next/router';
 import { onAuthStateChanged } from 'firebase/auth';
 import {
   collection,
@@ -88,6 +89,13 @@ export default function CategoryPage({
   const [loading, setLoading] = useState(initialProducts.length === 0);
   const [user, setUser] = useState(null);
   const [likedProducts, setLikedProducts] = useState(new Set());
+  const router = useRouter();
+
+  // החיפוש של האתר כולו מופנה לכאן עם ?q=, כדי שיהיה מקום אחד לחפש בו.
+  useEffect(() => {
+    const q = router.query.q;
+    if (typeof q === 'string' && q.trim()) setSearchTerm(q.trim());
+  }, [router.query.q]);
 
   useEffect(() => {
     let cancelled = false;
@@ -242,6 +250,12 @@ export default function CategoryPage({
             <p className="hero-sub">
               {visible.length} מוצרים נבחרים, מסודרים לפי החדשים ביותר.
             </p>
+
+            {!isAll ? (
+              <p className="hero-sub">
+                {`כל מוצרי ${title} בעמוד אחד: מוצרים שנבחרו לפי דירוג גבוה ומכירות אמיתיות באליאקספרס, עם המחיר בשקלים ומשלוח לישראל. אפשר לסנן לפי מבצעים, מחיר ודירוג ולמיין לפי החדשים, הזולים או הנמכרים ביותר.`}
+              </p>
+            ) : null}
 
             <div className="search-wrap">
               <div className="search-field">

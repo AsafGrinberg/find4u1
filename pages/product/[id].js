@@ -22,6 +22,7 @@ import { fetchProductsServer } from '../../lib/firestore-server';
 import {
   findProductByParam,
   formatPrice,
+  goHref,
   discountOf,
   productSlug,
   productUrl,
@@ -448,7 +449,7 @@ export default function ProductPage({ initialProduct }) {
                 </div>
 
                 <a
-                  href={product.link}
+                  href={goHref(product)}
                   target="_blank"
                   rel="noopener noreferrer sponsored"
                   className={styles.buyBtn}

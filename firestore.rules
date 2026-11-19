@@ -48,6 +48,16 @@ service cloud.firestore {
       }
     }
 
+    // ---------- קליקים יוצאים ----------
+    // דף המעבר /go/[id] רושם הקלקה לכל יציאה לאליאקספרס. הלקוח כותב בלבד;
+    // קריאה של הנתונים היא לאדמין, כדי שלא יהיה אפשר לדלות מהם מידע.
+    match /clicks/{clickId} {
+      allow create: if request.resource.data.keys().hasOnly(
+        ['productId', 'slug', 'name', 'category', 'price', 'referer', 'createdAt']
+      );
+      allow read, update, delete: if isAdmin();
+    }
+
     // ---------- קטגוריות ----------
     match /categories/{categoryId} {
       allow read: if true;

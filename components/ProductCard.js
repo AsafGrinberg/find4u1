@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import {
+  goHref,
   productHref,
   productUrl,
   formatPrice,
@@ -72,7 +73,7 @@ export default function ProductCard({ product, liked, onLike }) {
       <div className="card-actions">
         {product.link ? (
           <a
-            href={product.link}
+            href={goHref(product)}
             target="_blank"
             rel="noopener noreferrer sponsored"
             className="card-buy"
