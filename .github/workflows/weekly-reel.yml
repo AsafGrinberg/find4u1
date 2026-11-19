@@ -1,0 +1,96 @@
+name: Weekly product reel
+
+# פעם בשבוע: מייצר ריל אנכי למוצר הבא, שולח אותו לטלגרם,
+# ומפרסם לאינסטגרם אם מוגדרים הסודות של ה־Graph API.
+#
+# סודות נדרשים:
+#   FIREBASE_SERVICE_ACCOUNT  (כמו בג'וב ההורלי)
+#   GOOGLE_TTS_API_KEY        (חינמי — מכסת תווים חודשית)
+#   ELEVENLABS_API_KEY        (גיבוי אוטומטי כשנגמרת מכסת גוגל)
+# אופציונלי:
+#   TELEGRAM_BOT_TOKEN / TELEGRAM_CHANNEL
+#   IG_USER_ID / IG_ACCESS_TOKEN  (פרסום כריל באינסטגרם)
+#   SITE_URL
+
+on:
+  schedule:
+    - cron: "0 7 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: weekly-reel
+  cancel-in-progress: false
+
+jobs:
+  reel:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install dependencies
+        working-directory: video
+        run: npm install --no-audit --no-fund
+
+      - name: Ensure Chromium for Remotion
+        working-directory: video
+        run: npx --no-install remotion browser ensure
+
+      - name: Render reel
+        working-directory: video
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          GOOGLE_TTS_API_KEY: ${{ secrets.GOOGLE_TTS_API_KEY }}
+          ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
+          GOOGLE_TTS_VOICE: ${{ secrets.GOOGLE_TTS_VOICE }}
+          ELEVENLABS_VOICE_ID: ${{ secrets.ELEVENLABS_VOICE_ID }}
+          SITE_URL: ${{ secrets.SITE_URL }}
+        run: node scripts/render.js
+
+      - name: Commit the reel so it has a public URL
+        run: |
+          if [ ! -f video/out/reel.json ]; then
+            echo "No reel was rendered."
+            exit 0
+          fi
+          git config user.name "find4u-bot"
+          git config user.email "bot@find4u.local"
+          git add public/videos
+          if git diff --cached --quiet; then
+            echo "Nothing new to commit."
+          else
+            git commit -m "Add weekly product reel"
+            git push
+          fi
+
+      - name: Publish to Telegram / Instagram
+        working-directory: video
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHANNEL: ${{ secrets.TELEGRAM_CHANNEL }}
+          IG_USER_ID: ${{ secrets.IG_USER_ID }}
+          IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
+          SITE_URL: ${{ secrets.SITE_URL }}
+        run: node scripts/publish.js
+
+      - name: Keep the rendered file as an artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reel
+          path: |
+            video/out/reel.mp4
+            video/out/reel.json
+          if-no-files-found: ignore
+          retention-days: 14

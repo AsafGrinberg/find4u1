@@ -1,0 +1,20 @@
+{
+  "name": "find4u-reels",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Vertical product reels for Find4U: Remotion + Hebrew TTS",
+  "scripts": {
+    "studio": "remotion studio src/index.js",
+    "render": "node scripts/render.js"
+  },
+  "dependencies": {
+    "@remotion/bundler": "^4.0.0",
+    "@remotion/cli": "^4.0.0",
+    "@remotion/fonts": "^4.0.0",
+    "@remotion/renderer": "^4.0.0",
+    "firebase-admin": "^12.6.0",
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
+    "remotion": "^4.0.0"
+  }
+}

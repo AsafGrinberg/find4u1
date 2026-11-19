@@ -7,3 +7,11 @@ dev.log
 .DS_Store
 backup10-07-25-NEW.zip
 BACKUP10-07-25OLDREGULAR.zip
+
+# רכיבי הסרטונים: קוד, פונטים ו־MP4 מפורסמים נכנסים לגיט,
+# קבצים שנוצרים ברינדור לא.
+video/node_modules/
+video/out/
+video/props.json
+video/public/tts.mp3
+video/public/media/
