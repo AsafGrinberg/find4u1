@@ -57,7 +57,9 @@ function envNumber(name, fallback) {
 // Chirp 3 HD מקריא עברית לאט (~9 תווים בשנייה). האצה עדינה מחזירה
 // קצב דיבור אנושי; ה־<Audio> של Remotion שומר על הגובה.
 const GOOGLE_SPEED = clampSpeed(process.env.TTS_SPEED, 1.08);
-const ELEVENLABS_SPEED = clampSpeed(process.env.TTS_SPEED, 1);
+// ElevenLabs כבר מדבר בקצב אנושי; מהירות נפרדת כדי ש־TTS_SPEED של
+// גוגל לא יאיץ גם אותו.
+const ELEVENLABS_SPEED = clampSpeed(process.env.ELEVENLABS_SPEED, 1);
 
 // קידודים לפי סדר עדיפות: איכות מלאה, ואז תאימות.
 function audioConfigs(voice) {
@@ -222,7 +224,18 @@ async function synthesizeHebrew(text) {
 
   for (const provider of providerOrder()) {
     const result = await provider(text, failures);
-    if (result) return result;
+    if (result) {
+      // אזהרה גלויה בלוג של GitHub Actions: זה מה שמסביר קריינות רובוטית.
+      if (
+        result.source.startsWith("google") &&
+        !process.env.ELEVENLABS_API_KEY
+      ) {
+        console.log(
+          "::warning::Narration used Google TTS because ELEVENLABS_API_KEY is not set. Add it in Settings → Secrets for the natural Hebrew voice."
+        );
+      }
+      return result;
+    }
   }
 
   throw new Error(
