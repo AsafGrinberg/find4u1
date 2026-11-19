@@ -5,19 +5,22 @@
  * ---------------------------------------------------------------
  * הקראה בעברית לשם הסרטון.
  *
- * 1. Google Cloud Text-to-Speech — קודם קולות Chirp 3 HD, שהם
- *    הקולות הטבעיים (כמו בן אדם), ואחריהם WaveNet/Standard כגיבוי.
- *    GOOGLE_TTS_API_KEY.
- * 2. אם גוגל נגמרה המכסה שלה, החזירה 403/429 או שגיאה אחרת —
- *    עוברים ל־ElevenLabs (ELEVENLABS_API_KEY).
+ * הסדר (TTS_PROVIDER):
+ *   auto (ברירת מחדל) — ElevenLabs קודם אם יש מפתח, ואז גוגל.
+ *   google            — גוגל קודם (המכסה החינמית הגדולה), ElevenLabs כגיבוי.
+ *   elevenlabs        — רק ElevenLabs קודם, גוגל כגיבוי.
+ *
+ * למה ElevenLabs כברירת מחדל: Chirp 3 HD של גוגל מדויק אבל שטוח,
+ * ואילו ElevenLabs מדבר עם נגיעה אנושית (הדגשות, נשימות, סוף משפט
+ * יורד). אם המפתח חסר או המכסה נגמרה — נופלים חזרה לגוגל אוטומטית.
  *
  * איכות: מבקשים קודם LINEAR16 (WAV, 48kHz) ולא MP3. גוגל מחזירה
  * MP3 ב־32kbps, וזה מה שנשמע דק ו"טלפוני". אם הקול לא תומך ב־WAV
- * (400) — נופלים חזרה ל־MP3 של אותו קול.
+ * (400) — נופלים חזרה ל־MP3 של אותו קול. ElevenLabs מוחזר ב־128kbps.
  *
  * מחזיר {buffer, source, format, rate}:
  *   format — "wav" או "mp3"
- *   rate   — קצב ניגון מומלץ ב־Remotion (Chirp מקריא לאט מהטבעי)
+ *   rate   — קצב ניגון מומלץ ב־Remotion
  */
 
 const GOOGLE_ENDPOINT = "https://texttospeech.googleapis.com/v1/text:synthesize";
@@ -37,6 +40,7 @@ const GOOGLE_VOICES = [
 // את קידוד האודיו. שליחת speakingRate אליו מחזירה שגיאה.
 const isChirp = (voice) => /Chirp3?-HD/i.test(voice);
 
+// קול ברירת מחדל של ElevenLabs: Sarah (רב־לשוני, עברית טבעית).
 const ELEVENLABS_VOICE = process.env.ELEVENLABS_VOICE_ID || "21m00Tcm4TlvDq8ikWAM";
 
 function clampSpeed(value, fallback) {
@@ -45,10 +49,15 @@ function clampSpeed(value, fallback) {
   return speed;
 }
 
-// Chirp 3 HD מקריא עברית לאט (~9 תווים בשנייה). האצה עדינה של 12%
-// מחזירה קצב דיבור אנושי; ה־<Audio> של Remotion שומר על הגובה.
-const GOOGLE_SPEED = clampSpeed(process.env.TTS_SPEED, 1.12);
-const ELEVENLABS_SPEED = 1;
+function envNumber(name, fallback) {
+  const value = Number(process.env[name]);
+  return Number.isFinite(value) ? value : fallback;
+}
+
+// Chirp 3 HD מקריא עברית לאט (~9 תווים בשנייה). האצה עדינה מחזירה
+// קצב דיבור אנושי; ה־<Audio> של Remotion שומר על הגובה.
+const GOOGLE_SPEED = clampSpeed(process.env.TTS_SPEED, 1.08);
+const ELEVENLABS_SPEED = clampSpeed(process.env.TTS_SPEED, 1);
 
 // קידודים לפי סדר עדיפות: איכות מלאה, ואז תאימות.
 function audioConfigs(voice) {
@@ -109,13 +118,19 @@ async function googleTts(text, voice) {
   throw lastError || new Error("Google TTS failed");
 }
 
+/**
+ * ElevenLabs. stability נמוך + style גבוה = דיבור חי והבעתי.
+ * אפשר לכוונן דרך ELEVENLABS_STABILITY / ELEVENLABS_STYLE.
+ */
 async function elevenLabsTts(text) {
   if (!process.env.ELEVENLABS_API_KEY) return null;
 
   const response = await fetch(
     `https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(
       ELEVENLABS_VOICE
-    )}?output_format=mp3_44100_128`,
+    )}?output_format=${encodeURIComponent(
+      process.env.ELEVENLABS_FORMAT || "mp3_44100_128"
+    )}`,
     {
       method: "POST",
       headers: {
@@ -126,7 +141,13 @@ async function elevenLabsTts(text) {
       body: JSON.stringify({
         text,
         model_id: process.env.ELEVENLABS_MODEL || "eleven_multilingual_v2",
-        voice_settings: {stability: 0.45, similarity_boost: 0.75},
+        // "סטייל" גבוה נותן אינטונציה של פרסומת, לא של קריין חדשות.
+        voice_settings: {
+          stability: envNumber("ELEVENLABS_STABILITY", 0.3),
+          similarity_boost: envNumber("ELEVENLABS_SIMILARITY", 0.85),
+          style: envNumber("ELEVENLABS_STYLE", 0.55),
+          use_speaker_boost: true,
+        },
       }),
     }
   );
@@ -172,7 +193,7 @@ async function tryElevenLabs(text, failures) {
     const result = await elevenLabsTts(text);
     if (result) {
       console.log(
-        `[tts] ElevenLabs (${result.format}) — ${result.buffer.length} bytes`
+        `[tts] ElevenLabs (${result.format}, ${result.rate}x) — ${result.buffer.length} bytes`
       );
       return {...result, source: "elevenlabs"};
     }
@@ -184,25 +205,29 @@ async function tryElevenLabs(text, failures) {
   return null;
 }
 
-async function synthesizeHebrew(text) {
-  const failures = [];
-  // הסדר הקבוע: גוגל קודם (המכסה החינמית הגדולה), ו־ElevenLabs כשהיא נגמרת.
-  // TTS_PROVIDER=elevenlabs הופך את הסדר למי שאין חשבון גוגל.
-  const preferEleven =
-    String(process.env.TTS_PROVIDER || "").toLowerCase() === "elevenlabs";
+function providerOrder() {
+  const preference = String(process.env.TTS_PROVIDER || "auto").toLowerCase();
 
-  const providers = preferEleven
+  if (preference === "google") return [tryGoogle, tryElevenLabs];
+  if (preference === "elevenlabs") return [tryElevenLabs, tryGoogle];
+
+  // auto: קול אנושי קודם, ואם אין מפתח / נגמרה המכסה — גוגל.
+  return process.env.ELEVENLABS_API_KEY
     ? [tryElevenLabs, tryGoogle]
     : [tryGoogle, tryElevenLabs];
+}
 
-  for (const provider of providers) {
+async function synthesizeHebrew(text) {
+  const failures = [];
+
+  for (const provider of providerOrder()) {
     const result = await provider(text, failures);
     if (result) return result;
   }
 
   throw new Error(
-    "No TTS provider worked. Set GOOGLE_TTS_API_KEY (free tier) and/or " +
-      "ELEVENLABS_API_KEY.\n" +
+    "No TTS provider worked. Set ELEVENLABS_API_KEY (natural) or " +
+      "GOOGLE_TTS_API_KEY (free tier).\n" +
       failures.map((line) => ` - ${line}`).join("\n")
   );
 }

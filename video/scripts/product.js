@@ -67,6 +67,9 @@ async function pickProducts(db, limit = 5) {
         ref: doc.ref,
         name: String(data.name || data.sourceTitle || "").trim(),
         title: String(data.name || "").trim(),
+        // נדרש לקופירייטר: מכאן מזהים את היתרונות האמיתיים של המוצר.
+        sourceTitle: String(data.sourceTitle || "").trim(),
+        sourceCategory: String(data.sourceCategory || "").trim(),
         category:
           (Array.isArray(data.category) && data.category[0]) || "מוצרים מומלצים",
         price: toNumber(data.price),

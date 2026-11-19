@@ -225,6 +225,7 @@ async function main() {
   const meta = {
     productId: product.id,
     productName: product.name,
+    sourceTitle: product.sourceTitle || null,
     category: product.category,
     price: product.price,
     originalPrice: product.originalPrice,
@@ -243,6 +244,7 @@ async function main() {
     durationSeconds: Number(audioSeconds.toFixed(2)),
     totalFrames,
     caption: captionText(product, sentences, SITE_URL.replace(/^https?:\/\//, "")),
+    script: text,
     sentences,
   };
 

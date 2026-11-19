@@ -6,12 +6,13 @@ name: Weekly product reel
 #
 # סודות נדרשים:
 #   FIREBASE_SERVICE_ACCOUNT  (כמו בג'וב ההורלי)
-#   GOOGLE_TTS_API_KEY        (חינמי — מכסת תווים חודשית)
-#   ELEVENLABS_API_KEY        (גיבוי אוטומטי כשנגמרת מכסת גוגל)
+#   ELEVENLABS_API_KEY        (הקול הטבעי — עדיף שיהיה מוגדר)
+#   GOOGLE_TTS_API_KEY        (גיבוי אוטומטי כשנגמרת מכסת ElevenLabs)
 # אופציונלי:
-#   TTS_PROVIDER=elevenlabs   (מעדיף ElevenLabs על גוגל)
-#   TTS_SPEED                 (קצב דיבור, ברירת מחדל 1.12 — להאט ל־1)
+#   TTS_PROVIDER              (auto = ElevenLabs קודם; google / elevenlabs)
+#   TTS_SPEED                 (קצב דיבור, ברירת מחדל 1.08 — 1 = בלי האצה)
 #   ELEVENLABS_MODEL / ELEVENLABS_VOICE_ID
+#   ELEVENLABS_STABILITY (0.3) / ELEVENLABS_STYLE (0.55) — כיוונון הבעתיות
 #   TELEGRAM_BOT_TOKEN / TELEGRAM_CHANNEL
 #   IG_USER_ID / IG_ACCESS_TOKEN  (פרסום כריל באינסטגרם)
 #   SITE_URL
@@ -61,6 +62,8 @@ jobs:
           TTS_PROVIDER: ${{ secrets.TTS_PROVIDER }}
           ELEVENLABS_VOICE_ID: ${{ secrets.ELEVENLABS_VOICE_ID }}
           ELEVENLABS_MODEL: ${{ secrets.ELEVENLABS_MODEL }}
+          ELEVENLABS_STABILITY: ${{ secrets.ELEVENLABS_STABILITY }}
+          ELEVENLABS_STYLE: ${{ secrets.ELEVENLABS_STYLE }}
           SITE_URL: ${{ secrets.SITE_URL }}
         run: node scripts/render.js
 
