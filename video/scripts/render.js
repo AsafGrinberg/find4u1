@@ -22,6 +22,7 @@ const {selectComposition, renderMedia} = require("@remotion/renderer");
 const {initFirebase, pickProducts, downloadVideo} = require("./product");
 const {synthesizeHebrew} = require("./tts");
 const {mp3DurationSeconds} = require("./mp3-duration");
+const {wavDurationSeconds} = require("./wav-duration");
 const {mp4DurationSeconds} = require("./mp4-duration");
 const {
   buildSentences,
@@ -122,17 +123,35 @@ async function main() {
   const text = speechText(sentences);
   console.log(`[render] script (${text.length} chars)`);
   sentences.forEach((item, index) =>
-    console.log(`  ${index + 1}. ${item.text}`)
+    console.log(`  ${index + 1}. ${item.text}  |  ${item.speech}`)
   );
 
-  const {buffer: audioBuffer, source: audioSource} = await synthesizeHebrew(text);
-  const audioFile = path.join(PUBLIC_DIR, "tts.mp3");
+  const {
+    buffer: audioBuffer,
+    source: audioSource,
+    format: audioFormat,
+    rate: audioRate,
+  } = await synthesizeHebrew(text);
+
+  // מנקים את שני הפורמטים האפשריים כדי שלא יישאר קובץ אודיו ישן.
+  for (const name of ["tts.mp3", "tts.wav"]) {
+    const stale = path.join(PUBLIC_DIR, name);
+    if (fs.existsSync(stale)) fs.rmSync(stale, {force: true});
+  }
+
+  const audioExt = audioFormat === "wav" ? "wav" : "mp3";
+  const audioFile = path.join(PUBLIC_DIR, `tts.${audioExt}`);
   fs.writeFileSync(audioFile, audioBuffer);
 
-  const audioSeconds = mp3DurationSeconds(audioBuffer);
+  const rawAudioSeconds =
+    audioExt === "wav"
+      ? wavDurationSeconds(audioBuffer)
+      : mp3DurationSeconds(audioBuffer);
+  // ה־<Audio> מתנגן ב־playbackRate, ולכן משך האודיו האפקטיבי קצר יותר.
+  const audioSeconds = rawAudioSeconds / audioRate;
   const audioFrames = Math.ceil(audioSeconds * FPS);
   console.log(
-    `[render] audio: ${audioSeconds.toFixed(2)}s (${audioFrames} frames) via ${audioSource}`
+    `[render] audio: ${audioSeconds.toFixed(2)}s (${audioFrames} frames) via ${audioSource} [${audioExt} @${audioRate}x]`
   );
 
   // ---- 2. פריימים וכתוביות --------------------------------------------
@@ -153,7 +172,8 @@ async function main() {
     social: socialText(product),
     video: "media/product.mp4",
     videoFrames,
-    audio: "tts.mp3",
+    audio: `tts.${audioExt}`,
+    audioRate,
     audioStartFrame: AUDIO_START_FRAME,
     audioFrames,
     captions,
@@ -218,6 +238,8 @@ async function main() {
     publicFile: `public/videos/${fileName}`,
     publicUrl,
     audioSource,
+    audioFormat: audioExt,
+    audioRate,
     durationSeconds: Number(audioSeconds.toFixed(2)),
     totalFrames,
     caption: captionText(product, sentences, SITE_URL.replace(/^https?:\/\//, "")),

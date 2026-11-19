@@ -5,12 +5,24 @@
  * ---------------------------------------------------------------
  * בונה את הטקסט שנשמע בסרטון (עברית מדוברת, לא "קריאת טבלה")
  * ואת הכתוביות, עם זמנים שמתחלקים לפי אורך כל משפט.
+ *
+ * לכל משפט יש שני נוסחים:
+ *   text   — הכתובית שעל המסך (ספרות: "7 ₪", "50% הנחה")
+ *   speech — מה שמקריאים (מילים: "פחות משבעה שקלים", "חמישים אחוז")
+ * מנוע הקראה שקורא ספרות נשמע שטוח ורובוטי; בן אדם אומר מילים.
  */
 
+const {
+  numberToHebrew,
+  shekelsWords,
+  ratingWords,
+  thousandsWords,
+} = require("./hebrew-numbers");
+
 const HOOKS = [
+  "תקשיבו רגע",
   "תראו מה מצאתי",
-  "תקשיבו, יש פה משהו שווה",
-  "מצאתי לך דיל שווה",
+  "מצאתי לכם דיל",
   "רגע, תסתכלו על זה",
 ];
 
@@ -42,67 +54,114 @@ function socialText(product) {
   return parts.join(" · ");
 }
 
-// מחיר מדובר: "5.90" נקרא רע, "פחות משישה שקלים" נשמע כמו בן אדם.
-function priceSentence(price) {
-  if (price === null || price === undefined) return "";
-  if (Number.isInteger(price)) return `המחיר? ${price} שקלים`;
-  if (price < 10) return `המחיר? פחות מ${Math.ceil(price)} שקלים`;
-  return `המחיר? ${Math.round(price)} שקלים`;
-}
-
-// "61,734 מכירות" נשמע כמו קריאת טבלה — אומרים "יותר משישים אלף".
-function salesSentence(sales) {
-  if (!sales) return "";
-  if (sales >= 1000) {
-    return `יותר מ${Math.floor(sales / 1000)} אלף מכירות`;
+// המחיר: כתובית עם ספרות, דיבור עם מילים.
+function priceLine(price) {
+  if (price === null || price === undefined || !Number.isFinite(Number(price))) {
+    return null;
   }
-  return `${Math.round(sales)} מכירות`;
+  const value = Number(price);
+
+  if (value < 10) {
+    const rounded = Math.max(1, Math.ceil(value));
+    return {
+      text: `פחות מ${rounded} ₪`,
+      speech: `המחיר? פחות מ${shekelsWords(rounded)} בלבד.`,
+    };
+  }
+
+  const rounded = Math.round(value);
+  return {
+    text: `${rounded} ₪`,
+    speech: `המחיר? ${shekelsWords(rounded)} בלבד.`,
+  };
 }
 
 // משפטי ההקראה. כל משפט מקבל משקל יחסי לפי מספר התווים, כך שקצב
 // הדיבור נשאר אחיד והכתוביות מסתנכרנות עם האודיו.
 function buildSentences(product) {
   const sentences = [];
-  const price = product.price;
-  const original = product.originalPrice;
+  const price = Number(product.price);
+  const original = Number(product.originalPrice);
   const discount = product.discount ? Math.round(product.discount) : null;
+  const rating = Number(product.rating) || 0;
+  const sales = Number(product.sales) || 0;
+  const category = product.category || "";
 
-  sentences.push({text: `${pick(HOOKS)}, בקטגוריית ${product.category}`});
+  const hook = pick(HOOKS);
+  sentences.push({
+    text: `${hook} · ${category}`,
+    speech: `${hook}. משהו שווה${category ? ` בקטגוריית ${category}` : ""}.`,
+  });
 
-  const priceLine = priceSentence(price);
-  if (priceLine) sentences.push({text: priceLine});
+  const line = priceLine(price);
+  if (line) sentences.push(line);
 
   if (original && price && original > price) {
-    sentences.push({text: `במקום ${Math.round(original)} שקלים`});
+    const originalRound = Math.round(original);
+    sentences.push({
+      text: `במקום ${originalRound} ₪`,
+      speech: `במקום ${shekelsWords(originalRound)}.`,
+    });
   }
 
   if (discount && discount >= 10) {
-    sentences.push({text: `הנחה של ${discount} אחוז`});
+    sentences.push({
+      text: `${discount}% הנחה`,
+      speech: `הנחה של ${numberToHebrew(discount)} אחוז.`,
+    });
   }
 
-  const rating = product.rating
-    ? `דירוג של ${Number(product.rating).toFixed(1)} כוכבים`
-    : "";
-  const sales = salesSentence(product.sales);
+  if (rating || sales) {
+    const captionParts = [];
+    const speechParts = [];
 
-  if (rating && sales) sentences.push({text: `${rating}, ${sales}`});
-  else if (rating) sentences.push({text: rating});
-  else if (sales) sentences.push({text: sales});
+    if (rating) {
+      captionParts.push(`דירוג ${rating.toFixed(1)}`);
+      speechParts.push(`דירוג של ${ratingWords(rating)} כוכבים`);
+    }
+    if (sales) {
+      captionParts.push(
+        sales >= 1000
+          ? `${Number(sales).toLocaleString("he-IL")} מכירות`
+          : `${sales} מכירות`
+      );
+      // ה־"ו" מחברת לדירוג שלפניה; בלי דירוג המשפט פותח נקי.
+      const join = rating ? "ו" : "";
+      speechParts.push(
+        sales >= 1000
+          ? `${join}יותר מ${thousandsWords(sales)} אנשים כבר קנו`
+          : `${join}${numberToHebrew(sales)} אנשים כבר קנו`
+      );
+    }
 
-  sentences.push({text: "הקישור בתיאור, ומשלוח לישראל"});
+    sentences.push({
+      text: captionParts.join(" · "),
+      speech: `${speechParts.join(", ")}.`,
+    });
+  }
+
+  sentences.push({
+    text: "הקישור בתיאור · משלוח לישראל",
+    speech: "הקישור בתיאור, ומשלוח לישראל.",
+  });
 
   return sentences.map((item) => ({
     text: item.text.replace(/\s+/g, " ").trim(),
+    speech: item.speech.replace(/\s+/g, " ").trim(),
   }));
 }
 
 function speechText(sentences) {
-  return sentences.map((item) => item.text).join(". ").replace(/\.\./g, ".") + ".";
+  return `${sentences
+    .map((item) => (item.speech || item.text).trim().replace(/[.\s]+$/, ""))
+    .join(". ")}.`;
 }
 
-// מפצל את משך האודיו בין המשפטים לפי אורך, ומוסיף נשימה קטנה בין משפטים.
+// מפצל את משך האודיו בין המשפטים לפי אורך הדיבור שלהם.
 function captionTimings(sentences, audioFrames, startFrame) {
-  const weights = sentences.map((item) => Math.max(12, item.text.length));
+  const weights = sentences.map((item) =>
+    Math.max(12, (item.speech || item.text).length)
+  );
   const totalWeight = weights.reduce((sum, value) => sum + value, 0);
   const total = Math.max(audioFrames, sentences.length * 24);
 
@@ -124,12 +183,12 @@ function captionText(product, sentences, site) {
     `🛍️ ${product.name}`,
   ];
 
-  const priceLine = product.originalPrice
+  const priceLineText = product.originalPrice
     ? `${formatShekels(product.price)} במקום ${formatShekels(
         product.originalPrice
       )}`
     : `${formatShekels(product.price)} בלבד`;
-  lines.push(`💰 ${priceLine}`);
+  lines.push(`💰 ${priceLineText}`);
 
   if (product.discount) lines.push(`🔥 ${Math.round(product.discount)}% הנחה`);
   if (product.rating) {

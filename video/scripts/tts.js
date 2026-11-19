@@ -11,7 +11,13 @@
  * 2. אם גוגל נגמרה המכסה שלה, החזירה 403/429 או שגיאה אחרת —
  *    עוברים ל־ElevenLabs (ELEVENLABS_API_KEY).
  *
- * מחזיר {buffer, source}.
+ * איכות: מבקשים קודם LINEAR16 (WAV, 48kHz) ולא MP3. גוגל מחזירה
+ * MP3 ב־32kbps, וזה מה שנשמע דק ו"טלפוני". אם הקול לא תומך ב־WAV
+ * (400) — נופלים חזרה ל־MP3 של אותו קול.
+ *
+ * מחזיר {buffer, source, format, rate}:
+ *   format — "wav" או "mp3"
+ *   rate   — קצב ניגון מומלץ ב־Remotion (Chirp מקריא לאט מהטבעי)
  */
 
 const GOOGLE_ENDPOINT = "https://texttospeech.googleapis.com/v1/text:synthesize";
@@ -33,6 +39,26 @@ const isChirp = (voice) => /Chirp3?-HD/i.test(voice);
 
 const ELEVENLABS_VOICE = process.env.ELEVENLABS_VOICE_ID || "21m00Tcm4TlvDq8ikWAM";
 
+function clampSpeed(value, fallback) {
+  const speed = Number(value);
+  if (!Number.isFinite(speed) || speed < 0.8 || speed > 1.35) return fallback;
+  return speed;
+}
+
+// Chirp 3 HD מקריא עברית לאט (~9 תווים בשנייה). האצה עדינה של 12%
+// מחזירה קצב דיבור אנושי; ה־<Audio> של Remotion שומר על הגובה.
+const GOOGLE_SPEED = clampSpeed(process.env.TTS_SPEED, 1.12);
+const ELEVENLABS_SPEED = 1;
+
+// קידודים לפי סדר עדיפות: איכות מלאה, ואז תאימות.
+function audioConfigs(voice) {
+  const base = isChirp(voice) ? {} : {speakingRate: 1.0, pitch: 0};
+  return [
+    {audioEncoding: "LINEAR16", sampleRateHertz: 48000, ...base},
+    {audioEncoding: "MP3", ...base},
+  ];
+}
+
 async function googleRequest(text, voice, audioConfig) {
   return fetch(
     `${GOOGLE_ENDPOINT}?key=${encodeURIComponent(process.env.GOOGLE_TTS_API_KEY)}`,
@@ -49,25 +75,38 @@ async function googleRequest(text, voice, audioConfig) {
 }
 
 async function googleTts(text, voice) {
-  const audioConfig = isChirp(voice)
-    ? {audioEncoding: "MP3"}
-    : {audioEncoding: "MP3", speakingRate: 1.02, pitch: 0, sampleRateHertz: 44100};
+  let lastError = null;
 
-  const response = await googleRequest(text, voice, audioConfig);
+  for (const audioConfig of audioConfigs(voice)) {
+    const response = await googleRequest(text, voice, audioConfig);
 
-  if (!response.ok) {
-    const details = await response.text().catch(() => "");
-    const error = new Error(
-      `Google TTS ${response.status}: ${details.slice(0, 300)}`
-    );
-    error.status = response.status;
-    error.details = details;
-    throw error;
+    if (!response.ok) {
+      const details = await response.text().catch(() => "");
+      const error = new Error(
+        `Google TTS ${response.status}: ${details.slice(0, 300)}`
+      );
+      error.status = response.status;
+      error.details = details;
+      lastError = error;
+      // 400 יכול להיות "הקידוד הזה לא נתמך בקול הזה" — מנסים MP3.
+      if (response.status === 400) continue;
+      throw error;
+    }
+
+    const json = await response.json();
+    if (!json.audioContent) {
+      lastError = new Error("Google TTS returned no audioContent");
+      continue;
+    }
+
+    return {
+      buffer: Buffer.from(json.audioContent, "base64"),
+      format: audioConfig.audioEncoding === "LINEAR16" ? "wav" : "mp3",
+      rate: GOOGLE_SPEED,
+    };
   }
 
-  const json = await response.json();
-  if (!json.audioContent) throw new Error("Google TTS returned no audioContent");
-  return Buffer.from(json.audioContent, "base64");
+  throw lastError || new Error("Google TTS failed");
 }
 
 async function elevenLabsTts(text) {
@@ -94,12 +133,14 @@ async function elevenLabsTts(text) {
 
   if (!response.ok) {
     const details = await response.text().catch(() => "");
-    throw new Error(
-      `ElevenLabs ${response.status}: ${details.slice(0, 300)}`
-    );
+    throw new Error(`ElevenLabs ${response.status}: ${details.slice(0, 300)}`);
   }
 
-  return Buffer.from(await response.arrayBuffer());
+  return {
+    buffer: Buffer.from(await response.arrayBuffer()),
+    format: "mp3",
+    rate: ELEVENLABS_SPEED,
+  };
 }
 
 async function tryGoogle(text, failures) {
@@ -110,9 +151,11 @@ async function tryGoogle(text, failures) {
 
   for (const voice of [...new Set(GOOGLE_VOICES)]) {
     try {
-      const buffer = await googleTts(text, voice);
-      console.log(`[tts] Google Cloud TTS (${voice}) — ${buffer.length} bytes`);
-      return {buffer, source: `google:${voice}`};
+      const result = await googleTts(text, voice);
+      console.log(
+        `[tts] Google Cloud TTS (${voice}, ${result.format}, ${result.rate}x) — ${result.buffer.length} bytes`
+      );
+      return {...result, source: `google:${voice}`};
     } catch (error) {
       failures.push(error.message);
       console.warn(`[tts] Google voice ${voice} failed: ${error.message}`);
@@ -126,10 +169,12 @@ async function tryGoogle(text, failures) {
 
 async function tryElevenLabs(text, failures) {
   try {
-    const buffer = await elevenLabsTts(text);
-    if (buffer) {
-      console.log(`[tts] ElevenLabs — ${buffer.length} bytes`);
-      return {buffer, source: "elevenlabs"};
+    const result = await elevenLabsTts(text);
+    if (result) {
+      console.log(
+        `[tts] ElevenLabs (${result.format}) — ${result.buffer.length} bytes`
+      );
+      return {...result, source: "elevenlabs"};
     }
     failures.push("ELEVENLABS_API_KEY is missing");
   } catch (error) {

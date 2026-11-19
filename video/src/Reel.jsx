@@ -457,7 +457,12 @@ export const Reel = (props) => {
       />
 
       {props.audio ? (
-        <Audio src={staticFile(props.audio)} startFrom={0} />
+        <Audio
+          src={staticFile(props.audio)}
+          startFrom={0}
+          playbackRate={Number(props.audioRate) || 1}
+          preservePitch
+        />
       ) : null}
 
       <Logo frame={frame} />
