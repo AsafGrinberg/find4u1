@@ -6,13 +6,16 @@
  * הקראה בעברית לשם הסרטון.
  *
  * הסדר (TTS_PROVIDER):
- *   auto (ברירת מחדל) — ElevenLabs קודם אם יש מפתח, ואז גוגל.
+ *   auto (ברירת מחדל) — גוגל Chirp 3 HD (קול עברי ילידי) קודם, ואם
+ *                       ELEVENLABS_VOICE_ID מוגדר — ElevenLabs קודם.
  *   google            — גוגל קודם (המכסה החינמית הגדולה), ElevenLabs כגיבוי.
  *   elevenlabs        — רק ElevenLabs קודם, גוגל כגיבוי.
  *
- * למה ElevenLabs כברירת מחדל: Chirp 3 HD של גוגל מדויק אבל שטוח,
- * ואילו ElevenLabs מדבר עם נגיעה אנושית (הדגשות, נשימות, סוף משפט
- * יורד). אם המפתח חסר או המכסה נגמרה — נופלים חזרה לגוגל אוטומטית.
+ * למה גוגל Chirp 3 HD כברירת מחדל ב־auto: הוא קול ילידי עברי
+ * (he-IL), כלומר בלי מבטא. קול ברירת המחדל של ElevenLabs (Sarah)
+ * הוא קול אנגלי שקורא עברית עם מבטא — ולכן נשמע פחות טבעי. ברגע
+ * שנבחר קול עברי ילידי ב־ELEVENLABS_VOICE_ID, ElevenLabs חוזר
+ * להיות הראשון.
  *
  * איכות: מבקשים קודם LINEAR16 (WAV, 48kHz) ולא MP3. גוגל מחזירה
  * MP3 ב־32kbps, וזה מה שנשמע דק ו"טלפוני". אם הקול לא תומך ב־WAV
@@ -26,9 +29,12 @@
 const GOOGLE_ENDPOINT = "https://texttospeech.googleapis.com/v1/text:synthesize";
 
 // קולות עבריים בגוגל, מהטבעי לרובוטי. Chirp 3 HD הוא הקול השיווקי
-// (נוסף לעברית ב־10.11.2025); אם הוא לא זמין בפרויקט — WaveNet.
+// (נוסף לעברית ב־10.11.2025); Achernar (נקבה) הוא הקול הילידי שנבחר
+// אחרי האזנה. אם הוא לא זמין בפרויקט — קולות Chirp אחרים, ואז WaveNet.
+// שם הקול הוא תבנית <locale>-<model>-<voice>, כלומר he-IL-Chirp3-HD-Achernar.
 const GOOGLE_VOICES = [
   process.env.GOOGLE_TTS_VOICE,
+  "he-IL-Chirp3-HD-Achernar",
   "he-IL-Chirp3-HD-Aoede",
   "he-IL-Chirp3-HD-Zephyr",
   "he-IL-Chirp3-HD-Charon",
@@ -36,11 +42,13 @@ const GOOGLE_VOICES = [
   "he-IL-Standard-A",
 ].filter(Boolean);
 
-// Chirp 3 HD לא תומך ב־SSML ולא בקצב/גובה קול, ולכן שולחים לו רק
-// את קידוד האודיו. שליחת speakingRate אליו מחזירה שגיאה.
+// Chirp 3 HD לא תומך ב־SSML ולא ב־pitch, אבל כן תומך בקצב דיבור
+// (speaking_rate, "pace control" — נתמך בכל השפות כולל he-IL).
 const isChirp = (voice) => /Chirp3?-HD/i.test(voice);
 
-// קול ברירת מחדל של ElevenLabs: Sarah (רב־לשוני, עברית טבעית).
+// קול ברירת מחדל של ElevenLabs: Sarah (רב־לשוני, אבל קול אנגלי —
+// קורא עברית עם מבטא). עדיף להגדיר ELEVENLABS_VOICE_ID של קול עברי
+// ילידי מ־Voice Library.
 const ELEVENLABS_VOICE = process.env.ELEVENLABS_VOICE_ID || "21m00Tcm4TlvDq8ikWAM";
 
 function clampSpeed(value, fallback) {
@@ -61,12 +69,42 @@ const GOOGLE_SPEED = clampSpeed(process.env.TTS_SPEED, 1.08);
 // גוגל לא יאיץ גם אותו.
 const ELEVENLABS_SPEED = clampSpeed(process.env.ELEVENLABS_SPEED, 1);
 
-// קידודים לפי סדר עדיפות: איכות מלאה, ואז תאימות.
+// קידודים לפי סדר עדיפות: WAV עם קצב דיבור, ואז WAV בלי קצב (אם הקול
+// מסרב ל־speakingRate), ואז MP3. rate הוא קצב הניגון ב־Remotion:
+// כשגוגל כבר מאיצה בעצמה, rate = 1 (האצה כפולה הייתה נשמעת מהירה מדי).
 function audioConfigs(voice) {
-  const base = isChirp(voice) ? {} : {speakingRate: 1.0, pitch: 0};
+  if (isChirp(voice)) {
+    return [
+      {
+        config: {
+          audioEncoding: "LINEAR16",
+          sampleRateHertz: 48000,
+          speakingRate: GOOGLE_SPEED,
+        },
+        rate: 1,
+      },
+      {
+        config: {audioEncoding: "LINEAR16", sampleRateHertz: 48000},
+        rate: GOOGLE_SPEED,
+      },
+      {config: {audioEncoding: "MP3"}, rate: GOOGLE_SPEED},
+    ];
+  }
+
   return [
-    {audioEncoding: "LINEAR16", sampleRateHertz: 48000, ...base},
-    {audioEncoding: "MP3", ...base},
+    {
+      config: {
+        audioEncoding: "LINEAR16",
+        sampleRateHertz: 48000,
+        speakingRate: 1.0,
+        pitch: 0,
+      },
+      rate: GOOGLE_SPEED,
+    },
+    {
+      config: {audioEncoding: "MP3", speakingRate: 1.0, pitch: 0},
+      rate: GOOGLE_SPEED,
+    },
   ];
 }
 
@@ -88,8 +126,8 @@ async function googleRequest(text, voice, audioConfig) {
 async function googleTts(text, voice) {
   let lastError = null;
 
-  for (const audioConfig of audioConfigs(voice)) {
-    const response = await googleRequest(text, voice, audioConfig);
+  for (const {config, rate} of audioConfigs(voice)) {
+    const response = await googleRequest(text, voice, config);
 
     if (!response.ok) {
       const details = await response.text().catch(() => "");
@@ -112,8 +150,8 @@ async function googleTts(text, voice) {
 
     return {
       buffer: Buffer.from(json.audioContent, "base64"),
-      format: audioConfig.audioEncoding === "LINEAR16" ? "wav" : "mp3",
-      rate: GOOGLE_SPEED,
+      format: config.audioEncoding === "LINEAR16" ? "wav" : "mp3",
+      rate,
     };
   }
 
@@ -221,10 +259,10 @@ function providerOrder() {
   if (preference === "google") return [tryGoogle, tryElevenLabs];
   if (preference === "elevenlabs") return [tryElevenLabs, tryGoogle];
 
-  // auto: קול אנושי קודם, ואם אין מפתח / נגמרה המכסה — גוגל.
-  return process.env.ELEVENLABS_API_KEY
-    ? [tryElevenLabs, tryGoogle]
-    : [tryGoogle, tryElevenLabs];
+  // auto: Chirp 3 HD של גוגל הוא קול עברי ילידי, ולכן קודם — אלא אם
+  // נבחר קול ElevenLabs מפורש (ELEVENLABS_VOICE_ID), ואז הוא קודם.
+  if (process.env.ELEVENLABS_VOICE_ID) return [tryElevenLabs, tryGoogle];
+  return [tryGoogle, tryElevenLabs];
 }
 
 async function synthesizeHebrew(text) {
@@ -239,7 +277,7 @@ async function synthesizeHebrew(text) {
         !process.env.ELEVENLABS_API_KEY
       ) {
         console.log(
-          "::warning::Narration used Google TTS because ELEVENLABS_API_KEY is not set. Add it in Settings → Secrets for the natural Hebrew voice."
+          "::warning::Narration used the Google fallback voice. Set ELEVENLABS_API_KEY and a Hebrew ELEVENLABS_VOICE_ID in Settings → Secrets for the natural voice."
         );
       }
       return result;

@@ -12,7 +12,7 @@
  */
 
 const DEFAULT_ELEVENLABS_VOICE = "21m00Tcm4TlvDq8ikWAM";
-const DEFAULT_GOOGLE_VOICE = "he-IL-Chirp3-HD-Aoede";
+const DEFAULT_GOOGLE_VOICE = "he-IL-Chirp3-HD-Achernar";
 
 const hasEleven = Boolean(process.env.ELEVENLABS_API_KEY);
 const hasGoogle = Boolean(process.env.GOOGLE_TTS_API_KEY);
@@ -22,7 +22,9 @@ const preference = String(process.env.TTS_PROVIDER || "auto").toLowerCase();
 function providerOrder() {
   if (preference === "google") return ["google", "elevenlabs"];
   if (preference === "elevenlabs") return ["elevenlabs", "google"];
-  return hasEleven ? ["elevenlabs", "google"] : ["google", "elevenlabs"];
+  // auto: Chirp 3 HD העברי קודם, אלא אם נבחר קול ElevenLabs מפורש.
+  if (process.env.ELEVENLABS_VOICE_ID) return ["elevenlabs", "google"];
+  return ["google", "elevenlabs"];
 }
 
 const available = [];
@@ -55,12 +57,14 @@ if (chosen && chosen.name === "elevenlabs") {
   lines.push(
     `[voice] Google Cloud TTS, voice ${
       process.env.GOOGLE_TTS_VOICE || DEFAULT_GOOGLE_VOICE
-    }`
+    } (Chirp 3 HD, native Hebrew, pace ${process.env.TTS_SPEED || 1.08}x)`
   );
-  lines.push(
-    "[voice] This is the fallback voice. It is accurate but flat — for the " +
-      "human-sounding narration set ELEVENLABS_API_KEY in Settings → Secrets."
-  );
+  if (!process.env.ELEVENLABS_VOICE_ID) {
+    lines.push(
+      "[voice] ElevenLabs is only used when ELEVENLABS_VOICE_ID points to a " +
+        "Hebrew voice; the default (Sarah) is an English voice reading Hebrew."
+    );
+  }
 } else {
   lines.push("[voice] No TTS key is set — the render will fail at narration.");
 }
@@ -71,9 +75,9 @@ for (const entry of available) {
 
 lines.forEach((line) => console.log(line));
 
-if (chosen && chosen.name === "google") {
+if (!chosen) {
   console.log(
-    "::warning::Narration will use the flat Google voice. Set ELEVENLABS_API_KEY (Settings → Secrets → Actions) for the natural Hebrew voice."
+    "::warning::No TTS provider is configured — set GOOGLE_TTS_API_KEY (free tier) or ELEVENLABS_API_KEY."
   );
 }
 
@@ -85,7 +89,7 @@ if (summaryFile) {
     chosen && chosen.name === "elevenlabs"
       ? "✅ ElevenLabs (natural voice)"
       : chosen && chosen.name === "google"
-      ? "⚠️ Google Cloud TTS — fallback voice, sounds robotic"
+      ? "✅ Google Chirp 3 HD (native Hebrew voice)"
       : "❌ No TTS key set",
     "",
     ...lines.map((line) => `- ${line.replace(/^\[voice\] /, "")}`),
