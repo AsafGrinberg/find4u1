@@ -224,10 +224,14 @@ async function main() {
   });
 
   // ---- 5. העתקה לאתר (URL ציבורי לאינסטגרם / טלגרם) -------------------
-  ensureDir(SITE_VIDEO_DIR);
+  // בהרצת בדיקה מקומית לא דורסים את הקובץ המפורסם באתר.
   const fileName = `${safeName(product.slug || product.id)}.mp4`;
-  const siteFile = path.join(SITE_VIDEO_DIR, fileName);
-  fs.copyFileSync(outputLocation, siteFile);
+  if (process.env.REEL_SKIP_PUBLISH_COPY === "1") {
+    console.log("[render] REEL_SKIP_PUBLISH_COPY=1 — public/videos was not touched");
+  } else {
+    ensureDir(SITE_VIDEO_DIR);
+    fs.copyFileSync(outputLocation, path.join(SITE_VIDEO_DIR, fileName));
+  }
 
   const publicUrl = `${SITE_URL}/videos/${encodeURIComponent(fileName)}`;
   const meta = {
