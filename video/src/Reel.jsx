@@ -141,7 +141,7 @@ const HeroClip = ({clip, src}) => {
       <AbsoluteFill
         style={{
           background:
-            'linear-gradient(180deg, rgba(6,9,18,.34) 0%, rgba(6,9,18,.10) 30%, rgba(6,9,18,.45) 62%, rgba(6,9,18,.92) 84%, #060912 100%)',
+            'linear-gradient(180deg, rgba(6,9,18,.70) 0%, rgba(6,9,18,.55) 12%, rgba(6,9,18,.10) 34%, rgba(6,9,18,.45) 62%, rgba(6,9,18,.92) 84%, #060912 100%)',
         }}
       />
       <div
@@ -177,10 +177,23 @@ const CardClip = ({clip, src}) => {
             width: '100%',
             height: '100%',
             objectFit: 'contain',
-            transform: `scale(${scale})`,
+            // חיתוך עדין של השוליים: מוציא מהפריים את הפס העליון שבו
+            // המוכר שורף לעיתים כתוביות באנגלית.
+            transform: `translateY(-4%) scale(${scale * 1.14})`,
           }}
         />
       </Loop>
+      {/* פס כהה עליון — מכסה כתוביות חרוטות בחלק העליון של הקליפ */}
+      <div
+        style={{
+          position: 'absolute',
+          left: 0,
+          right: 0,
+          top: 0,
+          height: '15%',
+          background: `linear-gradient(180deg, rgba(6,9,18,.96) 0%, rgba(6,9,18,.72) 55%, rgba(6,9,18,0) 100%)`,
+        }}
+      />
       {/* כיסוי לכתוביות של המוכר (בסרטון הזה: אנגלית חרוטה בתחתית הקליפ) */}
       <div
         style={{
