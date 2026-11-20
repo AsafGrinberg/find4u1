@@ -3,19 +3,24 @@
 /**
  * script.js
  * ---------------------------------------------------------------
- * כותב את הטקסט שנשמע בריל — לא הקראה של דף המוצר, אלא קופי
- * מכירתי שנבנה במיוחד לריל:
+ * כותב את מה שנשמע בריל — עברית מדוברת, לא הקראה של דף מוצר.
  *
- *   הוק → הבעיה → המוצר כפתרון → 2–3 יתרונות אמיתיים של המוצר
- *   → הוכחה חברתית → מחיר ואנקר → קריאה לפעולה דחופה
+ * המבנה (7 משפטים, ארוכים וקצרים לסירוגין):
+ *   הוק (שאלה/תוצאה, עד שנייה) → הבעיה בהרחבה → 2 יתרונות אמיתיים
+ *   → הוכחה חברתית מהנתונים → מחיר → קריאה לפעולה אחת קצרה
  *
- * היתרונות נגזרים ממאפייני המוצר (כותרת המקור באנגלית + השם
- * המתורגם), כך שכל ריל מדבר על היתרונות של המוצר הזה ולא על
- * "דירוג ומכירות" יבשים.
+ * כללים שנשמרים כאן:
+ *   • אין דחיפות מומצאת ("המחיר חוזר למעלה", "נשארו אחרונים"), אין
+ *     מלאי מומצא ואין ביקורות מומצאות.
+ *   • מחיר, דירוג ומכירות מגיעים רק מ-product (Firestore) והם אותם
+ *     מספרים שמוצגים על המסך (ראו socialText / formatShekels).
+ *   • מספרים בקריינות כתובים במילים (hebrew-numbers), כי מנוע TTS
+ *     שקורא "4.8" נשמע רובוטי.
+ *   • לכל משפט קצב דיבור משלו (rate) והפסקה משלו (gapAfterMs) —
+ *     אלה מועברים ל-API של גוגל (pace control) ולא ניחוש.
  *
- * לכל משפט שני נוסחים:
- *   text   — הכתובית שעל המסך (קצרה, עם ספרות)
- *   speech — מה שמקריאים (עברית מדוברת, מספרים במילים)
+ * לכל משפט: speech (הטקסט המדויק שנאמר וגם הכתובית — ציטוט מדויק),
+ * rate, gapAfterMs, role.
  */
 
 const {
@@ -25,205 +30,209 @@ const {
   thousandsWords,
 } = require("./hebrew-numbers");
 
-// ---------------------------------------------------------------------
-// הוקים — קצרים, בשאלה או בקריאה, כדי שהמנוע ייתן אינטונציה
-// ---------------------------------------------------------------------
-const HOOKS = [
-  {caption: "תפסיקו לגלול רגע", speech: "תפסיקו לגלול רגע"},
-  {caption: "רגע, אל תעברו", speech: "רגע, אל תעברו הלאה"},
-  {caption: "מצאתי את הדבר הזה", speech: "מצאתי את הדבר הזה"},
-  {caption: "תסתכלו על זה שנייה", speech: "תסתכלו על זה שנייה"},
-];
+// קצב דיבור לכל סוג משפט. Pace control מתועד בגוגל לטווח 0.25–2.0.
+// הוק וקריאה לפעולה מהירים, מחיר והוכחה נינוחים.
+const RATES = {
+  hook: 1.12,
+  pain: 1.04,
+  feature: 1.02,
+  proof: 1.0,
+  price: 1.0,
+  cta: 1.08,
+};
+
+// הפסקה אחרי המשפט (אלפיות שנייה מתורגמות לפריימים ב-timeline.js).
+const GAPS_MS = {
+  hook: 150,
+  pain: 240,
+  feature: 190,
+  proof: 220,
+  price: 260,
+  cta: 0,
+};
 
 // ---------------------------------------------------------------------
-// יתרונות: מזהים מאפיין במוצר והופכים אותו למשפט מכירתי
-// ---------------------------------------------------------------------
-const FEATURES = [
-  {
-    re: /silent|quiet|noise.?cancel|noise.?reduc|שקט|שקטה|שקטים|דממה|בלי רעש/i,
-    caption: "עובד בשקט",
-    speech: "הוא עובד בשקט כזה שאפשר להשתמש בו ליד מי שישן",
-  },
-  {
-    re: /wireless|אלחוטי|אלחוטית|ללא חוט/i,
-    caption: "בלי כבלים",
-    speech: "בלי כבלים שמסתבכים ובלי להתקע בשקע באמצע העבודה",
-  },
-  {
-    re: /rechargeable|battery|סוללה|נטען|נטענת/i,
-    caption: "סוללה שמחזיקה",
-    speech: "סוללה נטענת שמחזיקה שעות, ולא צריך לקנות סוללות כל שבוע",
-  },
-  {
-    re: /fast.?charg|quick.?charg|טעינה מהירה/i,
-    caption: "נטען מהר",
-    speech: "הוא נטען מהר ומוכן לעבודה עוד לפני שיצאתם מהבית",
-  },
-  {
-    re: /waterproof|water.?resistant|עמיד למים|עמידה למים/i,
-    caption: "עמיד למים",
-    speech: "לא מפחיד אותו מים, לא בגשם ולא מתחת לברז",
-  },
-  {
-    re: /non.?stick|אנטי.?דביק|לא דביק/i,
-    caption: "כלום לא נדבק",
-    speech: "שום דבר לא נדבק אליו, ושטיפה אחת מספיקה כדי שיהיה כמו חדש",
-  },
-  {
-    re: /stainless|נירוסטה/i,
-    caption: "נירוסטה אמיתית",
-    speech: "נירוסטה אמיתית, לא פלסטיק שמתקלף אחרי חודש",
-  },
-  {
-    re: /vacuum|יניקה|שואב/i,
-    caption: "יניקה אמיתית",
-    speech: "כוח יניקה אמיתי, לא צעצוע שמפזר את הלכלוך לכל הכיוונים",
-  },
-  {
-    re: /hepa|filter|מסנן|סינון/i,
-    caption: "מסנן אבק",
-    speech: "המסנן שלו מחזיק אבק ומשאיר את האוויר בבית נקי באמת",
-  },
-  {
-    re: /massage|מסאז|עיסוי/i,
-    caption: "מרגיש כמו מסאז'",
-    speech: "הוא משחרר את השרירים אחרי יום עבודה, וזה מרגיש כמו מסאז' אמיתי",
-  },
-  {
-    re: /heat|חימום|מתחמם|חשמלי/i,
-    caption: "מתחמם מהר",
-    speech: "הוא מתחמם מהר ושומר על חום לאורך זמן, לא כמו אלו שמתקררים בדקה",
-  },
-  {
-    re: /adjustable|מתכוונן|כיוונון/i,
-    caption: "מתכוונן אליכם",
-    speech: "הוא מתכוונן בדיוק למידה שלכם, ולא צריך לסבול שום דבר באמצע",
-  },
-  {
-    re: /foldable|folding|מתקפל|קיפול/i,
-    caption: "מתקפל וקל",
-    speech: "הוא מתקפל ונכנס לכל תיק, גם כשאין מקום בכלל",
-  },
-  {
-    re: /portable|\bmini\b|compact|נייד|קומפקטי|מיני/i,
-    caption: "לוקחים לכל מקום",
-    speech: "הוא קטן וקל, אז לוקחים אותו לכל מקום בלי לחשוב פעמיים",
-  },
-  {
-    re: /\bled\b|תאורה|תאורת/i,
-    caption: "תאורה חזקה",
-    speech: "התאורה שלו חזקה וברורה, גם כשהחדר בחצי חושך",
-  },
-  {
-    re: /magnetic|מגנט/i,
-    caption: "מתחבר בקליק",
-    speech: "הוא נתפס בקליק אחד, בלי ברגים ובלי להתעצבן",
-  },
-  {
-    re: /silicone|סיליקון/i,
-    caption: "סיליקון איכותי",
-    speech: "הסיליקון שלו איכותי וגמיש, והוא לא נסדק אחרי חודש",
-  },
-  {
-    re: /ceramic|קרמי/i,
-    caption: "ציפוי קרמי",
-    speech: "הציפוי הקרמי לא נשרף ולא משאיר ריח אחרי השימוש",
-  },
-  {
-    re: /leather|עור אמיתי|עור טבעי/i,
-    caption: "עור אמיתי",
-    speech: "עור אמיתי שנראה טוב גם אחרי שנה של שימוש יומיומי",
-  },
-  {
-    re: /solar|סולארי/i,
-    caption: "נטען מהשמש",
-    speech: "הוא נטען מהשמש, בלי חשמל ובלי עוד הוצאה על חשבון",
-  },
-  {
-    re: /remote control|with remote|שלט/i,
-    caption: "מגיע עם שלט",
-    speech: "הוא מגיע עם שלט, אז לא צריך לקום מהספה בשביל כל שינוי קטן",
-  },
-  {
-    re: /washable|נשטף|כיבוס|לכיבוס/i,
-    caption: "אפשר לכבס",
-    speech: "אפשר לכבס אותו בכיבוס רגיל, והוא יוצא משם כמו חדש",
-  },
-  {
-    re: /set of|\d+\s*(pcs|pieces)|יחידות|ערכה|סט של/i,
-    caption: "ערכה שלמה",
-    speech: "זו ערכה שלמה בקופסה אחת, ולא צריך לקנות כל חלק בנפרד",
-  },
-  {
-    re: /smart|חכם|חכמה/i,
-    caption: "עובד לבד",
-    speech: "הוא עובד לבד, בלי שתצטרכו לחשוב עליו בכלל",
-  },
-  {
-    re: /\bpro(fessional)?\b|מקצועי/i,
-    caption: "רמה מקצועית",
-    speech: "הרמה שלו היא רמה מקצועית, לא משהו תחליפי",
-  },
-];
-
-// ---------------------------------------------------------------------
-// הבעיה שהמוצר פותר — לפי הקטגוריה
+// הוקים — הבעיה או התוצאה, בשנייה הראשונה. קצר, מדובר, בלי פתיחות.
 // ---------------------------------------------------------------------
 const PAINS = [
   {
-    re: /מטבח|בלנדר|קרח|צידנית|קפה|אפייה|סיר/i,
-    caption: "הפסקה של הבזבוז",
-    speech: "עד היום הסתדרתם עם מה שהיה במטבח, וזה לקח כפול זמן",
+    re: /מטבח|בלנדר|קרח|צידנית|קפה|אפייה|סיר|garlic|kitchen|blender/i,
+    hook: "כמה זמן הולך לכם על חיתוך ירקות?",
+    detail: "הכול ידני, על קרש קטן, ותוך חמש דקות כבר נמאס",
   },
   {
-    re: /שואב|מטהר|אדים|ניקוי|אוויר|אבק/i,
-    caption: "הבית אף פעם לא באמת נקי",
-    speech: "עד היום ניקיתם ידנית, וחצי שעה אחר כך הכל שוב מלוכלך",
+    re: /שואב|מטהר|אדים|ניקוי|אוויר|אבק|vacuum|clean|air purifier/i,
+    hook: "הבית שלכם מתלכלך מהר מדי?",
+    detail: "אתם מנקים, וחצי שעה אחר כך הכול שוב אותו דבר",
   },
   {
-    re: /טלפון|מעמד|טעינה|כבל|אוזניות|חשמל|אלקטרוניקה|מחשב/i,
-    caption: "סוף לפתרון המאולתר",
-    speech: "עד היום הסתדרתם עם פתרון מאולתר שהתפרק לכם באמצע היום",
+    // תאורה לפני טעינה: במנורת LED נטענת הבעיה האמיתית היא האור,
+    // לא הכבל — ולכן ההוק צריך להיות על האור.
+    re: /תאורה|מנורה|אור|לד|led|light|lamp|חיישן|sensor/i,
+    hook: "אתם מדליקים אור בכל חדר שנכנסים?",
+    detail: "ובלילה זה אומר לקום, לחפש את המתג, ולחזור למיטה",
   },
   {
-    re: /רכב|נסיע/i,
-    caption: "לרכב, כמו שצריך",
-    speech: "עד היום הסתדרתם עם מה שהיה באוטו, וזה תמיד נפל באמצע נסיעה",
+    re: /טלפון|מעמד|טעינה|כבל|אוזניות|חשמל|אלקטרוניקה|מחשב|charg|usb|cable|phone/i,
+    hook: "שוב נשארתם בלי סוללה באמצע?",
+    detail: "עד היום הסתדרתם עם מטען שהתפרק לכם בתיק",
   },
   {
-    re: /חיות|כלב|חתול/i,
-    caption: "גם החיה מרוצה",
-    speech: "עד היום החיה שלכם ישנה על הרצפה, וזה אף פעם לא פתרון",
+    re: /רכב|נסיע|car|bike|אופניים/i,
+    hook: "בכל נסיעה זה נופל שוב",
+    detail: "עד היום הסתדרתם עם מה שיש באוטו, וזה לא מחזיק",
   },
   {
-    re: /תינוק|ילד|ילדים/i,
-    caption: "בטוח לשימוש יומיומי",
-    speech: "עד היום ניסיתם שלושה מוצרים עד שמצאתם משהו שבאמת עובד",
+    re: /חיות|כלב|חתול|pet|dog|cat/i,
+    hook: "החיה שלכם ישנה על הרצפה?",
+    detail: "עד היום הסתדרתם עם מה שהיה, וזה לא היה נוח לאף אחד",
   },
   {
-    re: /יופי|שיער|טיפוח|פנים|עור|ציפורן|מסאז/i,
-    caption: "טיפול בבית",
-    speech: "עד היום שילמתם על טיפול וחיכיתם שבועות לתור, לעשר דקות",
+    re: /תינוק|ילד|ילדים|baby|kids/i,
+    hook: "כל יום אתם מחפשים שוב פתרון",
+    detail: "ניסיתם כבר כמה מוצרים, ואף אחד לא החזיק מעמד",
   },
   {
-    re: /כושר|ספורט|אימון|גוף/i,
-    caption: "בבית, בכל שעה",
-    speech: "עד היום ויתרתם על האימון, כי לא היה לכם כוח לנסוע לחדר כושר",
+    re: /יופי|שיער|טיפוח|פנים|עור|ציפורן|מסאז|beauty|skin|hair/i,
+    hook: "כל בוקר אותה התעסקות",
+    detail: "עד היום שילמתם על טיפול וחיכיתם בתור, בשביל עשר דקות",
+  },
+  {
+    re: /כושר|ספורט|אימון|גוף|fitness|sport|gym/i,
+    hook: "האימון נשאר בצד כל השבוע?",
+    detail: "כי בסוף יום אין לכם כוח לנסוע לחדר כושר",
   },
 ];
 
 const GENERIC_PAIN = {
-  caption: "מפסיקים להתפשר",
-  speech: "עד היום הסתדרתם עם מה שהיה, וזה תמיד הרגיש כמו פשרה",
+  hook: "יש דברים בבית שאמורים להיות קלים",
+  detail: "ובפועל אתם מסתדרים עם פתרון מאולתר שכבר מזמן לא עובד",
 };
 
+// ---------------------------------------------------------------------
+// יתרונות: מזהים מאפיין אמיתי של המוצר (מהכותרת המקורית של המוכר)
+// והופכים אותו למשפט מדובר. אין כאן הבטחות שלא מופיעות בכותרת.
+// ---------------------------------------------------------------------
+const FEATURES = [
+  {
+    re: /motion|pir|sensor|חיישן/i,
+    speech: "הוא נדלק לבד ברגע שמישהו נכנס, ונכבה לבד כשאין אף אחד",
+  },
+  {
+    re: /silent|quiet|noise.?cancel|noise.?reduc|שקט|דממה|בלי רעש/i,
+    speech: "והוא עובד בשקט כזה שאפשר להפעיל אותו ליד מי שכבר נרדם",
+  },
+  {
+    re: /wireless|אלחוטי|ללא חוט/i,
+    speech: "בלי כבלים שמסתבכים ובלי להיתקע ליד השקע",
+  },
+  {
+    re: /rechargeable|battery|סוללה|נטען|נטענת|chargeable/i,
+    speech: "הסוללה נטענת, אז נגמרו הסוללות שנגמרות באמצע",
+  },
+  {
+    re: /fast.?charg|quick.?charg|טעינה מהירה/i,
+    speech: "הוא נטען מהר, ואתם לא מחכים לו חצי יום",
+  },
+  {
+    re: /usb/i,
+    speech: "הוא נטען בכבל USB רגיל, אז לא צריך מטען מיוחד",
+  },
+  {
+    re: /waterproof|water.?resistant|עמיד למים|עמידה למים/i,
+    speech: "הוא עמיד למים, אז גם גשם לא מפריע לו",
+  },
+  {
+    re: /non.?stick|אנטי.?דביק/i,
+    speech: "שום דבר לא נדבק אליו, ושטיפה אחת והוא כמו חדש",
+  },
+  {
+    re: /stainless|נירוסטה/i,
+    speech: "נירוסטה אמיתית, לא פלסטיק שמתקלף אחרי חודש",
+  },
+  {
+    re: /vacuum|יניקה|שואב/i,
+    speech: "יש לו יניקה אמיתית, לא כמו אלה שמפזרות את הלכלוך",
+  },
+  {
+    re: /hepa|filter|מסנן|סינון/i,
+    speech: "המסנן שלו מחזיק את האבק בפנים, והאוויר יוצא נקי",
+  },
+  {
+    re: /massage|מסאז|עיסוי/i,
+    speech: "הוא משחרר את השרירים אחרי יום ארוך, וזה מרגיש כמו מסאז'",
+  },
+  {
+    re: /heat|חימום|מתחמם|חשמלי/i,
+    speech: "הוא מתחמם מהר ושומר על החום, לא מתקרר בדקה",
+  },
+  {
+    re: /adjustable|מתכוונן|כיוונון/i,
+    speech: "הוא מתכוונן למידה שלכם, אז יושב בדיוק כמו שצריך",
+  },
+  {
+    re: /foldable|folding|מתקפל|קיפול/i,
+    speech: "הוא מתקפל ונכנס לתיק, גם כשאין מקום בכלל",
+  },
+  {
+    re: /portable|\bmini\b|compact|נייד|קומפקטי|מיני/i,
+    speech: "הוא קטן וקל, אז הוא נוסע איתכם לכל מקום",
+  },
+  {
+    re: /\bled\b|תאורה|תאורת/i,
+    speech: "התאורה שלו חזקה וברורה, גם כשיש חושך מסביב",
+  },
+  {
+    re: /magnetic|מגנט/i,
+    speech: "הוא נתפס בקליק אחד, בלי ברגים ובלי להתעצבן",
+  },
+  {
+    re: /silicone|סיליקון/i,
+    speech: "הסיליקון שלו גמיש ואיכותי, והוא לא נסדק",
+  },
+  {
+    re: /ceramic|קרמי/i,
+    speech: "הציפוי הקרמי לא נשרף ולא משאיר ריח אחרי השימוש",
+  },
+  {
+    re: /leather|עור אמיתי|עור טבעי/i,
+    speech: "עור אמיתי שנראה טוב גם אחרי שנה של שימוש",
+  },
+  {
+    re: /solar|סולארי/i,
+    speech: "הוא נטען מהשמש, בלי חשמל ובלי עוד הוצאה",
+  },
+  {
+    re: /remote|שלט/i,
+    speech: "מגיע עם שלט, אז לא קמים מהספה בשביל כל שינוי קטן",
+  },
+  {
+    re: /washable|נשטף|כיבוס|לכיבוס/i,
+    speech: "אפשר לכבס אותו בכיבוס רגיל, והוא יוצא משם כמו חדש",
+  },
+  {
+    re: /set of|\d+\s*(pcs|pieces)|יחידות|ערכה|סט של/i,
+    speech: "זו ערכה שלמה בקופסה אחת, ולא כל חלק בנפרד",
+  },
+  {
+    re: /smart|חכם|חכמה/i,
+    speech: "הוא עובד לבד, בלי שתצטרכו לחשוב עליו בכלל",
+  },
+  {
+    re: /\bpro(fessional)?\b|מקצועי/i,
+    speech: "הרמה שלו מקצועית, לא משהו תחליפי",
+  },
+];
+
+// כשהכותרת לא מספקת אף מאפיין מזוהה — משפט בלי הבטחה ספציפית.
+const FALLBACK_FEATURE =
+  "והוא עושה את העבודה מהפעם הראשונה, בלי התעסקות ובלי הפתעות";
+
+// ---------------------------------------------------------------------
+// עזרים
+// ---------------------------------------------------------------------
 function pick(list) {
   return list[Math.floor(Math.random() * list.length)];
-}
-
-function shortTitle(name) {
-  const words = String(name || "").trim().split(/\s+/);
-  return words.slice(0, 9).join(" ");
 }
 
 function formatShekels(value) {
@@ -232,17 +241,6 @@ function formatShekels(value) {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })} ₪`;
-}
-
-function socialText(product) {
-  const parts = [];
-  if (product.rating) {
-    parts.push(`דירוג ${Number(product.rating).toFixed(1)}`);
-  }
-  if (product.sales) {
-    parts.push(`${Number(product.sales).toLocaleString("he-IL")} מכירות`);
-  }
-  return parts.join(" · ");
 }
 
 function haystack(product) {
@@ -256,8 +254,12 @@ function haystack(product) {
     .join(" | ");
 }
 
-// עד שלושה יתרונות שמתאימים למוצר, בלי כפילויות.
-function productFeatures(product, limit = 3) {
+function painFor(product) {
+  const text = haystack(product);
+  return PAINS.find((pain) => pain.re.test(text)) || GENERIC_PAIN;
+}
+
+function productFeatures(product, limit = 2) {
   const text = haystack(product);
   const found = [];
   for (const feature of FEATURES) {
@@ -267,174 +269,145 @@ function productFeatures(product, limit = 3) {
   return found;
 }
 
-function painFor(product) {
-  const text = haystack(product);
-  return PAINS.find((pain) => pain.re.test(text)) || GENERIC_PAIN;
+/**
+ * מחיר במילים, כמו שאומרים אותו: "מאה ושמונה עשרה שקלים" ואם יש
+ * אגורות — "מאה ושמונה עשרה שקלים וארבעים וחמש אגורות".
+ * אותו מספר בדיוק כמו שמוצג על המסך.
+ */
+function shekelsSpeech(value) {
+  const amount = Number(value);
+  if (!Number.isFinite(amount) || amount <= 0) return "";
+  const shekels = Math.floor(amount + 1e-9);
+  const agorot = Math.round((amount - shekels) * 100);
+  const base = shekels === 1 ? "שקל אחד" : `${numberToHebrew(shekels)} שקלים`;
+  if (!agorot) return base;
+  return `${base} ו${numberToHebrew(agorot, "feminine")} אגורות`;
 }
 
-// המחיר: אנקר מול מחיר קודם, הנחה, וסיבה לא לחשוב פעמיים.
-function priceSentence(product) {
-  const price = Number(product.price);
-  if (!Number.isFinite(price) || price <= 0) return null;
-
-  const rounded = Math.max(1, Math.round(price));
-  const original = Number(product.originalPrice);
-  const hasOriginal = Number.isFinite(original) && original > price + 0.5;
-
+// מה שמוצג על המסך לצד הדירוג/מכירות — אותו מספר שנאמר בקריינות.
+function socialText(product) {
   const parts = [];
-  if (hasOriginal) {
+  const rating = Number(product.rating) || 0;
+  const sales = Number(product.sales) || 0;
+  if (rating) parts.push(`דירוג ${rating.toFixed(1)}`);
+  if (sales) {
     parts.push(
-      `במקום ${shekelsWords(Math.round(original))}, עכשיו ${shekelsWords(
-        rounded
-      )} בלבד`
+      sales >= 1000
+        ? `מעל ${thousandsWords(sales)} מכירות`
+        : `${sales} מכירות`
     );
-  } else {
-    parts.push(`המחיר? ${shekelsWords(rounded)} בלבד`);
   }
-
-  parts.push("במחיר כזה אין מה לחשוב פעמיים")
-
-  return {
-    text: hasOriginal
-      ? `${rounded} ₪ במקום ${Math.round(original)} ₪`
-      : `${rounded} ₪ בלבד`,
-    speech: `${parts.join(". ")}.`,
-  };
+  return parts.join(" · ");
 }
 
-// הוכחה חברתית — רק אם יש נתונים אמיתיים.
+// ---------------------------------------------------------------------
+// בונים את המשפטים
+// ---------------------------------------------------------------------
 function proofSentence(product) {
   const rating = Number(product.rating) || 0;
   const sales = Number(product.sales) || 0;
   if (!rating && !sales) return null;
 
-  const speech = [];
-  const text = [];
-
-  if (rating) {
-    speech.push(`דירוג ${ratingWords(rating)} מתוך חמישה`);
-    text.push(`⭐ ${rating.toFixed(1)}`);
-  }
+  const parts = [];
+  if (rating) parts.push(`דירוג ${ratingWords(rating)} מתוך חמישה`);
   if (sales) {
-    speech.push(
+    parts.push(
       sales >= 1000
-        ? `${rating ? "ו" : ""}יותר מ${thousandsWords(sales)} כבר קנו`
-        : `${rating ? "ו" : ""}${numberToHebrew(sales)} אנשים כבר קנו`
-    );
-    text.push(
-      sales >= 1000
-        ? `${Number(sales).toLocaleString("he-IL")} מכירות`
-        : `${sales} מכירות`
+        ? `יותר מ${thousandsWords(sales)} אנשים כבר קנו אותו`
+        : `${numberToHebrew(sales)} אנשים כבר קנו אותו`
     );
   }
 
-  return {
-    text: text.join(" · "),
-    speech: `${speech.join(", ")}. אלה מספרים אמיתיים.`,
-  };
+  return `${parts.join(", ")}.`;
 }
 
-function ctaSentence() {
-  return {
-    text: "הקישור בתיאור · משלוח לישראל",
-    speech:
-      "הקישור בתיאור, משלוח לישראל. תלחצו לפני שהמחיר חוזר למעלה",
-  };
+function priceSentence(product) {
+  const price = Number(product.price);
+  if (!Number.isFinite(price) || price <= 0) return null;
+
+  const original = Number(product.originalPrice);
+  const hasOriginal = Number.isFinite(original) && original > price + 0.5;
+
+  if (hasOriginal) {
+    return `במקום ${shekelsSpeech(
+      original
+    )}, עכשיו ${shekelsSpeech(price)} בלבד.`;
+  }
+  return `המחיר שלו עכשיו ${shekelsSpeech(price)}.`;
 }
 
 /**
- * בונה את משפטי הריל. כל משפט מקבל משקל יחסי לפי אורך הדיבור,
- * כך שקצב הדיבור נשאר אחיד והכתוביות מסונכרנות עם האודיו.
+ * מחזיר {sentences} — כל משפט עם role, rate ו-gapAfterMs.
+ * המשפטים עצמם הם גם הקריינות וגם הכתוביות (ציטוט מדויק).
  */
-function buildSentences(product) {
-  const sentences = [];
-  const category = categoryLabel(product);
-  const hook = pick(HOOKS);
-
-  sentences.push({
-    text: hook.caption,
-    speech: `${hook.speech}. זה מהמוצרים הכי נמכרים בתחום של ${category}.`,
-  });
-
+function buildScript(product) {
   const pain = painFor(product);
-  sentences.push({text: pain.caption, speech: `${pain.speech}.`});
+  const features = productFeatures(product, 2);
+  const sentences = [];
 
-  sentences.push({
-    text: "לא עוד מוצר זול",
-    speech:
-      "כי זה לא עוד מוצר זול מאליאקספרס. הוא עושה את העבודה מהפעם הראשונה",
-  });
+  const add = (role, speech) =>
+    sentences.push({
+      role,
+      speech: String(speech).replace(/\s+/g, " ").trim(),
+      rate: RATES[role] || 1,
+      gapAfterMs: GAPS_MS[role] || 0,
+    });
 
-  for (const feature of productFeatures(product, 2)) {
-    sentences.push({text: feature.caption, speech: `${feature.speech}.`});
+  add("hook", pain.hook);
+  add("pain", `${pain.detail}.`);
+
+  if (features.length === 0) {
+    add("feature", `${FALLBACK_FEATURE}.`);
+  } else {
+    features.forEach((feature, index) => {
+      add("feature", index === 0 ? `${feature.speech}.` : `ו${feature.speech}.`);
+    });
   }
 
   const proof = proofSentence(product);
-  if (proof) sentences.push(proof);
+  if (proof) add("proof", proof);
 
   const price = priceSentence(product);
-  if (price) sentences.push(price);
+  if (price) add("price", price);
 
-  sentences.push(ctaSentence());
+  add("cta", "הקישור בתיאור, תלחצו עליו.");
 
-  return sentences.map((item) => ({
-    text: item.text.replace(/\s+/g, " ").trim(),
-    speech: item.speech.replace(/\s+/g, " ").trim(),
-  }));
-}
-
-// שם הקטגוריה לתפאורת המשפט ("אחד הנמכרים ב…").
-function categoryLabel(product) {
-  const category = String(product.category || "").trim();
-  if (!category) return "אליאקספרס";
-  return category;
+  return {
+    sentences: sentences.map((sentence, index) => ({
+      ...sentence,
+      id: index + 1,
+      text: sentence.speech,
+    })),
+  };
 }
 
 function speechText(sentences) {
-  return `${sentences
-    .map((item) => (item.speech || item.text).trim().replace(/[.\s]+$/, ""))
-    .join(". ")}.`;
-}
-
-// מפצל את משך האודיו בין המשפטים לפי אורך הדיבור שלהם.
-function captionTimings(sentences, audioFrames, startFrame) {
-  const weights = sentences.map((item) =>
-    Math.max(12, (item.speech || item.text).length)
-  );
-  const totalWeight = weights.reduce((sum, value) => sum + value, 0);
-  const total = Math.max(audioFrames, sentences.length * 24);
-
-  let cursor = startFrame;
-  return sentences.map((item, index) => {
-    const share = (weights[index] / totalWeight) * total;
-    const from = Math.round(cursor);
-    cursor += share;
-    const to = Math.round(cursor);
-    return {text: item.text, from, to: Math.max(to, from + 12)};
-  });
+  return sentences
+    .map((item) => item.speech.replace(/[.!\s]+$/, ""))
+    .join(". ")
+    .concat(".");
 }
 
 // כיתוב לפוסט באינסטגרם / טלגרם.
 function captionText(product, sentences, site) {
-  const lines = [
-    sentences[0] ? sentences[0].text : product.name,
-    "",
-    `🛍️ ${product.name}`,
-  ];
+  const lines = [sentences[0] ? sentences[0].speech : product.name, ""];
 
-  const priceLineText = product.originalPrice
+  lines.push(`🛍️ ${product.name}`);
+
+  const priceLine = product.originalPrice &&
+    Number(product.originalPrice) > Number(product.price)
     ? `${formatShekels(product.price)} במקום ${formatShekels(
         product.originalPrice
       )}`
     : `${formatShekels(product.price)} בלבד`;
-  lines.push(`💰 ${priceLineText}`);
+  lines.push(`💰 ${priceLine}`);
 
   if (product.discount) lines.push(`🔥 ${Math.round(product.discount)}% הנחה`);
   if (product.rating) {
     lines.push(`⭐ דירוג ${Number(product.rating).toFixed(1)} מתוך 5`);
   }
   if (product.sales) {
-    lines.push(`📦 ${Number(product.sales).toLocaleString("he-IL")} מכירות`);
+    lines.push(`📦 מעל ${thousandsWords(product.sales)} מכירות`);
   }
 
   lines.push("");
@@ -449,12 +422,12 @@ function captionText(product, sentences, site) {
 }
 
 module.exports = {
-  buildSentences,
+  buildScript,
   speechText,
-  captionTimings,
   captionText,
   formatShekels,
   socialText,
-  shortTitle,
+  shekelsSpeech,
   productFeatures,
+  painFor,
 };

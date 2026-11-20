@@ -15,4 +15,5 @@ video/out/
 video/props.json
 video/public/tts.mp3
 video/public/tts.wav
+video/public/tts/
 video/public/media/

@@ -6,10 +6,11 @@
  * מייצר ריל אחד (1080x1920, 30fps) למוצר הבא בתור:
  *   1. שולף מוצר מ־Firestore שיש לו סרטון של המוכר באליאקספרס
  *   2. מוריד את הסרטון (זה הבסיס לריל — לא תמונות)
- *   3. כותב תסריט עברי ומקליט אותו (Google Chirp 3 HD / ElevenLabs)
- *   4. מרנדר עם Remotion: הסרטון עם קריינות וכתוביות מעליו
- *   5. מעתיק את ה־MP4 ל־public/videos כדי שיהיה לו URL ציבורי
- *      (אינסטגרם מקבל רק קובץ שנגיש בכתובת ציבורית)
+ *   3. כותב תסריט עברי ומקליט אותו משפט-משפט (Google Chirp 3 HD / ElevenLabs)
+ *   4. בונה ציר זמן אמיתי מהמשכים שנמדדו (timeline.js): כתוביות,
+ *      החלפת קליפ לכל משפט, ומסך סיום קצר
+ *   5. מרנדר עם Remotion
+ *   6. מעתיק את ה־MP4 ל־public/videos כדי שיהיה לו URL ציבורי
  *
  * דורש: FIREBASE_SERVICE_ACCOUNT, GOOGLE_TTS_API_KEY or ELEVENLABS_API_KEY.
  */
@@ -20,14 +21,12 @@ const {bundle} = require("@remotion/bundler");
 const {selectComposition, renderMedia} = require("@remotion/renderer");
 
 const {initFirebase, pickProducts, downloadVideo} = require("./product");
-const {synthesizeHebrew} = require("./tts");
-const {mp3DurationSeconds} = require("./mp3-duration");
-const {wavDurationSeconds} = require("./wav-duration");
+const {synthesizeSentences} = require("./tts");
 const {mp4DurationSeconds} = require("./mp4-duration");
+const {buildTimeline} = require("./timeline");
 const {
-  buildSentences,
+  buildScript,
   speechText,
-  captionTimings,
   captionText,
   formatShekels,
   socialText,
@@ -36,6 +35,7 @@ const {
 const VIDEO_DIR = path.join(__dirname, "..");
 const PUBLIC_DIR = path.join(VIDEO_DIR, "public");
 const MEDIA_DIR = path.join(PUBLIC_DIR, "media");
+const TTS_DIR = path.join(PUBLIC_DIR, "tts");
 const OUT_DIR = path.join(VIDEO_DIR, "out");
 const SITE_DIR = path.join(VIDEO_DIR, "..", "public");
 const SITE_VIDEO_DIR = path.join(SITE_DIR, "videos");
@@ -45,8 +45,9 @@ const SITE_URL = (process.env.SITE_URL || "https://find4u.vercel.app").replace(
 );
 
 const FPS = 30;
-const AUDIO_START_FRAME = 45; // 1.5 שניות של הוק לפני הדיבור
-const OUTRO_FRAMES = 90; // 3 שניות של קריאה לפעולה
+// הדיבור מתחיל מיד: ההוק הוא הפריים הראשון, לא כרטיס פתיחה.
+const LEAD_IN_FRAMES = 6; // 0.2s
+const OUTRO_FRAMES = 45; // 1.5s מסך סיום
 
 function ensureDir(dir) {
   fs.mkdirSync(dir, {recursive: true});
@@ -84,9 +85,7 @@ async function resolveProduct(db) {
       const bytes = await downloadVideo(product.videoUrl);
       return {product, bytes};
     } catch (error) {
-      console.warn(
-        `[render] video skipped for ${product.id}: ${error.message}`
-      );
+      console.warn(`[render] video skipped for ${product.id}: ${error.message}`);
     }
   }
 
@@ -97,7 +96,9 @@ async function resolveProduct(db) {
 async function main() {
   ensureDir(OUT_DIR);
   ensureDir(MEDIA_DIR);
+  ensureDir(TTS_DIR);
   cleanDir(MEDIA_DIR);
+  cleanDir(TTS_DIR);
 
   const db = initFirebase();
   const chosen = await resolveProduct(db);
@@ -118,45 +119,50 @@ async function main() {
       : "unknown"} (${(videoBytes.length / 1024 / 1024).toFixed(1)} MB)`
   );
 
-  // ---- 1. תסריט + הקראה ------------------------------------------------
-  const sentences = buildSentences(product);
+  // ---- 1. תסריט --------------------------------------------------------
+  const {sentences} = buildScript(product);
   const text = speechText(sentences);
-  console.log(`[render] script (${text.length} chars)`);
+  console.log(`[render] script (${text.length} chars, ${sentences.length} sentences)`);
   sentences.forEach((item, index) =>
-    console.log(`  ${index + 1}. ${item.text}  |  ${item.speech}`)
+    console.log(`  ${index + 1}. [${item.role}] ${item.speech} (${item.rate}x)`)
   );
 
-  const {
-    buffer: audioBuffer,
-    source: audioSource,
-    format: audioFormat,
-    rate: audioRate,
-  } = await synthesizeHebrew(text);
+  // ---- 2. הקראה משפט-משפט ---------------------------------------------
+  const {provider, voice, segments} = await synthesizeSentences(sentences);
+  segments.forEach((segment, index) => {
+    const file = `${String(index + 1).padStart(2, "0")}.${segment.format}`;
+    fs.writeFileSync(path.join(TTS_DIR, file), segment.buffer);
+    segment.file = `tts/${file}`;
+  });
 
-  // מנקים את שני הפורמטים האפשריים כדי שלא יישאר קובץ אודיו ישן.
-  for (const name of ["tts.mp3", "tts.wav"]) {
-    const stale = path.join(PUBLIC_DIR, name);
-    if (fs.existsSync(stale)) fs.rmSync(stale, {force: true});
-  }
+  // ---- 3. ציר זמן ------------------------------------------------------
+  const timeline = buildTimeline({
+    sentences,
+    durations: segments.map((segment) => segment.seconds),
+    videoFrames,
+    fps: FPS,
+    leadInFrames: LEAD_IN_FRAMES,
+    outroFrames: OUTRO_FRAMES,
+  });
 
-  const audioExt = audioFormat === "wav" ? "wav" : "mp3";
-  const audioFile = path.join(PUBLIC_DIR, `tts.${audioExt}`);
-  fs.writeFileSync(audioFile, audioBuffer);
+  const audioSegments = segments.map((segment, index) => ({
+    file: segment.file,
+    from: timeline.audioSegments[index].from,
+    durationInFrames: timeline.audioSegments[index].durationInFrames,
+    playbackRate: segment.playbackRate,
+  }));
 
-  const rawAudioSeconds =
-    audioExt === "wav"
-      ? wavDurationSeconds(audioBuffer)
-      : mp3DurationSeconds(audioBuffer);
-  // ה־<Audio> מתנגן ב־playbackRate, ולכן משך האודיו האפקטיבי קצר יותר.
-  const audioSeconds = rawAudioSeconds / audioRate;
-  const audioFrames = Math.ceil(audioSeconds * FPS);
+  const audioSeconds = timeline.audioEndFrame / FPS;
   console.log(
-    `[render] audio: ${audioSeconds.toFixed(2)}s (${audioFrames} frames) via ${audioSource} [${audioExt} @${audioRate}x]`
+    `[render] timeline: ${audioSeconds.toFixed(
+      2
+    )}s narration, ${timeline.totalFrames} frames (${(
+      timeline.totalFrames / FPS
+    ).toFixed(2)}s total) via ${provider} / ${voice}`
   );
-
-  // ---- 2. פריימים וכתוביות --------------------------------------------
-  const totalFrames = AUDIO_START_FRAME + audioFrames + OUTRO_FRAMES;
-  const captions = captionTimings(sentences, audioFrames, AUDIO_START_FRAME);
+  console.log(
+    `[render] captions: ${timeline.captions.length} cues, first "${timeline.captions[0].text}" @${timeline.captions[0].from}`
+  );
 
   const inputProps = {
     brand: "Find4U",
@@ -172,16 +178,18 @@ async function main() {
     social: socialText(product),
     video: "media/product.mp4",
     videoFrames,
-    audio: `tts.${audioExt}`,
-    audioRate,
-    audioStartFrame: AUDIO_START_FRAME,
-    audioFrames,
-    captions,
-    totalFrames,
+    audioSegments,
+    audioStartFrame: timeline.audioStartFrame,
+    audioFrames: timeline.audioEndFrame - timeline.audioStartFrame,
+    captions: timeline.captions,
+    clips: timeline.clips,
+    heroEnd: timeline.heroEnd,
+    outroStart: timeline.outroStart,
+    totalFrames: timeline.totalFrames,
   };
 
-  // ---- 3. רינדור -------------------------------------------------------
-  console.log(`[render] bundling Remotion… (${totalFrames} frames)`);
+  // ---- 4. רינדור -------------------------------------------------------
+  console.log(`[render] bundling Remotion… (${timeline.totalFrames} frames)`);
   const serveUrl = await bundle({
     entryPoint: path.join(VIDEO_DIR, "src", "index.js"),
     publicDir: PUBLIC_DIR,
@@ -215,7 +223,7 @@ async function main() {
     },
   });
 
-  // ---- 4. העתקה לאתר (URL ציבורי לאינסטגרם / טלגרם) --------------------
+  // ---- 5. העתקה לאתר (URL ציבורי לאינסטגרם / טלגרם) -------------------
   ensureDir(SITE_VIDEO_DIR);
   const fileName = `${safeName(product.slug || product.id)}.mp4`;
   const siteFile = path.join(SITE_VIDEO_DIR, fileName);
@@ -238,12 +246,25 @@ async function main() {
     file: path.relative(VIDEO_DIR, outputLocation).split(path.sep).join("/"),
     publicFile: `public/videos/${fileName}`,
     publicUrl,
-    audioSource,
-    audioFormat: audioExt,
-    audioRate,
+    audioSource: provider,
+    audioVoice: voice,
+    audioSegments: segments.map((segment) => ({
+      file: segment.file,
+      seconds: Number(segment.seconds.toFixed(2)),
+      playbackRate: segment.playbackRate,
+      format: segment.format,
+      pace: segment.pace,
+    })),
     durationSeconds: Number(audioSeconds.toFixed(2)),
-    totalFrames,
-    caption: captionText(product, sentences, SITE_URL.replace(/^https?:\/\//, "")),
+    totalSeconds: Number((timeline.totalFrames / FPS).toFixed(2)),
+    totalFrames: timeline.totalFrames,
+    outroFrames: OUTRO_FRAMES,
+    captions: timeline.captions,
+    caption: captionText(
+      product,
+      sentences,
+      SITE_URL.replace(/^https?:\/\//, "")
+    ),
     script: text,
     sentences,
   };
