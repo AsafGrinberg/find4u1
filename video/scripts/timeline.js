@@ -20,10 +20,119 @@
 
 const MIN_CUE_FRAMES = 12; // ביטוי קצר מדי מהבהב על המסך
 const MIN_PHRASE_CHARS = 12;
+// כתובית ארוכה מדי נקראת כמו פסקה. מפצלים לחלקים של עד ארבע מילים.
+const MAX_CUE_CHARS = 28;
+const MAX_CUE_WORDS = 4;
+// מילים שקוטעות משפט באמצע ("כמה פעמים בלילה | אתם מחפשים"): לא
+// מסיימים בהן כתובית, מעבירים אותן לכתובית הבאה.
+const BIND_FORWARD = new Set([
+  "אתם",
+  "אתן",
+  "אתה",
+  "אני",
+  "אנחנו",
+  "את",
+  "של",
+  "עם",
+  "על",
+  "אל",
+  "ב",
+  "ל",
+  "כי",
+  "אז",
+  "גם",
+  "כל",
+  "זה",
+  "יש",
+  "אין",
+  "הוא",
+  "היא",
+  "אבל",
+  "או",
+  "כמו",
+  "יותר",
+  "לא",
+  "עד",
+]);
+
+const BIND_BACKWARD = new Set([
+  "אתכם",
+  "אתכן",
+  "אותך",
+  "אותו",
+  "אותה",
+  "אותם",
+  "אותן",
+  "לי",
+  "לך",
+  "לנו",
+]);
 
 /**
- * מפצל משפט לביטויים לפי פסיק/נקודתיים/מקף, כדי שהכתובית תציג
- * ביטוי אחד בכל פעם — אבל תמיד ציטוט מדויק של מה שנאמר.
+ * מפצל ביטוי ארוך לחלקים קצרים על גבולות מילים. כל חלק הוא מחרוזת
+ * רציפה מתוך הביטוי עצמו — כלומר עדיין ציטוט מדויק של מה שנאמר.
+ */
+function chunkPhrase(phrase) {
+  const words = String(phrase).split(/\s+/).filter(Boolean);
+  if (words.length <= MAX_CUE_WORDS && phrase.length <= MAX_CUE_CHARS) {
+    return [phrase];
+  }
+
+  const chunks = [];
+  let current = [];
+
+  for (const word of words) {
+    const candidate = [...current, word].join(" ");
+    const tooLong =
+      current.length > 0 &&
+      (candidate.length > MAX_CUE_CHARS || current.length >= MAX_CUE_WORDS);
+    if (tooLong) {
+      chunks.push(current.join(" "));
+      current = [word];
+    } else {
+      current.push(word);
+    }
+  }
+  if (current.length) chunks.push(current.join(" "));
+
+  // מילה שקוטעת משפט לא נשארת בסוף הכתובית. חוזרים על המעבר, כי
+  // הזזת מילה אחת משאירה לפעמים מילה קוטעת חדשה בסוף הכתובית שלפניה.
+  for (let pass = 0; pass < 4; pass += 1) {
+    let changed = false;
+    for (let i = 0; i < chunks.length - 1; i += 1) {
+      const words = chunks[i].split(" ");
+      if (words.length > 1 && BIND_FORWARD.has(words[words.length - 1])) {
+        chunks[i] = words.slice(0, -1).join(" ");
+        chunks[i + 1] = `${words[words.length - 1]} ${chunks[i + 1]}`;
+        changed = true;
+      }
+    }
+    if (!changed) break;
+  }
+
+  // מושא ("מעירה | אתכם לגמרי") שייך לפועל שלפניו.
+  for (let i = 1; i < chunks.length; i += 1) {
+    const words = chunks[i].split(" ");
+    if (BIND_BACKWARD.has(words[0]) && words.length > 1) {
+      chunks[i - 1] = `${chunks[i - 1]} ${words.shift()}`;
+      chunks[i] = words.join(" ");
+    }
+  }
+
+  // חלק קצר מדי (מילה בודדת בסוף) מתאחד עם הקודם, אלא אם הוא כבר ארוך.
+  if (chunks.length > 1 && chunks[chunks.length - 1].length < 6) {
+    const last = chunks.pop();
+    const merged = `${chunks[chunks.length - 1]} ${last}`;
+    if (merged.length <= MAX_CUE_CHARS + 8) chunks[chunks.length - 1] = merged;
+    else chunks.push(last);
+  }
+
+  return chunks;
+}
+
+/**
+ * מפצל משפט לביטויים לפי פסיק/נקודתיים/מקף, ואז לחלקים קצרים, כדי
+ * שהכתובית תציג ביטוי אחד בכל פעם — אבל תמיד ציטוט מדויק של מה שנאמר.
  */
 function phrasesOf(speech) {
   const text = String(speech);
@@ -51,9 +160,11 @@ function phrasesOf(speech) {
     }
   }
 
-  const phrases = merged.map(([start, end]) =>
-    text.slice(start, end).replace(/[\s,;—.]+$/u, "").trim()
-  );
+  const phrases = merged
+    .map(([start, end]) =>
+      text.slice(start, end).replace(/[\s,;—.]+$/u, "").trim()
+    )
+    .flatMap(chunkPhrase);
 
   return phrases.length ? phrases : [text.replace(/[.\s]+$/, "")];
 }
@@ -121,13 +232,17 @@ function buildTimeline({
       Math.floor((index / count) * safeVideoFrames),
       safeVideoFrames - 1
     );
-    const end = Math.floor(((index + 1) / count) * safeVideoFrames);
+    const end = Math.min(
+      Math.floor(((index + 1) / count) * safeVideoFrames),
+      safeVideoFrames
+    );
     return {
       index,
       from,
       durationInFrames: Math.max(1, to - from),
       clipStart: start,
-      clipFrames: Math.max(1, end - start),
+      // לא מבקשים מהמקור פריים שאין בו — זה מפיל את הרינדור.
+      clipFrames: Math.max(1, Math.min(end - start, safeVideoFrames - start)),
       layout: index === 0 ? "hero" : "card",
     };
   });
@@ -175,4 +290,4 @@ function buildTimeline({
   };
 }
 
-module.exports = {buildTimeline, phrasesOf, MIN_CUE_FRAMES};
+module.exports = {buildTimeline, phrasesOf, chunkPhrase, MIN_CUE_FRAMES};

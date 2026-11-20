@@ -5,259 +5,450 @@
  * ---------------------------------------------------------------
  * כותב את מה שנשמע בריל — עברית מדוברת, לא הקראה של דף מוצר.
  *
- * המבנה (5 משפטים: הוק, בעיה, שני יתרונות, קריאה לפעולה):
- *   הוק (שאלה/תוצאה, עד שנייה) → הבעיה בהרחבה → 2 יתרונות אמיתיים
- *   → קריאה לפעולה אחת קצרה
+ * המבנה (6–7 משפטים, כמו פרסומת UGC טובה):
+ *   1. hook   — מצב מוכר בשאלה, בשנייה הראשונה
+ *   2. pain   — מה זה עולה להם עכשיו (זמן / עצבים / כסף)
+ *   3. reveal — מה הפיתרון, במשפט אחד שבו ברור מה המוצר
+ *   4. 2–3 יתרונות אמיתיים, כל אחד משפט שלם שעומד לבד
+ *   5. cta    — תגובה עם מילת מפתח, ולינק לרכישה
+ *
+ * למה לפי "משפחת מוצר" ולא לפי מילות מפתח בודדות:
+ * בגרסה הקודמת כל מילה מהכותרת של המוכר בחרה משפט, ולכן שמן אתרי קיבל
+ * הוק של "הבית מתלכלך מהר מדי" (כי בכותרת היה "clean"), ואזיקוני ניילון
+ * קיבלו הוק של "נשארתם בלי סוללה" (כי בכותרת היה "cable"). עכשיו לכל
+ * משפחה יש *ליבת מוצר* — המילה שמגדירה את המוצר עצמו — והמשפחה נבחרת
+ * רק כשהיא מופיעה בשם העברי של המוצר, או בליבה של הכותרת. אחרת הסרטון
+ * יוצא כללי, וזה עדיף על סרטון מגוחך.
  *
  * כללים שנשמרים כאן:
  *   • הסרטון מוכר את המוצר נטו. אין בקריינות דירוג, מספר מכירות,
- *     ביקורות או מחיר — המחיר וההנחה כבר כתובים על המסך, וקול שקורא
- *     אותם נשמע כמו דף מוצר.
- *   • אין דחיפות מומצאת ("המחיר חוזר למעלה", "נשארו אחרונים") ואין
- *     מלאי מומצא.
- *   • הקריאה לפעולה היא תגובה עם מילת מפתח (commentKeyword), כי
- *     האוטומציה בתגובות היא ששולחת את הלינק לרכישה.
- *   • מספרים בקריינות כתובים במילים (hebrew-numbers), כי מנוע TTS
- *     שקורא "4.8" נשמע רובוטי.
- *   • לכל משפט קצב דיבור משלו (rate) והפסקה משלו (gapAfterMs) —
- *     אלה מועברים ל-API של גוגל (pace control) ולא ניחוש.
- *
- * לכל משפט: speech (הטקסט המדויק שנאמר וגם הכתובית — ציטוט מדויק),
- * rate, gapAfterMs, role.
+ *     ביקורות או מחיר — המחיר וההנחה כבר כתובים על המסך.
+ *   • אין דחיפות מומצאת ואין מלאי מומצא.
+ *   • כל יתרון מופיע רק במשפחות שבהן הוא באמת הגיוני (חיישן תנועה
+ *     במנורה, לא ברובוט שואב; ציפוי קרמי במחבת, לא במטען).
+ *   • משפט קצר וחד, פסיק אחד. מנוע הקראה מנקד היטב משפט קצר ומתבלבל
+ *     במשפט ארוך עם שלושה רעיונות.
+ *   • קצב 1.0. האצת Chirp 3 HD מעל 1.0 נשמעת מהירה ומצחיקה; את הקצב
+ *     עושות ההפסקות שבין המשפטים.
  */
 
-const {numberToHebrew, thousandsWords} = require("./hebrew-numbers");
-
-// קצב דיבור לכל סוג משפט. Pace control מתועד בגוגל לטווח 0.25–2.0.
-// הוק וקריאה לפעולה מהירים, מחיר והוכחה נינוחים.
+// קצב דיבור לכל סוג משפט. 1.0 = הקצב הטבעי של הקול.
 const RATES = {
-  hook: 1.12,
-  pain: 1.04,
-  feature: 1.02,
-  proof: 1.0,
-  price: 1.0,
-  cta: 1.08,
+  hook: 1.0,
+  pain: 0.97,
+  reveal: 1.0,
+  feature: 1.0,
+  cta: 1.0,
 };
 
-// הפסקה אחרי המשפט (אלפיות שנייה מתורגמות לפריימים ב-timeline.js).
+// הפסקה אחרי המשפט (מתורגמת לפריימים ב-timeline.js).
 const GAPS_MS = {
-  hook: 150,
-  pain: 240,
-  feature: 190,
-  proof: 220,
-  price: 260,
+  hook: 200,
+  pain: 260,
+  reveal: 220,
+  feature: 180,
   cta: 0,
 };
 
 // ---------------------------------------------------------------------
-// הוקים — הבעיה או התוצאה, בשנייה הראשונה. קצר, מדובר, בלי פתיחות.
+// משפחות מוצרים.
+//   core — מה שמגדיר את המוצר (לפי זה נבחרת המשפחה)
+//   re   — התאמה רחבה, רק כשאין ליבה בשם
 // ---------------------------------------------------------------------
-const PAINS = [
+const FAMILIES = [
   {
-    re: /מטבח|בלנדר|קרח|צידנית|קפה|אפייה|סיר|garlic|kitchen|blender/i,
+    id: "aroma",
+    core: /שמן אתרי|שמנים אתריים|essential oil|ארומה|diffuser|מפזר ריח|נר ריחני|scented candle|peppermint|lavender|eucalyptus/i,
+    re: /אתרי|מנטה|לבנדר|aromatherapy/i,
+    hook: [
+      "הבית שלכם מריח סגור גם אחרי שמאווררים?",
+      "נמאס לכם שהריח הטוב נעלם אחרי חמש דקות?",
+    ],
+    pain: "ספריי מחזיק חמש דקות, ונר נגמר לפני שמרגישים את הריח.",
+    reveal: "שמן אתרי מרוכז, שכמה טיפות ממנו ממלאות חדר שלם בריח אמיתי.",
+    keyword: "שמן",
+  },
+  {
+    id: "light",
+    core: /מנור|פנס|נור[הי]|תאורה|תאורת|פרוז'קטור|night ?light|\blamp\b|light ?bulb/i,
+    re: /\bled\b/i,
+    hook: [
+      "מי עוד קם בלילה לחפש את המתג?",
+      "כמה פעמים בלילה אתם מחפשים את המתג?",
+    ],
+    pain: "מגששים בחושך לאורך הקיר, וכל התעסקות כזאת מעירה אתכם לגמרי.",
+    reveal: "מנורה קטנה שנדלקת לבד ברגע שאתם נכנסים, ונכבה לבד כשיוצאים.",
+    keyword: "מנורה",
+  },
+  {
+    id: "switch",
+    core: /מתג|שקע חכם|switch|smart plug/i,
+    re: /\bplug\b/i,
+    hook: "כמה פעמים ביום אתם קמים לכבות אור?",
+    pain: "יורדים מהספה, מכבים חדר אחד, ומגלים שעוד אור דולק במטבח.",
+    reveal: "מתג חכם שאפשר לכבות מהטלפון בלי לקום מהמקום.",
+    keyword: "מתג",
+  },
+  {
+    id: "air",
+    core: /מטהר|מסנן אוויר|מכשיר אדים|air purifier|humidifier|hepa/i,
+    hook: "מרגישים שהאוויר בבית כבד?",
+    pain: "אבק על המדפים כל יומיים, וריח סגור שלא יוצא מהחדר.",
+    reveal: "מטהר אוויר קטן שמסנן אבק ופרוות ומחזיר אוויר נקי לחדר.",
+    keyword: "מטהר",
+  },
+  {
+    id: "clean",
+    core: /שואב|vacuum cleaner|window vacuum|מכונת ניקוי|steam cleaner|\bmop\b/i,
+    hook: ["כמה זמן הולך לכם על ניקוי הבית?", "הבית מתלכלך מהר מדי?"],
+    pain: "שעה של שאיבה, ואחרי יומיים שוב אבק על הרצפה.",
+    reveal: "שואב קטן וחזק שמגיע לכל פינה, בלי להוציא את השואב הגדול.",
+    keyword: "שואב",
+  },
+  {
+    id: "kitchen",
+    core: /בלנדר|מעבד מזון|קוצץ|מטבח|סיר|מחבת|קומקום|טוסטר|מכונת קפה|blender|chopper|air fryer|kitchen|coffee maker/i,
     hook: "כמה זמן הולך לכם על חיתוך ירקות?",
-    detail: "הכול ידני, על קרש קטן, ותוך חמש דקות כבר נמאס",
+    pain: "הכול ידני, על קרש קטן, ותוך חמש דקות כבר נמאס.",
+    reveal: "מכשיר קטן שמקצר את כל העבודה הזאת לדקה.",
   },
   {
-    re: /שואב|מטהר|אדים|ניקוי|אוויר|אבק|vacuum|clean|air purifier/i,
-    hook: "הבית שלכם מתלכלך מהר מדי?",
-    detail: "אתם מנקים, וחצי שעה אחר כך הכול שוב אותו דבר",
+    id: "organizer",
+    core: /מאסף כבלים|ניהול כבלים|אזיקון|אזיקוני|רצועות כבלים|cable (organizer|ties|management|straps)|zip ties/i,
+    hook: "כל הכבלים שלכם בבלגן אחד גדול?",
+    pain: "מחפשים את הכבל הנכון בין עשרה אחרים, וזה לוקח חמש דקות כל פעם.",
+    reveal: "ערכה קטנה שמסדרת את כל הכבלים, והבלגן נעלם מהשולחן.",
+    keyword: "כבלים",
   },
   {
-    // תאורה לפני טעינה: במנורת LED נטענת הבעיה האמיתית היא האור,
-    // לא הכבל — ולכן ההוק צריך להיות על האור.
-    re: /תאורה|מנורה|אור|לד|led|light|lamp|חיישן|sensor/i,
-    hook: "אתם מדליקים אור בכל חדר שנכנסים?",
-    detail: "ובלילה זה אומר לקום, לחפש את המתג, ולחזור למיטה",
+    id: "grooming",
+    core: /מכונת גילוח|גילוח|מספרה|מחליק שיער|מסלסל|trimmer|shaver|razor|grooming/i,
+    hook: "הגילוח שלכם לוקח יותר מדי זמן?",
+    pain: "עוברים על אותו מקום שוב ושוב, ובסוף נשאר עור אדום.",
+    reveal: "מכונה קטנה שמגלחת חלק, בלי קצף ובלי מים.",
+    keyword: "גילוח",
   },
   {
-    re: /טלפון|מעמד|טעינה|כבל|אוזניות|חשמל|אלקטרוניקה|מחשב|charg|usb|cable|phone/i,
-    hook: "שוב נשארתם בלי סוללה באמצע?",
-    detail: "עד היום הסתדרתם עם מטען שהתפרק לכם בתיק",
+    id: "massage",
+    core: /אקדח פאשיה|מסאז'ר|מסאז|massage gun|fascia|percussion massager/i,
+    hook: "השרירים שלכם תפוסים בסוף יום עבודה?",
+    pain: "מנסים לשחרר אותם עם היד, וזה כואב ולא באמת עוזר.",
+    reveal: "מסאז'ר קטן שמשחרר את השרירים בשתי דקות.",
+    keyword: "מסאז'",
   },
   {
-    re: /רכב|נסיע|car|bike|אופניים/i,
-    hook: "בכל נסיעה זה נופל שוב",
-    detail: "עד היום הסתדרתם עם מה שיש באוטו, וזה לא מחזיק",
+    id: "audio",
+    core: /אוזניות|רמקול|headphone|earbud|speaker|soundbar/i,
+    hook: "הרעש מסביב הורס לכם את המוזיקה?",
+    pain: "מגבירים את הווליום, וזה רק מוסיף עוד רעש.",
+    reveal: "אוזניות קטנות שנשמעות חזק, גם כשהרעש מסביב גדול.",
+    keyword: "אוזניות",
   },
   {
-    re: /חיות|כלב|חתול|pet|dog|cat/i,
-    hook: "החיה שלכם ישנה על הרצפה?",
-    detail: "עד היום הסתדרתם עם מה שהיה, וזה לא היה נוח לאף אחד",
+    id: "stand",
+    core: /מעמד|מחזיק טלפון|תושבת טלפון|phone holder|tablet stand|\bstand\b|tripod|חצובה/i,
+    hook: "כמה פעמים הטלפון נפל לכם באמצע צילום?",
+    pain: "מחזיקים אותו ביד, מחפשים זווית, וזה אף פעם לא יוצא ישר.",
+    reveal: "מעמד קטן שמחזיק את הטלפון בזווית שנוחה לכם.",
+    keyword: "מעמד",
   },
   {
-    re: /תינוק|ילד|ילדים|baby|kids/i,
-    hook: "כל יום אתם מחפשים שוב פתרון",
-    detail: "ניסיתם כבר כמה מוצרים, ואף אחד לא החזיק מעמד",
+    id: "power",
+    core: /מטען|סוללה ניידת|power ?bank|charger|כבל טעינה|charging cable/i,
+    hook: "שוב נשארתם בלי סוללה באמצע היום?",
+    pain: "הכבל מתפרק בתיק, והמטען שקניתם כבר לא מחזיק חצי שעה.",
+    reveal: "מטען קטן ומהיר שמחזיק לכל היום.",
+    keyword: "מטען",
   },
   {
-    re: /יופי|שיער|טיפוח|פנים|עור|ציפורן|מסאז|beauty|skin|hair/i,
-    hook: "כל בוקר אותה התעסקות",
-    detail: "עד היום שילמתם על טיפול וחיכיתם בתור, בשביל עשר דקות",
+    id: "sleep",
+    core: /שמיכ|כרית|מזרן|מצעים|blanket|pillow|mattress|bedding/i,
+    hook: "אתם מתעוררים באמצע הלילה בלי סיבה?",
+    pain: "מסתובבים במיטה חצי שעה, וקמים בבוקר עייפים יותר.",
+    reveal: "שמיכה קלה שמחזיקה אתכם חמים כל הלילה, בלי להזיע.",
   },
   {
-    re: /כושר|ספורט|אימון|גוף|fitness|sport|gym/i,
+    id: "car",
+    core: /מחזיק לרכב|תושבת לרכב|מובייל לרכב|car (phone )?(holder|mount)|phone mount|car charger/i,
+    re: /רכב|\bcar\b|אופניים/i,
+    hook: "כל נסיעה מחדש אתם מחפשים איפה לשים את הטלפון?",
+    pain: "הוא מחליק, נופל בין הכיסאות, ואתם מחפשים אותו בפקק.",
+    reveal: "מחזיק קטן שמתלבש על הרכב ומחזיק את הטלפון במקום.",
+    keyword: "רכב",
+  },
+  {
+    id: "beauty",
+    core: /טיפוח|קרם|סרום|מסכה|ציפורן|מסאז לפנים|beauty|skin care|serum|face cream/i,
+    re: /שיער|פנים|עור|skin|hair/i,
+    hook: "כל בוקר אותה התעסקות מול המראה?",
+    pain: "עוד מוצר שניסיתם, עוד הבטחה, ושום דבר לא נשאר.",
+    reveal: "טיפול אחד קצר, בלי תור ובלי מחיר של מכון.",
+  },
+  {
+    id: "fitness",
+    core: /כושר|משקולת|יוגה|fitness|dumbbell|yoga|gym equipment/i,
+    re: /אימון|ספורט|sport|gym/i,
     hook: "האימון נשאר בצד כל השבוע?",
-    detail: "כי בסוף יום אין לכם כוח לנסוע לחדר כושר",
+    pain: "בסוף יום אין כוח לנסוע לחדר כושר, וזה נדחה שוב לשבוע הבא.",
+    reveal: "ציוד קטן שאפשר לעשות איתו אימון שלם בבית.",
+  },
+  {
+    id: "baby",
+    core: /תינוק|פעוט|ילדים|baby|toddler|kids/i,
+    hook: "הלילה שלכם נראה כמו משמרת?",
+    pain: "מתעוררים כל שעה, וקמים בבוקר גמורים.",
+    reveal: "מוצר קטן שמקל על הלילות, בלי שתצטרכו לקום כל שעה.",
+  },
+  {
+    id: "toys",
+    core: /צעצוע|פאזל|\btoy\b|puzzle|lego/i,
+    re: /משחק|game/i,
+    hook: "הילדים משתעממים תוך חמש דקות?",
+    pain: "קונים עוד צעצוע, והוא נזרק לפינה אחרי יומיים.",
+    reveal: "משחק קטן שהם חוזרים אליו שוב ושוב.",
+    keyword: "משחק",
   },
 ];
 
-const GENERIC_PAIN = {
-  hook: "יש דברים בבית שאמורים להיות קלים",
-  detail: "ובפועל אתם מסתדרים עם פתרון מאולתר שכבר מזמן לא עובד",
+// כשהכותרת לא מספקת התאמה: עדיין סרטון עם מבנה מכירתי, בלי להמציא עובדה.
+const GENERIC_FAMILY = {
+  id: "generic",
+  hook: [
+    "כל פעם מחדש אתם מסתדרים עם מה שיש?",
+    "יש מוצר קטן שהופך את השגרה הזאת לקלה.",
+  ],
+  pain: "פתרון מאולתר, חצי עבודה, ובסוף מתעצבים ומנסים שוב מחר.",
+  reveal: "המוצר הזה עושה את זה במקומכם, בלי מאמץ ובלי התעסקות.",
 };
 
 // ---------------------------------------------------------------------
-// יתרונות: מזהים מאפיין אמיתי של המוצר (מהכותרת המקורית של המוכר)
-// והופכים אותו למשפט מדובר. אין כאן הבטחות שלא מופיעות בכותרת.
+// יתרונות: מזהים מאפיין אמיתי של המוצר ומנסחים אותו כמשפט מדובר שלם.
+//   only    — המשפחות שבהן היתרון הגיוני (בלעדיו הוא יכול להישמע מגוחך)
+//   group   — לא לספר את אותו הדבר פעמיים ("נטען" ו-"USB")
 // ---------------------------------------------------------------------
 const FEATURES = [
   {
-    re: /motion|pir|sensor|חיישן/i,
-    speech: "הוא נדלק לבד ברגע שמישהו נכנס, ונכבה לבד כשאין אף אחד",
-  },
-  {
+    id: "silent",
+    only: ["audio", "air", "clean", "baby"],
     re: /silent|quiet|noise.?cancel|noise.?reduc|שקט|דממה|בלי רעש/i,
-    speech: "והוא עובד בשקט כזה שאפשר להפעיל אותו ליד מי שכבר נרדם",
+    speech: "שקט מספיק כדי להפעיל ליד מי שכבר נרדם.",
   },
   {
+    id: "wireless",
+    group: "power",
     re: /wireless|אלחוטי|ללא חוט/i,
-    speech: "בלי כבלים שמסתבכים ובלי להיתקע ליד השקע",
+    speech: "בלי כבלים בכלל, וזה חוסך את כל ההתעסקות עם שקע.",
   },
   {
-    re: /rechargeable|battery|סוללה|נטען|נטענת|chargeable/i,
-    speech: "הסוללה נטענת, אז נגמרו הסוללות שנגמרות באמצע",
+    id: "power",
+    group: "power",
+    exclude: ["aroma", "kitchen", "organizer", "toys"],
+    re: /rechargeable|battery|סוללה|נטען|נטענת|chargeable|usb|טעינה מהירה|fast.?charg|quick.?charg/i,
+    speech: "הסוללה נטענת בכבל רגיל, אז נגמרו הסוללות שנגמרות באמצע.",
   },
   {
-    re: /fast.?charg|quick.?charg|טעינה מהירה/i,
-    speech: "הוא נטען מהר, ואתם לא מחכים לו חצי יום",
-  },
-  {
-    re: /usb/i,
-    speech: "הוא נטען בכבל USB רגיל, אז לא צריך מטען מיוחד",
-  },
-  {
+    id: "waterproof",
     re: /waterproof|water.?resistant|עמיד למים|עמידה למים/i,
-    speech: "הוא עמיד למים, אז גם גשם לא מפריע לו",
+    speech: "עמיד למים, אז גם גשם לא מפריע.",
   },
   {
+    id: "nonstick",
+    only: ["kitchen"],
     re: /non.?stick|אנטי.?דביק/i,
-    speech: "שום דבר לא נדבק אליו, ושטיפה אחת והוא כמו חדש",
+    speech: "שום דבר לא נדבק, ושטיפה אחת והוא כמו חדש.",
   },
   {
+    id: "stainless",
+    only: ["kitchen"],
     re: /stainless|נירוסטה/i,
-    speech: "נירוסטה אמיתית, לא פלסטיק שמתקלף אחרי חודש",
+    speech: "מנירוסטה אמיתית, לא פלסטיק שמתקלף אחרי חודש.",
   },
   {
+    id: "vacuum",
+    only: ["clean"],
     re: /vacuum|יניקה|שואב/i,
-    speech: "יש לו יניקה אמיתית, לא כמו אלה שמפזרות את הלכלוך",
+    speech: "יניקה אמיתית, לא כמו אלה שמפזרות את הלכלוך.",
   },
   {
+    id: "hepa",
+    only: ["air", "clean"],
     re: /hepa|filter|מסנן|סינון/i,
-    speech: "המסנן שלו מחזיק את האבק בפנים, והאוויר יוצא נקי",
+    speech: "המסנן מחזיק את האבק בפנים, והאוויר יוצא נקי.",
   },
   {
-    re: /massage|מסאז|עיסוי/i,
-    speech: "הוא משחרר את השרירים אחרי יום ארוך, וזה מרגיש כמו מסאז'",
+    id: "aroma",
+    only: ["aroma"],
+    re: /essential oil|שמן אתרי|aroma|peppermint|lavender|מנטה|לבנדר/i,
+    speech: "הריח נשאר באוויר שעות, ולא נעלם כמו ספריי.",
   },
   {
-    re: /heat|חימום|מתחמם|חשמלי/i,
-    speech: "הוא מתחמם מהר ושומר על החום, לא מתקרר בדקה",
+    id: "concentrated",
+    only: ["aroma"],
+    re: /100%|pure|טהור|מרוכז|concentrated/i,
+    speech: "הבקבוק מרוכז, אז הוא מחזיק לכם חודשים.",
   },
   {
+    id: "heat",
+    only: ["kitchen"],
+    re: /heat|חימום|מתחמם/i,
+    speech: "מתחמם מהר ושומר על החום, לא מתקרר אחרי דקה.",
+  },
+  {
+    id: "adjustable",
     re: /adjustable|מתכוונן|כיוונון/i,
-    speech: "הוא מתכוונן למידה שלכם, אז יושב בדיוק כמו שצריך",
+    speech: "מתכוונן למידה שלכם, אז יושב בדיוק במקום.",
   },
   {
+    id: "foldable",
     re: /foldable|folding|מתקפל|קיפול/i,
-    speech: "הוא מתקפל ונכנס לתיק, גם כשאין מקום בכלל",
+    speech: "מתקפל ונכנס לתיק, גם כשאין מקום בכלל.",
   },
   {
+    id: "portable",
     re: /portable|\bmini\b|compact|נייד|קומפקטי|מיני/i,
-    speech: "הוא קטן וקל, אז הוא נוסע איתכם לכל מקום",
+    speech: "קטן וקל, ונכנס לכל תיק.",
   },
   {
-    re: /\bled\b|תאורה|תאורת/i,
-    speech: "התאורה שלו חזקה וברורה, גם כשיש חושך מסביב",
+    id: "led",
+    only: ["light"],
+    re: /\bled\b|תאורת/i,
+    speech: "התאורה חזקה וברורה, גם כשיש חושך מסביב.",
   },
   {
+    id: "magnetic",
     re: /magnetic|מגנט/i,
-    speech: "הוא נתפס בקליק אחד, בלי ברגים ובלי להתעצבן",
+    speech: "נתפס בקליק אחד, בלי ברגים ובלי להתעצבן.",
   },
   {
+    id: "silicone",
+    only: ["kitchen", "beauty", "baby"],
     re: /silicone|סיליקון/i,
-    speech: "הסיליקון שלו גמיש ואיכותי, והוא לא נסדק",
+    speech: "הסיליקון גמיש, ולא נסדק גם אחרי שנה.",
   },
   {
+    id: "ceramic",
+    only: ["kitchen", "beauty"],
     re: /ceramic|קרמי/i,
-    speech: "הציפוי הקרמי לא נשרף ולא משאיר ריח אחרי השימוש",
+    speech: "הציפוי הקרמי לא נשרף ולא משאיר ריח אחרי השימוש.",
   },
   {
+    id: "leather",
     re: /leather|עור אמיתי|עור טבעי/i,
-    speech: "עור אמיתי שנראה טוב גם אחרי שנה של שימוש",
+    speech: "העור אמיתי, ונראה טוב גם אחרי שנה של שימוש.",
   },
   {
+    id: "solar",
+    only: ["light"],
     re: /solar|סולארי/i,
-    speech: "הוא נטען מהשמש, בלי חשמל ובלי עוד הוצאה",
+    speech: "נטען מהשמש, בלי חשמל ובלי עוד הוצאה.",
   },
   {
-    re: /remote|שלט/i,
-    speech: "מגיע עם שלט, אז לא קמים מהספה בשביל כל שינוי קטן",
+    id: "remote",
+    re: /\bremote\b|שלט/i,
+    speech: "מגיע עם שלט, אז לא קמים מהספה בשביל כל שינוי קטן.",
   },
   {
+    id: "washable",
+    only: ["sleep", "baby", "beauty", "clean"],
     re: /washable|נשטף|כיבוס|לכיבוס/i,
-    speech: "אפשר לכבס אותו בכיבוס רגיל, והוא יוצא משם כמו חדש",
+    speech: "נכנס לכיבוס רגיל ויוצא משם כמו חדש.",
   },
   {
+    id: "set",
     re: /set of|\d+\s*(pcs|pieces)|יחידות|ערכה|סט של/i,
-    speech: "זו ערכה שלמה בקופסה אחת, ולא כל חלק בנפרד",
+    speech: "ערכה שלמה בקופסה אחת, ולא כל חלק בנפרד.",
   },
   {
+    id: "smart",
     re: /smart|חכם|חכמה/i,
-    speech: "הוא עובד לבד, בלי שתצטרכו לחשוב עליו בכלל",
+    speech: "עובד לבד, בלי שום התעסקות.",
   },
   {
+    id: "professional",
     re: /\bpro(fessional)?\b|מקצועי/i,
-    speech: "הרמה שלו מקצועית, לא משהו תחליפי",
+    speech: "הרמה מקצועית, לא משהו תחליפי.",
   },
 ];
 
+// יתרון אחרון אמיתי, כשהמוצר לא מספק שני מאפיינים מזוהים.
+const SHIPPING_BENEFIT = "המשלוח מגיע לישראל, עד הבית.";
+
 // ---------------------------------------------------------------------
-// מילת המפתח לתגובה. האוטומציה (ManyChat וכדומה) מזהה את התגובה הזאת
-// ושולחת ללקוח לינק לרכישה — ולכן היא חייבת להיות קצרה וקלה לזכור,
-// ולא שם המוצר המלא.
+// מילת המפתח לתגובה. האוטומציה בתגובות מזהה אותה ושולחת לינק לרכישה,
+// ולכן היא קצרה, בעברית, וקלה לזכור — לא שם המוצר המלא.
 // ---------------------------------------------------------------------
 const KEYWORDS = [
-  { re: /מנור|תאורה|לד\b|led|lamp|light/i, word: "מנורה" },
+  { re: /שמן אתרי|שמנים אתריים|essential oil|aroma/i, word: "שמן" },
+  { re: /מנור|פנס|נור[הי]|תאורה|\bled\b|\blamp\b|light/i, word: "מנורה" },
   { re: /מתג|switch/i, word: "מתג" },
+  { re: /גילוח|shaver|razor|trimmer/i, word: "גילוח" },
   { re: /בלנדר|blender/i, word: "בלנדר" },
   { re: /שואב|vacuum/i, word: "שואב" },
   { re: /מטהר|hepa|air purifier/i, word: "מטהר" },
   { re: /אוזניות|headphone|earbud/i, word: "אוזניות" },
+  { re: /רמקול|speaker/i, word: "רמקול" },
   { re: /שעון|watch/i, word: "שעון" },
   { re: /מעמד|stand|holder/i, word: "מעמד" },
   { re: /מטען|power ?bank|charger/i, word: "מטען" },
+  { re: /כבל|cable/i, word: "כבלים" },
   { re: /מצלמה|camera/i, word: "מצלמה" },
-  { re: /רמקול|speaker/i, word: "רמקול" },
   { re: /מיקרופון|microphone/i, word: "מיקרופון" },
-  { re: /מאוורר|fan\b/i, word: "מאוורר" },
+  { re: /מאוורר|\bfan\b/i, word: "מאוורר" },
   { re: /מקרר|cooler/i, word: "מקרר" },
-  { re: /תיק|bag\b/i, word: "תיק" },
+  { re: /תיק|\bbag\b/i, word: "תיק" },
   { re: /נעל|shoe|sneaker/i, word: "נעל" },
   { re: /שמיכ|blanket/i, word: "שמיכה" },
   { re: /כרית|pillow/i, word: "כרית" },
   { re: /מסאז|massage/i, word: "מסאז'" },
 ];
 
-// כשהכותרת לא מספקת אף מאפיין מזוהה — משפט בלי הבטחה ספציפית.
-const FALLBACK_FEATURE =
-  "והוא עושה את העבודה מהפעם הראשונה, בלי התעסקות ובלי הפתעות";
+// מילים שלא הופכות למילת מפתח (תואר/מידה/מילה דקדוקית מהתרגום).
+const KEYWORD_STOP = new Set([
+  "יחידה",
+  "יחידות",
+  "מקורי",
+  "מקורית",
+  "איכותי",
+  "איכותית",
+  "מקצועי",
+  "מקצועית",
+  "חדש",
+  "חדשה",
+  "גדול",
+  "גדולה",
+  "קטן",
+  "קטנה",
+  "מכונת",
+  "מכונה",
+  "מכשיר",
+  "מוצר",
+  "אביזר",
+  "אביזרים",
+  "סט",
+  "ערכה",
+  "ערכת",
+  "צבע",
+  "דגם",
+  "מידה",
+  "מידות",
+  "מסוג",
+  "עבור",
+  "עם",
+  "של",
+  "את",
+  "או",
+  "גם",
+  "לכל",
+  "בית",
+]);
 
 // ---------------------------------------------------------------------
 // עזרים
 // ---------------------------------------------------------------------
-function pick(list) {
-  return list[Math.floor(Math.random() * list.length)];
+function one(value) {
+  return Array.isArray(value)
+    ? value[Math.floor(Math.random() * value.length)]
+    : value;
 }
 
 function formatShekels(value) {
@@ -280,56 +471,75 @@ function haystack(product) {
 }
 
 /**
- * הבעיה נבחרת קודם כל מהשם העברי של המוצר (המתורגם והמדויק), ורק אם
- * אין בו התאמה — מהכותרת של המוכר. בלי זה מנורת ליל שמוכרים אותה גם
- * ל"מטבח" הופכת לסרטון על חיתוך ירקות.
+ * המשפחה נבחרת קודם כל לפי ליבת המוצר בשם העברי (המתורגם והמדויק),
+ * אחר כך לפי התאמה רחבה בשם, ורק בסוף לפי הליבה שבכותרת המוכר.
+ * אין נפילה ל"כל מילה שמתאימה" — עדיף תסריט כללי מתסריט שגוי.
  */
-function painFor(product) {
+function familyFor(product) {
   const name = String(product.name || "");
+  const title = [
+    product.sourceTitle,
+    product.sourceCategory,
+    product.category,
+  ]
+    .filter(Boolean)
+    .join(" | ");
+
   return (
-    PAINS.find((pain) => pain.re.test(name)) ||
-    PAINS.find((pain) => pain.re.test(haystack(product))) ||
-    GENERIC_PAIN
+    FAMILIES.find((family) => family.core.test(name)) ||
+    FAMILIES.find((family) => family.re && family.re.test(name)) ||
+    FAMILIES.find((family) => family.core.test(title)) ||
+    GENERIC_FAMILY
   );
 }
 
-function productFeatures(product, limit = 2) {
+function productFeatures(product, limit = 3, options = {}) {
   const text = haystack(product);
+  const family = options.family || familyFor(product);
   const found = [];
+  const groups = new Set();
+
   for (const feature of FEATURES) {
     if (found.length >= limit) break;
-    if (feature.re.test(text)) found.push(feature);
+    if (feature.only && !feature.only.includes(family.id)) continue;
+    if (feature.exclude && feature.exclude.includes(family.id)) continue;
+    if (feature.group && groups.has(feature.group)) continue;
+    if (!feature.re.test(text)) continue;
+    found.push(feature);
+    if (feature.group) groups.add(feature.group);
   }
+
   return found;
 }
 
 /**
  * מחיר במילים, כמו שאומרים אותו: "מאה ושמונה עשרה שקלים" ואם יש
  * אגורות — "מאה ושמונה עשרה שקלים וארבעים וחמש אגורות".
- * אותו מספר בדיוק כמו שמוצג על המסך.
  */
 function shekelsSpeech(value) {
   const amount = Number(value);
   if (!Number.isFinite(amount) || amount <= 0) return "";
   const shekels = Math.floor(amount + 1e-9);
   const agorot = Math.round((amount - shekels) * 100);
+  const {numberToHebrew} = require("./hebrew-numbers");
   const base = shekels === 1 ? "שקל אחד" : `${numberToHebrew(shekels)} שקלים`;
   if (!agorot) return base;
   return `${base} ו${numberToHebrew(agorot, "feminine")} אגורות`;
 }
 
-// מילת המפתח שהלקוח מתבקש להגיב בה (משמשת גם על המסך וגם בקריינות).
+// מילת המפתח שהלקוח מתבקש להגיב בה (גם על המסך וגם בקריינות).
 function commentKeyword(product) {
   const text = haystack(product);
   const hit = KEYWORDS.find((item) => item.re.test(text));
   if (hit) return hit.word;
 
-  // נפילה לאחור: המילה העברית הראשונה בשם המוצר ("שמן אתרי" → "שמן"),
-  // ולא מספר או דגם כמו "100" או "Tuya".
+  // נפילה לאחור: המילה העברית המשמעותית הראשונה בשם ("שמן אתרי" → "שמן"),
+  // ולא מספר, דגם, או תואר כמו "יחידה" / "מקורי" / "מכונת".
   const words = String(product.name || "")
     .replace(/["'״׳]/g, " ")
     .split(/\s+/)
-    .filter((word) => /^[\u0590-\u05FF]{3,}$/.test(word));
+    .filter((word) => /^[\u0590-\u05FF]{3,}$/.test(word))
+    .filter((word) => !KEYWORD_STOP.has(word));
   return words[0] || "מוצר";
 }
 
@@ -338,12 +548,12 @@ function commentKeyword(product) {
 // ---------------------------------------------------------------------
 
 /**
- * מחזיר {sentences} — כל משפט עם role, rate ו-gapAfterMs.
+ * מחזיר {keyword, family, sentences} — כל משפט עם role, rate ו-gapAfterMs.
  * המשפטים עצמם הם גם הקריינות וגם הכתוביות (ציטוט מדויק).
  */
 function buildScript(product) {
-  const pain = painFor(product);
-  const features = productFeatures(product, 3);
+  const family = familyFor(product);
+  const features = productFeatures(product, 3, {family});
   const sentences = [];
 
   const add = (role, speech) =>
@@ -354,22 +564,20 @@ function buildScript(product) {
       gapAfterMs: GAPS_MS[role] || 0,
     });
 
-  add("hook", pain.hook);
-  add("pain", `${pain.detail}.`);
+  add("hook", one(family.hook));
+  add("pain", family.pain);
+  add("reveal", family.reveal);
 
-  if (features.length === 0) {
-    add("feature", `${FALLBACK_FEATURE}.`);
-  } else {
-    features.forEach((feature, index) => {
-      add("feature", index === 0 ? `${feature.speech}.` : `ו${feature.speech}.`);
-    });
-  }
+  features.forEach((feature) => add("feature", feature.speech));
+  // תסריט של ארבעה משפטים נגמר לפני שהספקתם למכור: סוגרים ביתרון אמיתי.
+  if (features.length < 2) add("feature", SHIPPING_BENEFIT);
 
-  const keyword = commentKeyword(product);
-  add("cta", `תגיבו ${keyword} ואני שולח לכם לינק לרכישה מאליאקספרס.`);
+  const keyword = family.keyword || commentKeyword(product);
+  add("cta", `תגיבו ${keyword} ואשלח לכם לינק לרכישה מאליאקספרס.`);
 
   return {
     keyword,
+    family: family.id,
     sentences: sentences.map((sentence, index) => ({
       ...sentence,
       id: index + 1,
@@ -386,24 +594,27 @@ function speechText(sentences) {
 }
 
 // כיתוב לפוסט באינסטגרם / טלגרם.
-function captionText(product, sentences, site) {
+function captionText(product, sentences, site, keyword) {
   const lines = [sentences[0] ? sentences[0].speech : product.name, ""];
 
   lines.push(`🛍️ ${product.name}`);
 
-  const priceLine = product.originalPrice &&
+  const priceLine =
+    product.originalPrice &&
     Number(product.originalPrice) > Number(product.price)
-    ? `${formatShekels(product.price)} במקום ${formatShekels(
-        product.originalPrice
-      )}`
-    : `${formatShekels(product.price)} בלבד`;
+      ? `${formatShekels(product.price)} במקום ${formatShekels(
+          product.originalPrice
+        )}`
+      : `${formatShekels(product.price)} בלבד`;
   lines.push(`💰 ${priceLine}`);
 
   if (product.discount) lines.push(`🔥 ${Math.round(product.discount)}% הנחה`);
 
   lines.push("");
   lines.push("🚚 משלוח לישראל");
-  lines.push(`💬 תגיבו ${commentKeyword(product)} ואני שולח לכם לינק לרכישה`);
+  lines.push(
+    `💬 תגיבו ${keyword || commentKeyword(product)} ואני שולח לכם לינק לרכישה`
+  );
   lines.push("");
   lines.push(
     "#find4u #דילים #קניות_אונליין #עליאקספרס #מוצרים_מומלצים #שופינג"
@@ -420,5 +631,10 @@ module.exports = {
   commentKeyword,
   shekelsSpeech,
   productFeatures,
-  painFor,
+  familyFor,
+  painFor: familyFor,
+  FAMILIES,
+  FEATURES,
+  KEYWORDS,
+  SHIPPING_BENEFIT,
 };

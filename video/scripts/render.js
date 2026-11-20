@@ -29,7 +29,6 @@ const {
   speechText,
   captionText,
   formatShekels,
-  commentKeyword,
 } = require("./script");
 
 const VIDEO_DIR = path.join(__dirname, "..");
@@ -109,7 +108,9 @@ async function main() {
   fs.writeFileSync(videoFile, videoBytes);
 
   const videoSeconds = mp4DurationSeconds(videoBytes);
-  const videoFrames = Math.max(1, Math.round((videoSeconds || 8) * FPS));
+  // floor ולא round: סרטון של 58.125s הוא 1743 פריימים ולא 1746, וביקוש
+  // לפריים מעבר לסוף הסרטון מפיל את הרינדור ("No frame found at position").
+  const videoFrames = Math.max(1, Math.floor((videoSeconds || 8) * FPS));
 
   console.log(
     `[render] product: ${product.id} | ${product.name} | ${formatShekels(
@@ -120,9 +121,11 @@ async function main() {
   );
 
   // ---- 1. תסריט --------------------------------------------------------
-  const {sentences} = buildScript(product);
+  const {sentences, keyword} = buildScript(product);
   const text = speechText(sentences);
-  console.log(`[render] script (${text.length} chars, ${sentences.length} sentences)`);
+  console.log(
+    `[render] script (${text.length} chars, ${sentences.length} sentences, keyword "${keyword}")`
+  );
   sentences.forEach((item, index) =>
     console.log(`  ${index + 1}. [${item.role}] ${item.speech} (${item.rate}x)`)
   );
@@ -175,7 +178,7 @@ async function main() {
         ? formatShekels(product.originalPrice)
         : "",
     discount: product.discount ? `${Math.round(product.discount)}% הנחה` : "",
-    keyword: commentKeyword(product),
+    keyword,
     video: "media/product.mp4",
     videoFrames,
     audioSegments,
@@ -187,6 +190,11 @@ async function main() {
     outroStart: timeline.outroStart,
     totalFrames: timeline.totalFrames,
   };
+
+  fs.writeFileSync(
+    path.join(VIDEO_DIR, "props.json"),
+    JSON.stringify(inputProps, null, 2)
+  );
 
   // ---- 4. רינדור -------------------------------------------------------
   console.log(`[render] bundling Remotion… (${timeline.totalFrames} frames)`);
@@ -267,7 +275,8 @@ async function main() {
     caption: captionText(
       product,
       sentences,
-      SITE_URL.replace(/^https?:\/\//, "")
+      SITE_URL.replace(/^https?:\/\//, ""),
+      keyword
     ),
     script: text,
     sentences,
@@ -276,11 +285,6 @@ async function main() {
   fs.writeFileSync(
     path.join(OUT_DIR, "reel.json"),
     JSON.stringify(meta, null, 2)
-  );
-
-  fs.writeFileSync(
-    path.join(VIDEO_DIR, "props.json"),
-    JSON.stringify(inputProps, null, 2)
   );
 
   console.log(`[render] done: ${outputLocation}`);
