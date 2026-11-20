@@ -5,15 +5,18 @@
  * ---------------------------------------------------------------
  * כותב את מה שנשמע בריל — עברית מדוברת, לא הקראה של דף מוצר.
  *
- * המבנה (7 משפטים, ארוכים וקצרים לסירוגין):
+ * המבנה (5 משפטים: הוק, בעיה, שני יתרונות, קריאה לפעולה):
  *   הוק (שאלה/תוצאה, עד שנייה) → הבעיה בהרחבה → 2 יתרונות אמיתיים
- *   → הוכחה חברתית מהנתונים → מחיר → קריאה לפעולה אחת קצרה
+ *   → קריאה לפעולה אחת קצרה
  *
  * כללים שנשמרים כאן:
- *   • אין דחיפות מומצאת ("המחיר חוזר למעלה", "נשארו אחרונים"), אין
- *     מלאי מומצא ואין ביקורות מומצאות.
- *   • מחיר, דירוג ומכירות מגיעים רק מ-product (Firestore) והם אותם
- *     מספרים שמוצגים על המסך (ראו socialText / formatShekels).
+ *   • הסרטון מוכר את המוצר נטו. אין בקריינות דירוג, מספר מכירות,
+ *     ביקורות או מחיר — המחיר וההנחה כבר כתובים על המסך, וקול שקורא
+ *     אותם נשמע כמו דף מוצר.
+ *   • אין דחיפות מומצאת ("המחיר חוזר למעלה", "נשארו אחרונים") ואין
+ *     מלאי מומצא.
+ *   • הקריאה לפעולה היא תגובה עם מילת מפתח (commentKeyword), כי
+ *     האוטומציה בתגובות היא ששולחת את הלינק לרכישה.
  *   • מספרים בקריינות כתובים במילים (hebrew-numbers), כי מנוע TTS
  *     שקורא "4.8" נשמע רובוטי.
  *   • לכל משפט קצב דיבור משלו (rate) והפסקה משלו (gapAfterMs) —
@@ -23,12 +26,7 @@
  * rate, gapAfterMs, role.
  */
 
-const {
-  numberToHebrew,
-  shekelsWords,
-  ratingWords,
-  thousandsWords,
-} = require("./hebrew-numbers");
+const {numberToHebrew, thousandsWords} = require("./hebrew-numbers");
 
 // קצב דיבור לכל סוג משפט. Pace control מתועד בגוגל לטווח 0.25–2.0.
 // הוק וקריאה לפעולה מהירים, מחיר והוכחה נינוחים.
@@ -224,6 +222,33 @@ const FEATURES = [
   },
 ];
 
+// ---------------------------------------------------------------------
+// מילת המפתח לתגובה. האוטומציה (ManyChat וכדומה) מזהה את התגובה הזאת
+// ושולחת ללקוח לינק לרכישה — ולכן היא חייבת להיות קצרה וקלה לזכור,
+// ולא שם המוצר המלא.
+// ---------------------------------------------------------------------
+const KEYWORDS = [
+  { re: /מנור|תאורה|לד\b|led|lamp|light/i, word: "מנורה" },
+  { re: /מתג|switch/i, word: "מתג" },
+  { re: /בלנדר|blender/i, word: "בלנדר" },
+  { re: /שואב|vacuum/i, word: "שואב" },
+  { re: /מטהר|hepa|air purifier/i, word: "מטהר" },
+  { re: /אוזניות|headphone|earbud/i, word: "אוזניות" },
+  { re: /שעון|watch/i, word: "שעון" },
+  { re: /מעמד|stand|holder/i, word: "מעמד" },
+  { re: /מטען|power ?bank|charger/i, word: "מטען" },
+  { re: /מצלמה|camera/i, word: "מצלמה" },
+  { re: /רמקול|speaker/i, word: "רמקול" },
+  { re: /מיקרופון|microphone/i, word: "מיקרופון" },
+  { re: /מאוורר|fan\b/i, word: "מאוורר" },
+  { re: /מקרר|cooler/i, word: "מקרר" },
+  { re: /תיק|bag\b/i, word: "תיק" },
+  { re: /נעל|shoe|sneaker/i, word: "נעל" },
+  { re: /שמיכ|blanket/i, word: "שמיכה" },
+  { re: /כרית|pillow/i, word: "כרית" },
+  { re: /מסאז|massage/i, word: "מסאז'" },
+];
+
 // כשהכותרת לא מספקת אף מאפיין מזוהה — משפט בלי הבטחה ספציפית.
 const FALLBACK_FEATURE =
   "והוא עושה את העבודה מהפעם הראשונה, בלי התעסקות ובלי הפתעות";
@@ -254,9 +279,18 @@ function haystack(product) {
     .join(" | ");
 }
 
+/**
+ * הבעיה נבחרת קודם כל מהשם העברי של המוצר (המתורגם והמדויק), ורק אם
+ * אין בו התאמה — מהכותרת של המוכר. בלי זה מנורת ליל שמוכרים אותה גם
+ * ל"מטבח" הופכת לסרטון על חיתוך ירקות.
+ */
 function painFor(product) {
-  const text = haystack(product);
-  return PAINS.find((pain) => pain.re.test(text)) || GENERIC_PAIN;
+  const name = String(product.name || "");
+  return (
+    PAINS.find((pain) => pain.re.test(name)) ||
+    PAINS.find((pain) => pain.re.test(haystack(product))) ||
+    GENERIC_PAIN
+  );
 }
 
 function productFeatures(product, limit = 2) {
@@ -284,57 +318,24 @@ function shekelsSpeech(value) {
   return `${base} ו${numberToHebrew(agorot, "feminine")} אגורות`;
 }
 
-// מה שמוצג על המסך לצד הדירוג/מכירות — אותו מספר שנאמר בקריינות.
-function socialText(product) {
-  const parts = [];
-  const rating = Number(product.rating) || 0;
-  const sales = Number(product.sales) || 0;
-  if (rating) parts.push(`דירוג ${rating.toFixed(1)}`);
-  if (sales) {
-    parts.push(
-      sales >= 1000
-        ? `מעל ${thousandsWords(sales)} מכירות`
-        : `${sales} מכירות`
-    );
-  }
-  return parts.join(" · ");
+// מילת המפתח שהלקוח מתבקש להגיב בה (משמשת גם על המסך וגם בקריינות).
+function commentKeyword(product) {
+  const text = haystack(product);
+  const hit = KEYWORDS.find((item) => item.re.test(text));
+  if (hit) return hit.word;
+
+  // נפילה לאחור: המילה העברית הראשונה בשם המוצר ("שמן אתרי" → "שמן"),
+  // ולא מספר או דגם כמו "100" או "Tuya".
+  const words = String(product.name || "")
+    .replace(/["'״׳]/g, " ")
+    .split(/\s+/)
+    .filter((word) => /^[\u0590-\u05FF]{3,}$/.test(word));
+  return words[0] || "מוצר";
 }
 
 // ---------------------------------------------------------------------
 // בונים את המשפטים
 // ---------------------------------------------------------------------
-function proofSentence(product) {
-  const rating = Number(product.rating) || 0;
-  const sales = Number(product.sales) || 0;
-  if (!rating && !sales) return null;
-
-  const parts = [];
-  if (rating) parts.push(`דירוג ${ratingWords(rating)} מתוך חמישה`);
-  if (sales) {
-    parts.push(
-      sales >= 1000
-        ? `יותר מ${thousandsWords(sales)} אנשים כבר קנו אותו`
-        : `${numberToHebrew(sales)} אנשים כבר קנו אותו`
-    );
-  }
-
-  return `${parts.join(", ")}.`;
-}
-
-function priceSentence(product) {
-  const price = Number(product.price);
-  if (!Number.isFinite(price) || price <= 0) return null;
-
-  const original = Number(product.originalPrice);
-  const hasOriginal = Number.isFinite(original) && original > price + 0.5;
-
-  if (hasOriginal) {
-    return `במקום ${shekelsSpeech(
-      original
-    )}, עכשיו ${shekelsSpeech(price)} בלבד.`;
-  }
-  return `המחיר שלו עכשיו ${shekelsSpeech(price)}.`;
-}
 
 /**
  * מחזיר {sentences} — כל משפט עם role, rate ו-gapAfterMs.
@@ -342,7 +343,7 @@ function priceSentence(product) {
  */
 function buildScript(product) {
   const pain = painFor(product);
-  const features = productFeatures(product, 2);
+  const features = productFeatures(product, 3);
   const sentences = [];
 
   const add = (role, speech) =>
@@ -364,15 +365,11 @@ function buildScript(product) {
     });
   }
 
-  const proof = proofSentence(product);
-  if (proof) add("proof", proof);
-
-  const price = priceSentence(product);
-  if (price) add("price", price);
-
-  add("cta", "הקישור בתיאור, תלחצו עליו.");
+  const keyword = commentKeyword(product);
+  add("cta", `תגיבו ${keyword} ואני שולח לכם לינק לרכישה מאליאקספרס.`);
 
   return {
+    keyword,
     sentences: sentences.map((sentence, index) => ({
       ...sentence,
       id: index + 1,
@@ -403,16 +400,10 @@ function captionText(product, sentences, site) {
   lines.push(`💰 ${priceLine}`);
 
   if (product.discount) lines.push(`🔥 ${Math.round(product.discount)}% הנחה`);
-  if (product.rating) {
-    lines.push(`⭐ דירוג ${Number(product.rating).toFixed(1)} מתוך 5`);
-  }
-  if (product.sales) {
-    lines.push(`📦 מעל ${thousandsWords(product.sales)} מכירות`);
-  }
 
   lines.push("");
   lines.push("🚚 משלוח לישראל");
-  lines.push(`🔗 הקישור בביו: ${site}`);
+  lines.push(`💬 תגיבו ${commentKeyword(product)} ואני שולח לכם לינק לרכישה`);
   lines.push("");
   lines.push(
     "#find4u #דילים #קניות_אונליין #עליאקספרס #מוצרים_מומלצים #שופינג"
@@ -426,7 +417,7 @@ module.exports = {
   speechText,
   captionText,
   formatShekels,
-  socialText,
+  commentKeyword,
   shekelsSpeech,
   productFeatures,
   painFor,

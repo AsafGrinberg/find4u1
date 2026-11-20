@@ -436,18 +436,6 @@ const ProductInfo = ({props, from}) => {
         ) : null}
       </div>
 
-      {props.social ? (
-        <div
-          style={{
-            marginTop: 14,
-            color: COLORS.gold,
-            fontSize: 32,
-            fontWeight: 700,
-          }}
-        >
-          {props.social}
-        </div>
-      ) : null}
     </div>
   );
 };
@@ -539,26 +527,38 @@ const Outro = ({props, start}) => {
         <div
           style={{
             color: COLORS.white,
-            fontSize: 88,
+            fontSize: 62,
             fontWeight: 800,
-            lineHeight: 1.15,
+            lineHeight: 1.2,
           }}
         >
-          הקישור בתיאור
+          תגיבו
         </div>
         <div
           style={{
-            marginTop: 24,
+            marginTop: 18,
+            padding: '10px 44px',
+            borderRadius: 26,
+            border: `3px solid ${COLORS.accent}`,
+            color: COLORS.white,
+            fontSize: 84,
+            fontWeight: 800,
+          }}
+        >
+          {props.keyword}
+        </div>
+        <div
+          style={{
+            marginTop: 26,
             padding: '16px 40px',
             borderRadius: 24,
             background: `linear-gradient(135deg, ${COLORS.accent}, ${COLORS.accentDeep})`,
             color: COLORS.white,
-            fontSize: 46,
+            fontSize: 44,
             fontWeight: 800,
-            direction: 'ltr',
           }}
         >
-          {props.site}
+          ואשלח לכם לינק לרכישה
         </div>
         <div
           style={{

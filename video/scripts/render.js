@@ -29,7 +29,7 @@ const {
   speechText,
   captionText,
   formatShekels,
-  socialText,
+  commentKeyword,
 } = require("./script");
 
 const VIDEO_DIR = path.join(__dirname, "..");
@@ -175,7 +175,7 @@ async function main() {
         ? formatShekels(product.originalPrice)
         : "",
     discount: product.discount ? `${Math.round(product.discount)}% הנחה` : "",
-    social: socialText(product),
+    keyword: commentKeyword(product),
     video: "media/product.mp4",
     videoFrames,
     audioSegments,
