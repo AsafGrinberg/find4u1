@@ -11,14 +11,11 @@
  *
  * מה שמתועד ונתמך (ובדקו מול התיעוד, לא נוחש):
  *   • Google Cloud TTS v1 text:synthesize
- *     voice     — he-IL-Chirp3-HD-<שם>, לדוגמה he-IL-Chirp3-HD-Achernar
- *     audioConfig — LINEAR16 48kHz, ו-speakingRate (pace) שמתועד
- *                   לדף Chirp 3: HD לטווח 0.25–2.0 בכל השפות.
- *   • דף "Supported voices" של Cloud TTS עדיין מציין ש-Chirp 3: HD
- *     "doesn't support ... speaking rate". שני הדפים הרשמיים סותרים,
- *     ולכן הקוד לא מסתמך על זה: שולחים speakingRate, ואם ה-API מחזיר
- *     400 — מבקשים שוב בלי קצב ומאיצים את הפריים ב-Remotion. ככה
- *     הריל לא נשבר באף אחד מהמקרים, והאודיו לא מואץ פעמיים.
+ *     voice     — he-IL-Wavenet-A (ברירת מחדל) / he-IL-Wavenet-B/C/D
+ *     audioConfig — LINEAR16 48kHz, ו-speakingRate שמתועד ל-WaveNet
+ *                   בטווח 0.25–4.0.
+ *   • אם ה-API מחזיר 400 על speakingRate — מבקשים שוב בלי קצב ומאיצים
+ *     את הפריים ב-Remotion. ככה הריל לא נשבר, והאודיו לא מואץ פעמיים.
  *   • SSML לא בשימוש: גם כאן יש סתירה בין הדפים (הדף של Chirp 3: HD
  *     מפרט תגים נתמכים, דף הקולות אומר שאין SSML). הפסקות בין משפטים
  *     נעשות בציר הזמן, לא בתג SSML.
@@ -33,16 +30,23 @@ const {mp3DurationSeconds} = require("./mp3-duration");
 const GOOGLE_ENDPOINT = "https://texttospeech.googleapis.com/v1/text:synthesize";
 
 /**
- * קולות Chirp 3 HD בעברית (he-IL), עם הסגנון שמופיע בטבלת הקולות
- * הרשמית של גוגל. Achernar = Soft, ולכן נשמע רגוע; לריל מכירה prefer
- * קול "חם"/"עליז".
+ * קולות עבריים של Google Cloud TTS.
+ *
+ * he-IL-Wavenet-A/B/C/D הם הקולות העבריים שנוצרו לדיבור עברי (A ו-C
+ * נשיים, B ו-D גבריים). הם הוגים כל מילה בשלמותה, עם הדגש במקום הנכון,
+ * ומסיימים משפט רגיל בירידה — לא במנגינה של שאלה.
+ *
+ * קולות he-IL-Chirp3-HD הם קולות של מודל רב-לשוני אחד לכל השפות. בעברית
+ * בלי ניקוד התוצאה נשמעת כמו מי שקורא מהכתב: מילים נבלעות, שני רעיונות
+ * מתחברים למילה אחת ("שעות" + "ולא" → "שעותולם"), ומילים דו-משמעיות
+ * נקראות אחרת ("שכמה" → "שקמה", "אתרי" → "אטארי"). לכן Chirp3-HD
+ * כבר לא בשרשרת ברירת המחדל — אפשר לכפות אותו במפורש ב-GOOGLE_TTS_VOICE.
  */
 const HE_VOICES = [
-  {name: "he-IL-Chirp3-HD-Sulafat", style: "Warm"},
-  {name: "he-IL-Chirp3-HD-Achernar", style: "Soft"},
-  {name: "he-IL-Chirp3-HD-Aoede", style: "Breezy"},
-  {name: "he-IL-Chirp3-HD-Zephyr", style: "Bright"},
-  {name: "he-IL-Chirp3-HD-Wavenet-A", style: "Premium"},
+  {name: "he-IL-Wavenet-A", style: "Premium"},
+  {name: "he-IL-Wavenet-B", style: "Premium"},
+  {name: "he-IL-Wavenet-C", style: "Premium"},
+  {name: "he-IL-Wavenet-D", style: "Premium"},
   {name: "he-IL-Standard-A", style: "Standard"},
 ];
 
@@ -256,7 +260,7 @@ async function runElevenLabs(sentences, failures) {
       `::warning::ElevenLabs failed (${error.message.slice(
         0,
         140
-      )}) — narration fell back to Google Chirp 3 HD.`
+      )}) — narration fell back to the Google Hebrew WaveNet voice.`
     );
     return null;
   }

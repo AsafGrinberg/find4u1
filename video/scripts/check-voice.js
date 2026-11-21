@@ -12,8 +12,8 @@
  */
 
 const DEFAULT_ELEVENLABS_VOICE = "21m00Tcm4TlvDq8ikWAM";
-// Chirp 3 HD בעברית, לפי סגנון מתועד: Sulafat=Warm, Achernar=Soft.
-const DEFAULT_GOOGLE_VOICE = "he-IL-Chirp3-HD-Sulafat";
+// הקול העברי הוותיק של גוגל (מדבר עברית, לא קורא אותה).
+const DEFAULT_GOOGLE_VOICE = "he-IL-Wavenet-A";
 
 const hasEleven = Boolean(process.env.ELEVENLABS_API_KEY);
 const hasGoogle = Boolean(process.env.GOOGLE_TTS_API_KEY);
@@ -58,7 +58,7 @@ if (chosen && chosen.name === "elevenlabs") {
   lines.push(
     `[voice] Google Cloud TTS, voice ${
       process.env.GOOGLE_TTS_VOICE || DEFAULT_GOOGLE_VOICE
-    } (Chirp 3 HD, native Hebrew, per-sentence pace from the script)`
+    } (native Hebrew, per-sentence pace from the script)`
   );
   if (!process.env.ELEVENLABS_VOICE_ID) {
     lines.push(
@@ -90,7 +90,7 @@ if (summaryFile) {
     chosen && chosen.name === "elevenlabs"
       ? "✅ ElevenLabs (natural voice)"
       : chosen && chosen.name === "google"
-      ? "✅ Google Chirp 3 HD (native Hebrew voice)"
+      ? "✅ Google Cloud TTS (native Hebrew voice)"
       : "❌ No TTS key set",
     "",
     ...lines.map((line) => `- ${line.replace(/^\[voice\] /, "")}`),

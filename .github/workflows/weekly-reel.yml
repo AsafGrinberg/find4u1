@@ -10,8 +10,8 @@ name: Weekly product reel
 #   GOOGLE_TTS_API_KEY        (גיבוי אוטומטי כשנגמרת מכסת ElevenLabs)
 # אופציונלי:
 #   TTS_PROVIDER              (auto = Chirp 3 HD העברי קודם; google / elevenlabs)
-#   GOOGLE_TTS_VOICE          (ברירת מחדל he-IL-Chirp3-HD-Achernar)
-#   TTS_SPEED                 (קצב דיבור לגוגל, ברירת מחדל 1.08 — 1 = בלי האצה)
+#   GOOGLE_TTS_VOICE          (ברירת מחדל he-IL-Wavenet-A)
+#   TTS_SPEED                 (קצב דיבור לגוגל, ברירת מחדל 1 — 1 = בלי האצה)
 #   ELEVENLABS_MODEL / ELEVENLABS_VOICE_ID  (קול עברי מ־Voice Library)
 #   ELEVENLABS_STABILITY (0.3) / ELEVENLABS_STYLE (0.55) — כיוונון הבעתיות
 #   ELEVENLABS_SIMILARITY (0.85) / ELEVENLABS_SPEED (1) / ELEVENLABS_FORMAT
