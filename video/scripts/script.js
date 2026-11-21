@@ -36,21 +36,24 @@
  *     עושות ההפסקות שבין המשפטים.
  */
 
-// קצב דיבור לכל סוג משפט. 1.0 = הקצב הטבעי של הקול.
+// קצב דיבור לכל סוג משפט (speakingRate של Google).
+// 1.0 הוא הקצב של קריין רגוע; ריל מכירה צריך 1.2 ומעלה — אחרת הוא נשמע
+// כמו הקראת טקסט ולא כמו מישהי שמדברת איתכם.
 const RATES = {
-  hook: 1.0,
-  pain: 0.97,
-  reveal: 1.0,
-  feature: 1.0,
-  cta: 1.0,
+  hook: 1.25,
+  pain: 1.2,
+  reveal: 1.2,
+  feature: 1.18,
+  cta: 1.25,
 };
 
 // הפסקה אחרי המשפט (מתורגמת לפריימים ב-timeline.js).
+// קצרה: ריל מכירה זורם ולא נותן לשקט להרוג את הקצב.
 const GAPS_MS = {
-  hook: 200,
-  pain: 260,
-  reveal: 220,
-  feature: 180,
+  hook: 120,
+  pain: 140,
+  reveal: 130,
+  feature: 100,
   cta: 0,
 };
 
@@ -619,10 +622,9 @@ function buildScript(product) {
   if (features.length < 2) add("feature", SHIPPING_BENEFIT);
 
   const keyword = family.keyword || commentKeyword(product);
-  add("cta", [
-    `תגיבו ${keyword}.`,
-    "ואשלח לכם לינק לרכישה מאליאקספרס.",
-  ]);
+  // בלי שם הרשת בקריינות: מנוע ההקראה הוגה "אליאקספרס" במבטא
+  // אנגלי, וזה מה שהרג את הסרטונים. המיתוג כבר על המסך.
+  add("cta", [`תגיבו ${keyword}.`, "ואשלח לכם לינק לרכישה ישירות."]);
 
   return {
     keyword,
