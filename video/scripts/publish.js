@@ -373,7 +373,39 @@ async function publishYouTube(meta, caption) {
 
 // ---- TikTok ------------------------------------------------------------
 function tiktokConfigured() {
-  return Boolean(process.env.TIKTOK_ACCESS_TOKEN);
+  return Boolean(
+    process.env.TIKTOK_ACCESS_TOKEN ||
+      (process.env.TIKTOK_CLIENT_KEY &&
+        process.env.TIKTOK_CLIENT_SECRET &&
+        process.env.TIKTOK_REFRESH_TOKEN)
+  );
+}
+
+// טוקן הגישה של טיקטוק חי 24 שעות בלבד. במקום להחליף סוד כל יום, מרעננים
+// בכל ריצה מתוך refresh token (שתקף שנה).
+async function tiktokAccessToken() {
+  if (process.env.TIKTOK_ACCESS_TOKEN) return process.env.TIKTOK_ACCESS_TOKEN;
+
+  const response = await fetch(`${TIKTOK}/oauth/token/`, {
+    method: "POST",
+    headers: {"Content-Type": "application/x-www-form-urlencoded"},
+    body: new URLSearchParams({
+      client_key: process.env.TIKTOK_CLIENT_KEY,
+      client_secret: process.env.TIKTOK_CLIENT_SECRET,
+      grant_type: "refresh_token",
+      refresh_token: process.env.TIKTOK_REFRESH_TOKEN,
+    }).toString(),
+  });
+  const json = await response.json().catch(() => ({}));
+  if (!response.ok || !json.access_token) {
+    throw new Error(`TikTok token: ${JSON.stringify(json).slice(0, 300)}`);
+  }
+  if (json.refresh_token && json.refresh_token !== process.env.TIKTOK_REFRESH_TOKEN) {
+    console.warn(
+      "[publish] TikTok returned a new refresh token — update TIKTOK_REFRESH_TOKEN in the repository secrets (the value is not printed here)."
+    );
+  }
+  return json.access_token;
 }
 
 // טיקטוק דורש העלאה בחלקים: 5–64MB לכל חלק, והחלק האחרון יכול להיות קטן.
@@ -392,7 +424,7 @@ function tiktokChunks(size) {
   return {chunkSize, count};
 }
 
-async function tiktokInitialize(meta, caption) {
+async function tiktokInitialize(meta, caption, token) {
   const video = fs.readFileSync(REEL_FILE);
   const size = video.length;
   const {chunkSize, count} = tiktokChunks(size);
@@ -428,7 +460,7 @@ async function tiktokInitialize(meta, caption) {
   const response = await fetch(endpoint, {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${process.env.TIKTOK_ACCESS_TOKEN}`,
+      Authorization: `Bearer ${token}`,
       "Content-Type": "application/json; charset=UTF-8",
     },
     body: JSON.stringify(body),
@@ -475,11 +507,11 @@ async function tiktokInitialize(meta, caption) {
   return {publishId, mode};
 }
 
-async function tiktokStatus(publishId) {
+async function tiktokStatus(publishId, token) {
   const response = await fetch(`${TIKTOK}/post/publish/status/fetch/`, {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${process.env.TIKTOK_ACCESS_TOKEN}`,
+      Authorization: `Bearer ${token}`,
       "Content-Type": "application/json; charset=UTF-8",
     },
     body: JSON.stringify({publish_id: publishId}),
@@ -495,7 +527,8 @@ async function publishTikTok(meta, caption) {
     return {ok: false, reason: "SKIP_TIKTOK=1"};
   }
 
-  const {publishId, mode} = await tiktokInitialize(meta, caption);
+  const token = await tiktokAccessToken();
+  const {publishId, mode} = await tiktokInitialize(meta, caption, token);
   console.log(
     `[publish] TikTok ${mode}: publish_id ${publishId || "(none)"} — uploaded ${
       fs.statSync(REEL_FILE).size
@@ -511,7 +544,7 @@ async function publishTikTok(meta, caption) {
   let last = null;
   for (let attempt = 0; attempt < 20; attempt += 1) {
     await sleep(6000);
-    last = await tiktokStatus(publishId);
+    last = await tiktokStatus(publishId, token);
     const status = last?.data?.status;
     console.log(`[publish] TikTok status: ${status || "unknown"}`);
     if (status === "PUBLISH_COMPLETE" || status === "SEND_TO_USER_INBOX") {
