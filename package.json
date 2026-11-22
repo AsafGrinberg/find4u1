@@ -5,7 +5,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dedupe:products": "node scripts/dedupe-products.mjs"
   },
   "dependencies": {
     "firebase": "^11.9.1",
