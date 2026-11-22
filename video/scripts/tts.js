@@ -22,10 +22,23 @@
  *
  * מחזיר [{index, buffer, format, playbackRate, seconds, source}]
  * seconds הוא המשך האפקטיבי (אחרי playbackRate והורדת שקט).
+ *
+ * Gemini TTS (Gemini API, לא Cloud TTS) — המנוע הראשון בשרשרת:
+ *   POST generativelanguage.googleapis.com/v1beta/models/<model>:generateContent
+ *   generationConfig.responseModalities = ["AUDIO"]
+ *   generationConfig.speechConfig.voiceConfig.prebuiltVoiceConfig.voiceName
+ * התגובה: WAV מוכן (24kHz, מונו, 16bit) ב-candidates[0].content.parts[].inlineData.
+ * מפתח: GEMINI_API_KEY (נפרד מ-GOOGLE_TTS_API_KEY).
+ * מה שאין בו: speakingRate ו-systemInstruction (המפתח מחזיר
+ * "Developer instruction is not enabled"), וגם לא prompt סגנון — Gemini TTS
+ * דרך generateContent קורא כל טקסט כטקסט לתמלול, ולכן הוראת סגנון בטקסט
+ * נקראת בקול. האנרגיה מגיעה מקול שמראש הוא אנרגטי (prebuilt) ומהקצב ב-Remotion.
+ * 429 (מכסת דקה) מנוסה שוב עם השהיה; 401/403 עוצר ומדרדר ל-WaveNet.
  */
 
 const {trimWavSilence} = require("./wav-trim");
 const {mp3DurationSeconds} = require("./mp3-duration");
+const {splitWavBySentences} = require("./audio-split");
 
 const GOOGLE_ENDPOINT = "https://texttospeech.googleapis.com/v1/text:synthesize";
 
@@ -76,6 +89,188 @@ const ELEVENLABS_SPEED = clampSpeed(process.env.ELEVENLABS_SPEED, 1);
 
 const paceFor = (sentence) =>
   clampSpeed((Number(sentence.rate) || 1) * SPEED_MULTIPLIER, 1);
+
+// ---- Gemini TTS --------------------------------------------------------
+const GEMINI_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models";
+
+// מכסת Free Tier: 10 בקשות ביום *לכל מודל*. לכן כל התסריט נשלח בבקשה
+// אחת, ומודל שני משמש כמכסה נוספת אם הראשונה נגמרה.
+const GEMINI_MODEL = process.env.GEMINI_TTS_MODEL || "gemini-3.8-flash-tts";
+const GEMINI_MODELS = [
+  ...new Set(
+    [GEMINI_MODEL, process.env.GEMINI_TTS_FALLBACK_MODEL ?? "gemini-3.8-flash-lite-tts"].filter(
+      Boolean
+    )
+  ),
+];
+
+// קולות prebuilt שהוגדרו אנרגטיים: Sadachbia (Lively), Zephyr (Bright),
+// Fenrir (Excitable), Puck (Upbeat), Aoede (Breezy), Laomedeia (Upbeat).
+const GEMINI_VOICE = process.env.GEMINI_TTS_VOICE || "Sadachbia";
+
+// אין speakingRate ב-Gemini. קצב מקבלים ב-playbackRate של Remotion,
+// ששומר על גובה הקול (preservePitch) ולא הופך אותו לצ'יפמאנק.
+const GEMINI_SPEED = clampSpeed(process.env.GEMINI_TTS_SPEED, 1.12);
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+function retryDelayMs(error, attempt) {
+  const match = /"retryDelay"\s*:\s*"(\d+(?:\.\d+)?)s"/.exec(
+    error.message || ""
+  );
+  if (match) return Math.ceil(Number(match[1]) * 1000) + 250;
+  return 4000 * (attempt + 1);
+}
+
+async function geminiSpeech(text, voice, model = GEMINI_MODELS[0], attempt = 0) {
+  const response = await fetch(
+    `${GEMINI_ENDPOINT}/${model}:generateContent?key=${encodeURIComponent(
+      process.env.GEMINI_API_KEY
+    )}`,
+    {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({
+        contents: [{parts: [{text}]}],
+        generationConfig: {
+          responseModalities: ["AUDIO"],
+          speechConfig: {
+            voiceConfig: {prebuiltVoiceConfig: {voiceName: voice}},
+          },
+        },
+      }),
+    }
+  );
+
+  if (!response.ok) {
+    const details = await response.text().catch(() => "");
+    const error = new Error(
+      `Gemini TTS ${response.status}: ${details.slice(0, 300)}`
+    );
+    error.status = response.status;
+    error.model = model;
+
+    // 429 יכול להיות מכסת דקה (כדאי לנסות שוב) או מכסת יום שלמה
+    // (אין טעם לחכות — עוברים למודל הבא).
+    const daily =
+      response.status === 429 &&
+      (/per day/i.test(details) ||
+        /retryDelay"\s*:\s*"(\d+)(?:\.\d+)?s/.test(details) &&
+          Number(/retryDelay"\s*:\s*"(\d+)/.exec(details)[1]) > 90);
+    error.daily = Boolean(daily);
+
+    if (response.status === 429 && !daily && attempt < 4) {
+      const wait = retryDelayMs(error, attempt);
+      console.warn(`[tts] Gemini rate limited — retrying in ${wait}ms`);
+      await sleep(wait);
+      return geminiSpeech(text, voice, model, attempt + 1);
+    }
+    throw error;
+  }
+
+  const json = await response.json();
+  const part = (json.candidates?.[0]?.content?.parts || []).find(
+    (item) => item.inlineData
+  );
+  if (!part) throw new Error("Gemini TTS returned no audio");
+
+  const buffer = Buffer.from(part.inlineData.data, "base64");
+  return {
+    buffer,
+    format: /mp3/i.test(part.inlineData.mimeType || "") ? "mp3" : "wav",
+  };
+}
+
+function geminiPart(text, weights) {
+  const segments = splitWavBySentences(text, weights);
+  if (!segments || segments.length !== weights.length) return null;
+  return segments.map((segment, index) => {
+    // כל מקטע נושא חצי מהפסקה שמסביב לגבול; מסירים אותו כדי שההפסקה
+    // שבציר הזמן היא היחידה שקובעת את הקצב.
+    const trimmed = trimWavSilence(segment.buffer);
+    return {
+      buffer: trimmed.buffer,
+      format: "wav",
+      playbackRate: GEMINI_SPEED,
+      seconds: trimmed.seconds / GEMINI_SPEED,
+      index,
+      source: `gemini:${GEMINI_VOICE}`,
+      pace: GEMINI_SPEED,
+      boundary: segment.boundary,
+    };
+  });
+}
+
+async function runGemini(sentences, failures) {
+  if (!process.env.GEMINI_API_KEY) {
+    failures.push("GEMINI_API_KEY is missing");
+    return null;
+  }
+
+  // ברירת מחדל: בקשה אחת לכל הסרטון (מכסת Gemini החינמית קטנה מאוד).
+  // GEMINI_TTS_PER_SENTENCE=1 מבקש משפט-משפט — מדויק יותר, אבל 10 בקשות
+  // לסרטון, ולכן מתאים רק לחשבון בתשלום.
+  const perSentence = process.env.GEMINI_TTS_PER_SENTENCE === "1";
+
+  for (const model of GEMINI_MODELS) {
+    try {
+      if (perSentence) {
+        const results = [];
+        for (const sentence of sentences) {
+          const result = await geminiSpeech(sentence.speech, GEMINI_VOICE, model);
+          if (result.format !== "wav") {
+            throw new Error(`Gemini returned ${result.format}, expected WAV`);
+          }
+          const trimmed = trimWavSilence(result.buffer);
+          results.push({
+            buffer: trimmed.buffer,
+            format: "wav",
+            playbackRate: GEMINI_SPEED,
+            seconds: trimmed.seconds / GEMINI_SPEED,
+            index: sentence.id - 1,
+            source: `gemini:${GEMINI_VOICE}`,
+            pace: GEMINI_SPEED,
+            boundary: "sentence",
+          });
+        }
+        return {voice: GEMINI_VOICE, model, results};
+      }
+
+      const text = sentences.map((sentence) => sentence.speech).join("\n");
+      const speech = await geminiSpeech(text, GEMINI_VOICE, model);
+      if (speech.format !== "wav") {
+        throw new Error(`Gemini returned ${speech.format}, expected WAV`);
+      }
+
+      const trimmed = trimWavSilence(speech.buffer);
+      const weights = sentences.map((sentence) => sentence.speech.length);
+      const results = geminiPart(trimmed.buffer, weights);
+      if (!results) throw new Error("could not split Gemini narration by sentence");
+
+      const estimated = results.filter((item) =>
+        String(item.boundary).startsWith("estimate")
+      ).length;
+      if (estimated) {
+        console.warn(
+          `[tts] Gemini: ${estimated}/${results.length} sentence boundaries estimated (few pauses in audio)`
+        );
+      }
+
+      return {voice: GEMINI_VOICE, model, results};
+    } catch (error) {
+      failures.push(`gemini(${model}): ${error.message}`);
+      if (error.daily) {
+        console.warn(`[tts] Gemini ${model} daily quota is gone — trying next model`);
+        continue;
+      }
+      console.warn(`[tts] Gemini ${model} failed: ${error.message}`);
+      if (error.status === 401 || error.status === 403) return null;
+      continue;
+    }
+  }
+
+  return null;
+}
 
 // ---- Google ------------------------------------------------------------
 async function googleRequest(text, voice, audioConfig) {
@@ -268,11 +463,15 @@ async function runElevenLabs(sentences, failures) {
 
 function providerOrder() {
   const preference = String(process.env.TTS_PROVIDER || "auto").toLowerCase();
-  if (preference === "google") return [runGoogle, runElevenLabs];
-  if (preference === "elevenlabs") return [runElevenLabs, runGoogle];
-  // auto: Chirp 3 HD העברי קודם, אלא אם נבחר קול ElevenLabs מפורש.
-  if (process.env.ELEVENLABS_VOICE_ID) return [runElevenLabs, runGoogle];
-  return [runGoogle, runElevenLabs];
+  if (preference === "gemini") return [runGemini, runGoogle, runElevenLabs];
+  if (preference === "google") return [runGoogle, runElevenLabs, runGemini];
+  if (preference === "elevenlabs")
+    return [runElevenLabs, runGemini, runGoogle];
+  // auto: Gemini TTS קודם (קול עברי טבעי ואנרגטי), אחריו ElevenLabs אם
+  // נבחר קול מפורש, ובסוף WaveNet — כדי שרינדור לא ייפול על אודיו.
+  if (process.env.ELEVENLABS_VOICE_ID)
+    return [runGemini, runElevenLabs, runGoogle];
+  return [runGemini, runGoogle, runElevenLabs];
 }
 
 /**
@@ -300,8 +499,8 @@ async function synthesizeSentences(sentences) {
   }
 
   throw new Error(
-    "No TTS provider worked. Set GOOGLE_TTS_API_KEY (free tier) or " +
-      "ELEVENLABS_API_KEY.\n" +
+    "No TTS provider worked. Set GEMINI_API_KEY (Gemini TTS), " +
+      "GOOGLE_TTS_API_KEY (Cloud TTS) or ELEVENLABS_API_KEY.\n" +
       failures.map((line) => ` - ${line}`).join("\n")
   );
 }
@@ -310,6 +509,8 @@ module.exports = {
   synthesizeSentences,
   HE_VOICES,
   GOOGLE_VOICES,
+  GEMINI_VOICE,
+  GEMINI_MODEL,
   isChirp,
   clampSpeed,
 };

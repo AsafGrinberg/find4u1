@@ -15,21 +15,28 @@ const DEFAULT_ELEVENLABS_VOICE = "21m00Tcm4TlvDq8ikWAM";
 // הקול העברי הוותיק של גוגל (מדבר עברית, לא קורא אותה).
 const DEFAULT_GOOGLE_VOICE = "he-IL-Wavenet-A";
 
+const DEFAULT_GEMINI_VOICE = "Sadachbia";
+const hasGemini = Boolean(process.env.GEMINI_API_KEY);
 const hasEleven = Boolean(process.env.ELEVENLABS_API_KEY);
 const hasGoogle = Boolean(process.env.GOOGLE_TTS_API_KEY);
 const preference = String(process.env.TTS_PROVIDER || "auto").toLowerCase();
 
 // אותו סדר בדיוק כמו ב־tts.js, כדי שהדוח ישקף את המציאות.
 function providerOrder() {
-  if (preference === "google") return ["google", "elevenlabs"];
-  if (preference === "elevenlabs") return ["elevenlabs", "google"];
-  // auto: Chirp 3 HD העברי קודם, אלא אם נבחר קול ElevenLabs מפורש.
-  if (process.env.ELEVENLABS_VOICE_ID) return ["elevenlabs", "google"];
-  return ["google", "elevenlabs"];
+  if (preference === "gemini") return ["gemini", "google", "elevenlabs"];
+  if (preference === "google") return ["google", "elevenlabs", "gemini"];
+  if (preference === "elevenlabs") return ["elevenlabs", "gemini", "google"];
+  if (process.env.ELEVENLABS_VOICE_ID)
+    return ["gemini", "elevenlabs", "google"];
+  return ["gemini", "google", "elevenlabs"];
 }
 
 const available = [];
 for (const name of providerOrder()) {
+  if (name === "gemini" && !hasGemini) {
+    available.push({name, ok: false, why: "GEMINI_API_KEY is not set"});
+    continue;
+  }
   if (name === "elevenlabs" && !hasEleven) {
     available.push({name, ok: false, why: "ELEVENLABS_API_KEY is not set"});
     continue;
@@ -44,7 +51,18 @@ for (const name of providerOrder()) {
 const chosen = available.find((entry) => entry.ok);
 const lines = [];
 
-if (chosen && chosen.name === "elevenlabs") {
+if (chosen && chosen.name === "gemini") {
+  lines.push(
+    `[voice] Gemini TTS, voice ${
+      process.env.GEMINI_TTS_VOICE || DEFAULT_GEMINI_VOICE
+    }, model ${process.env.GEMINI_TTS_MODEL || "gemini-3.8-flash-tts"}`
+  );
+  lines.push(
+    `[voice] one request per video (free tier = 10/day/model) · ` +
+      `pace ${process.env.GEMINI_TTS_SPEED || 1.12} · ` +
+      `fallback model ${process.env.GEMINI_TTS_FALLBACK_MODEL || "gemini-3.8-flash-lite-tts"}`
+  );
+} else if (chosen && chosen.name === "elevenlabs") {
   lines.push(
     `[voice] ElevenLabs, voice ${process.env.ELEVENLABS_VOICE_ID || DEFAULT_ELEVENLABS_VOICE}, ` +
       `model ${process.env.ELEVENLABS_MODEL || "eleven_multilingual_v2"}`
@@ -78,7 +96,7 @@ lines.forEach((line) => console.log(line));
 
 if (!chosen) {
   console.log(
-    "::warning::No TTS provider is configured — set GOOGLE_TTS_API_KEY (free tier) or ELEVENLABS_API_KEY."
+          "::warning::No TTS provider is configured — set GEMINI_API_KEY (Gemini TTS), GOOGLE_TTS_API_KEY (Cloud TTS) or ELEVENLABS_API_KEY."
   );
 }
 
@@ -87,7 +105,9 @@ if (summaryFile) {
   const body = [
     "### Narration",
     "",
-    chosen && chosen.name === "elevenlabs"
+    chosen && chosen.name === "gemini"
+      ? "✅ Gemini TTS (natural Hebrew voice)"
+      : chosen && chosen.name === "elevenlabs"
       ? "✅ ElevenLabs (natural voice)"
       : chosen && chosen.name === "google"
       ? "✅ Google Cloud TTS (native Hebrew voice)"

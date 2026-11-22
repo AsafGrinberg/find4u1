@@ -6,10 +6,16 @@ name: Weekly product reel
 #
 # סודות נדרשים:
 #   FIREBASE_SERVICE_ACCOUNT  (כמו בג'וב ההורלי)
-#   ELEVENLABS_API_KEY        (הקול הטבעי — עדיף שיהיה מוגדר)
-#   GOOGLE_TTS_API_KEY        (גיבוי אוטומטי כשנגמרת מכסת ElevenLabs)
+#   GEMINI_API_KEY            (Gemini TTS — הקול העברי הטבעי, מפתח מ-AI Studio)
+#   GOOGLE_TTS_API_KEY        (Cloud TTS / WaveNet — הגיבוי)
+#   ELEVENLABS_API_KEY        (אופציונלי — קול ElevenLabs)
 # אופציונלי:
-#   TTS_PROVIDER              (auto = Chirp 3 HD העברי קודם; google / elevenlabs)
+#   TTS_PROVIDER              (auto = Gemini קודם; gemini / google / elevenlabs)
+#   GEMINI_TTS_VOICE          (ברירת מחדל Sadachbia; אנרגטיים: Fenrir, Zephyr, Puck, Aoede)
+#   GEMINI_TTS_MODEL / GEMINI_TTS_FALLBACK_MODEL  (ברירת מחדל gemini-3.8-flash-tts,
+#                              ואם נגמרה המכסה היומית — gemini-3.8-flash-lite-tts)
+#   GEMINI_TTS_SPEED          (ברירת מחדל 1.12 — קצב ב-preservePitch)
+#   GEMINI_TTS_PER_SENTENCE   (1 = בקשה לכל משפט; רק בחשבון בתשלום)
 #   GOOGLE_TTS_VOICE          (ברירת מחדל he-IL-Wavenet-A)
 #   TTS_SPEED                 (קצב דיבור לגוגל, ברירת מחדל 1 — 1 = בלי האצה)
 #   ELEVENLABS_MODEL / ELEVENLABS_VOICE_ID  (קול עברי מ־Voice Library)
@@ -56,6 +62,9 @@ jobs:
       - name: Check the narration voice
         working-directory: video
         env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_TTS_VOICE: ${{ secrets.GEMINI_TTS_VOICE }}
+          GEMINI_TTS_MODEL: ${{ secrets.GEMINI_TTS_MODEL }}
           GOOGLE_TTS_API_KEY: ${{ secrets.GOOGLE_TTS_API_KEY }}
           ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
           GOOGLE_TTS_VOICE: ${{ secrets.GOOGLE_TTS_VOICE }}
@@ -71,6 +80,10 @@ jobs:
         working-directory: video
         env:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_TTS_VOICE: ${{ secrets.GEMINI_TTS_VOICE }}
+          GEMINI_TTS_MODEL: ${{ secrets.GEMINI_TTS_MODEL }}
+          GEMINI_TTS_SPEED: ${{ secrets.GEMINI_TTS_SPEED }}
           GOOGLE_TTS_API_KEY: ${{ secrets.GOOGLE_TTS_API_KEY }}
           ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
           GOOGLE_TTS_VOICE: ${{ secrets.GOOGLE_TTS_VOICE }}
