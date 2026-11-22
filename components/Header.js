@@ -180,6 +180,16 @@ export default function Header() {
         <p className={styles.siteTitle}>כל מה שחיפשתם במקום אחד</p>
 
         <div className={styles.actionsWrapper}>
+          <Link
+            href="/feed"
+            className={styles.feedLink}
+            aria-label="פיד מוצרים"
+            title="פיד מוצרים"
+          >
+            <span aria-hidden="true">▶</span>
+            <span className={styles.feedLinkText}>פיד</span>
+          </Link>
+
           <button
             type="button"
             className={styles.iconButton}

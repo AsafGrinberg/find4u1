@@ -21,6 +21,10 @@ export default function MobileNav() {
         <span>📂<br />קטגוריות</span>
       </Link>
 
+      <Link href="/feed" className={router.pathname === '/feed' ? styles.active : ''}>
+        <span>🎬<br />פיד</span>
+      </Link>
+
       <Link href="/search" className={router.pathname === '/search' ? styles.active : ''}>
         <span>🔍<br />חיפוש</span>
       </Link>
