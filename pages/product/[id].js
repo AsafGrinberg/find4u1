@@ -29,6 +29,7 @@ import {
   categoryHref,
   categoryLabel,
   priceDropped,
+  videoEmbedHref,
   SITE_URL,
 } from '../../lib/urls';
 import { readGuestLikes, toggleGuestLike } from '../../lib/likes';
@@ -522,17 +523,34 @@ export default function ProductPage({ initialProduct }) {
             <section className={styles.section} aria-label="סרטונים">
               <h2 className={styles.sectionTitle}>סרטונים</h2>
               <div className={styles.videoGrid}>
-                {product.videos.map((videoUrl) => (
-                  <iframe
-                    key={videoUrl}
-                    src={videoUrl}
-                    title="סרטון המוצר"
-                    scrolling="no"
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                    allowFullScreen
-                    className={styles.videoFrame}
-                  />
-                ))}
+                {product.videos.map((videoUrl) => {
+                  const embed = videoEmbedHref(videoUrl);
+                  if (!embed) {
+                    return (
+                      <a
+                        key={videoUrl}
+                        href={videoUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={styles.videoLink}
+                      >
+                        צפו בסרטון
+                        <span aria-hidden="true">←</span>
+                      </a>
+                    );
+                  }
+                  return (
+                    <iframe
+                      key={videoUrl}
+                      src={embed}
+                      title="סרטון המוצר"
+                      scrolling="no"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                      className={styles.videoFrame}
+                    />
+                  );
+                })}
               </div>
             </section>
           ) : null}

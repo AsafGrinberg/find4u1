@@ -306,6 +306,20 @@ body.dark .chipStar {
   background: var(--surface-2);
 }
 
+/* סרטון שאי אפשר להטמיע (למשל פוסט טיקטוק) — קישור במקום מסגרת שחורה. */
+.videoLink {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  aspect-ratio: 16 / 9;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  color: var(--accent);
+  font-weight: 600;
+}
+
 /* ---------- Reviews ---------- */
 
 .reviewList {
