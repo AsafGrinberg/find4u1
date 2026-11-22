@@ -262,6 +262,58 @@ async function main() {
     },
   });
 
+  // ---- 4ב. שכבת מוזיקה שקטה (אופציונלי) --------------------------------
+  // סאונד טרנדי של טיקטוק/אינסטגרם לא ניתן להוסיף דרך API — אותו מוסיפים
+  // באפליקציה על הטיוטה. כאן אפשר להוסיף קובץ מוזיקה חוקי משלנו, ממש חלש
+  // (ברירת מחדל 1%), כדי שהסרטון לא יישמע יבש.
+  if (process.env.REEL_MUSIC_FILE) {
+    const {spawnSync} = require("child_process");
+    const music = path.resolve(VIDEO_DIR, process.env.REEL_MUSIC_FILE);
+    const volume = process.env.REEL_MUSIC_VOLUME || "0.01";
+    const mixed = path.join(OUT_DIR, "reel-music.mp4");
+
+    if (!fs.existsSync(music)) {
+      console.warn(`[render] music file not found: ${music} — skipping the music bed`);
+    } else {
+      console.log(`[render] mixing music bed at volume ${volume}`);
+      const result = spawnSync(
+        "ffmpeg",
+        [
+          "-y",
+          "-i",
+          outputLocation,
+          "-stream_loop",
+          "-1",
+          "-i",
+          music,
+          "-filter_complex",
+          `[1:a]volume=${volume}[m];[0:a][m]amix=inputs=2:duration=first:normalize=0[a]`,
+          "-map",
+          "0:v",
+          "-map",
+          "[a]",
+          "-c:v",
+          "copy",
+          "-c:a",
+          "aac",
+          "-b:a",
+          "192k",
+          "-shortest",
+          mixed,
+        ],
+        {stdio: "inherit"}
+      );
+
+      if (result.status === 0 && fs.existsSync(mixed)) {
+        fs.copyFileSync(mixed, outputLocation);
+        fs.rmSync(mixed, {force: true});
+        console.log("[render] music bed added");
+      } else {
+        console.warn("[render] ffmpeg music mix failed — keeping the narration only");
+      }
+    }
+  }
+
   // ---- 5. העתקה לאתר (URL ציבורי לאינסטגרם / טלגרם) -------------------
   // בהרצת בדיקה מקומית לא דורסים את הקובץ המפורסם באתר.
   const fileName = `${safeName(product.slug || product.id)}.mp4`;
@@ -276,6 +328,7 @@ async function main() {
   const meta = {
     productId: product.id,
     productName: product.name,
+    keyword,
     sourceTitle: product.sourceTitle || null,
     category: product.category,
     price: product.price,

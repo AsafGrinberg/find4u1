@@ -1,7 +1,7 @@
 import Head from 'next/head';
 import Image from 'next/image';
 import Link from 'next/link';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
 import {
   collection,
@@ -35,6 +35,10 @@ import styles from '../styles/feed.module.css';
 // על המובייל, וזה גם מה שרואים בפועל בגלילה הראשונה.
 const FEED_LIMIT = 120;
 
+// מה שנצפה לאחרונה נשמר בדפדפן, כדי שכל כניסה תתחיל ממוצרים חדשים.
+const SEEN_KEY = 'find4u_feed_seen';
+const SEEN_LIMIT = 800;
+
 export async function getStaticProps() {
   const products = await fetchProductsServer();
 
@@ -44,18 +48,117 @@ export async function getStaticProps() {
   };
 }
 
+function readSeen() {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = window.localStorage.getItem(SEEN_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeSeen(ids) {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(
+      SEEN_KEY,
+      JSON.stringify(ids.slice(-SEEN_LIMIT))
+    );
+  } catch {
+    // אחסון חסום — ממשיכים בלי מעקב.
+  }
+}
+
+function shuffled(list) {
+  const next = [...list];
+  for (let i = next.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [next[i], next[j]] = [next[j], next[i]];
+  }
+  return next;
+}
+
+function tokensOf(product) {
+  return new Set(
+    String(product.name || '')
+      .toLowerCase()
+      .split(/[^0-9a-z\u0590-\u05FF]+/)
+      .filter((word) => word.length > 2)
+  );
+}
+
+/**
+ * סדר הפיד: קודם מוצרים שמזכירים את מה שאהבת, אחר כך תגליות חדשות,
+ * והישנים שכבר נראו נדחקים לסוף. תמיד נשארים מוצרים שלא קשורים
+ * לתחומים שאהבת, כדי שהפיד לא יהפוך למעגל סגור.
+ */
+function buildOrder(products, likedIds) {
+  const pool = dedupeProducts(products).filter((product) => product.image);
+  if (pool.length === 0) return [];
+
+  const seen = new Set(readSeen());
+  const liked = pool.filter((product) => likedIds.has(product.id));
+
+  const likedCategories = new Set();
+  const likedTokens = new Set();
+  liked.forEach((product) => {
+    categoriesOf(product).forEach((name) => likedCategories.add(name));
+    tokensOf(product).forEach((token) => likedTokens.add(token));
+  });
+
+  const scoreOf = (product) => {
+    let score = 0;
+    categoriesOf(product).forEach((name) => {
+      if (likedCategories.has(name)) score += 3;
+    });
+    tokensOf(product).forEach((token) => {
+      if (likedTokens.has(token)) score += 1;
+    });
+    return score;
+  };
+
+  const unseen = pool.filter((product) => !seen.has(product.id));
+  const alreadySeen = pool.filter((product) => seen.has(product.id));
+
+  const personal = shuffled(
+    unseen.filter((product) => scoreOf(product) > 0)
+  ).sort((a, b) => scoreOf(b) - scoreOf(a));
+  const discovery = shuffled(
+    unseen.filter((product) => scoreOf(product) === 0)
+  );
+  const older = shuffled(alreadySeen);
+
+  // שתי המלצות על כל תגלית: אישי דומיננטי אבל לא בלעדי.
+  const ordered = [];
+  let p = 0;
+  let d = 0;
+  while (p < personal.length || d < discovery.length) {
+    if (p < personal.length) ordered.push(personal[p]);
+    p += 1;
+    if (p < personal.length) ordered.push(personal[p]);
+    p += 1;
+    if (d < discovery.length) ordered.push(discovery[d]);
+    d += 1;
+  }
+
+  return [...ordered, ...older].slice(0, FEED_LIMIT);
+}
+
 export default function FeedPage({ initialProducts = [] }) {
   const [user, setUser] = useState(null);
   const [likedProducts, setLikedProducts] = useState(new Set());
+  const [items, setItems] = useState(() =>
+    sortProducts(
+      dedupeProducts(initialProducts).filter((product) => product.image),
+      'bestsellers'
+    ).slice(0, FEED_LIMIT)
+  );
+  const [likesReady, setLikesReady] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
   const feedRef = useRef(null);
-
-  const items = useMemo(() => {
-    const withImage = dedupeProducts(initialProducts).filter(
-      (product) => product.image
-    );
-    return sortProducts(withImage, 'bestsellers').slice(0, FEED_LIMIT);
-  }, [initialProducts]);
+  const orderedOnce = useRef(false);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
@@ -63,6 +166,7 @@ export default function FeedPage({ initialProducts = [] }) {
 
       if (!currentUser) {
         setLikedProducts(readGuestLikes());
+        setLikesReady(true);
         return;
       }
 
@@ -74,11 +178,26 @@ export default function FeedPage({ initialProducts = [] }) {
       } catch {
         setLikedProducts(new Set());
       }
+      setLikesReady(true);
     });
     return () => unsubscribe();
   }, []);
 
-  // הגלילה עצמה קובעת איזה מוצר פעיל, כדי שהמונה למעלה יהיה מדויק.
+  // הסדר נקבע פעם אחת בכל טעינה, לפי הלייקים, וכך כל כניסה נראית אחרת.
+  useEffect(() => {
+    if (!likesReady || orderedOnce.current) return;
+    orderedOnce.current = true;
+    setItems(buildOrder(initialProducts, likedProducts));
+    setActiveIndex(0);
+  }, [likesReady, likedProducts, initialProducts]);
+
+  // אחרי שהמוצרים הוצגו — מסמנים אותם כנצפו, לטובת הכניסה הבאה.
+  useEffect(() => {
+    if (!likesReady || items.length === 0) return;
+    writeSeen([...readSeen(), ...items.map((item) => item.id)]);
+  }, [likesReady, items]);
+
+  // הגלילה עצמה קובעת איזה מוצר פעיל, כדי לטעון רק את התמונות סביבו.
   useEffect(() => {
     const container = feedRef.current;
     if (!container) return undefined;
@@ -154,10 +273,6 @@ export default function FeedPage({ initialProducts = [] }) {
             </div>
           ) : (
             <>
-              <div className={styles.counter}>
-                {activeIndex + 1} / {items.length}
-              </div>
-
               <div className={styles.feed} ref={feedRef}>
                 {items.map((product, index) => {
                   const price = formatPrice(product.price);

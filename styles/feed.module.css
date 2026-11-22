@@ -228,22 +228,6 @@
   background: rgba(12, 16, 28, 0.62);
 }
 
-.counter {
-  position: absolute;
-  top: 12px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 3;
-  padding: 4px 10px;
-  border-radius: 999px;
-  background: rgba(12, 16, 28, 0.45);
-  color: #fff;
-  font-size: 0.72rem;
-  font-weight: 600;
-  backdrop-filter: blur(6px);
-  pointer-events: none;
-}
-
 .hint {
   margin: 12px 0 0;
   text-align: center;

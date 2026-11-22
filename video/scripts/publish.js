@@ -3,13 +3,21 @@
 /**
  * publish.js
  * ---------------------------------------------------------------
- * מפרסם את הסרטון שנוצר ב־out/reel.mp4:
- *   1. טלגרם — שליחת הסרטון לערוץ (עובד תמיד, גם בלי אינסטגרם).
- *   2. אינסטגרם — אם מוגדרים IG_USER_ID ו־IG_ACCESS_TOKEN, מפרסם
- *      כריל דרך ה־Graph API. אינסטגרם דורש קובץ בכתובת ציבורית,
- *      לכן ממתינים עד ש־public/videos/<slug>.mp4 נגיש באתר.
+ * מפרסם את הסרטון שנוצר ב־out/reel.mp4 לכל ערוץ שמוגדר בסודות:
  *
- * רק אם לפחות אחד מהם הצליח — מסמן videoPublishedAt על המוצר.
+ *   Telegram   — TELEGRAM_BOT_TOKEN (+ TELEGRAM_CHANNEL)
+ *   Instagram  — IG_USER_ID + IG_ACCESS_TOKEN (ריל דרך Graph API)
+ *   Facebook   — FB_PAGE_ID + FB_PAGE_ACCESS_TOKEN (וידאו בדף)
+ *   YouTube    — YOUTUBE_CLIENT_ID + YOUTUBE_CLIENT_SECRET + YOUTUBE_REFRESH_TOKEN
+ *   TikTok     — TIKTOK_ACCESS_TOKEN (ברירת מחדל: העלאה לתיבה / טיוטה)
+ *
+ * ערוץ בלי סודות מדולג בלי לשבור את הריצה. רק אם אף ערוץ לא הצליח
+ * (או שלא הוגדר אף אחד) — הסרטון נשאר ב־out/ ומועלה כ־artifact.
+ *
+ * על סאונד ויראלי: אין דרך חוקית להוסיף סאונד מתוך האפליקציה דרך API.
+ * טיקטוק במצב inbox מעלה טיוטה, ושם מוסיפים את הסאונד הטרנדי בתוך
+ * האפליקציה לפני הפרסום. לאינסטגרם/פייסבוק/יוטיוב אפשר להוסיף שכבת
+ * מוזיקה שקטה לקובץ עצמו (REEL_MUSIC_FILE + REEL_MUSIC_VOLUME ב-render).
  */
 
 const fs = require("fs");
@@ -18,7 +26,10 @@ const {initFirebase, markVideoPublished} = require("./product");
 
 const VIDEO_DIR = path.join(__dirname, "..");
 const META_FILE = path.join(VIDEO_DIR, "out", "reel.json");
+const REEL_FILE = path.join(VIDEO_DIR, "out", "reel.mp4");
 const GRAPH = "https://graph.facebook.com/v21.0";
+const GRAPH_VIDEO = "https://graph-video.facebook.com/v21.0";
+const TIKTOK = "https://open.tiktokapis.com/v2";
 const SITE_URL = (process.env.SITE_URL || "https://find4u.vercel.app").replace(
   /\/$/,
   ""
@@ -32,6 +43,40 @@ function loadMeta() {
 }
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// ---- כיתוב ומילות חיפוש -------------------------------------------------
+// ההאשטגים נגזרים מהמוצר עצמו ולא מרשימה קבועה, כדי שהפוסט יימצא בחיפוש
+// של הפלטפורמה (אינסטגרם וטיקטוק מציגות תוכן לפי האשטג והנושא).
+function hashtag(value) {
+  const clean = String(value || "")
+    .replace(/["'״׳.,!?()\-\/\\]/g, " ")
+    .trim()
+    .split(/\s+/)
+    .slice(0, 3)
+    .join("_");
+  return clean ? `#${clean}` : "";
+}
+
+function captionWithTags(meta) {
+  const tags = [
+    "#find4u",
+    "#עליאקספרס",
+    "#דילים",
+    "#מבצעים",
+    "#קניות_אונליין",
+    "#שופינג_בישראל",
+    "#מוצרים_מומלצים",
+    hashtag(meta.category),
+    hashtag(meta.keyword),
+    "#fyp",
+    "#foryou",
+    "#tiktokshop",
+    "#reels",
+  ].filter(Boolean);
+
+  const unique = [...new Set(tags)];
+  return `${meta.caption}\n\n${unique.join(" ")}`.trim();
+}
 
 // ---- Telegram ----------------------------------------------------------
 async function sendTelegram(meta) {
@@ -85,7 +130,6 @@ async function waitForPublicUrl(url, timeoutSeconds) {
         return true;
       }
       if (response.ok) {
-        // Vercel מגיש קובץ סטטי גם כ־octet-stream; ממשיכים לנסות אבל מתעדים.
         console.log(`[publish] URL answered ${response.status} (${type})`);
         return true;
       }
@@ -130,7 +174,7 @@ async function graphGet(endpoint, params) {
   return json;
 }
 
-async function publishInstagram(meta) {
+async function publishInstagram(meta, caption) {
   if (!igConfigured()) {
     return {ok: false, reason: "IG_USER_ID / IG_ACCESS_TOKEN are not set"};
   }
@@ -150,7 +194,7 @@ async function publishInstagram(meta) {
   const container = await graphPost(`${process.env.IG_USER_ID}/media`, {
     media_type: "REELS",
     video_url: meta.publicUrl,
-    caption: meta.caption,
+    caption,
     share_to_feed: "true",
     thumb_offset: "0",
   });
@@ -179,12 +223,319 @@ async function publishInstagram(meta) {
     {creation_id: container.id}
   );
   console.log(`[publish] Instagram media: ${published.id}`);
+  return {ok: true, id: published.id};
+}
 
-  if (process.env.IG_SHARE_TO_FACEBOOK === "1") {
-    console.log("[publish] note: cross-posting to Facebook is enabled in Meta settings");
+// ---- Facebook Page -----------------------------------------------------
+function fbConfigured() {
+  return Boolean(process.env.FB_PAGE_ID && process.env.FB_PAGE_ACCESS_TOKEN);
+}
+
+async function publishFacebook(meta, caption) {
+  if (!fbConfigured()) {
+    return {
+      ok: false,
+      reason: "FB_PAGE_ID / FB_PAGE_ACCESS_TOKEN are not set",
+    };
+  }
+  if (process.env.SKIP_FACEBOOK === "1") {
+    return {ok: false, reason: "SKIP_FACEBOOK=1"};
   }
 
-  return {ok: true, id: published.id};
+  const form = new FormData();
+  form.append("access_token", process.env.FB_PAGE_ACCESS_TOKEN);
+  form.append("description", caption);
+  form.append("title", String(meta.productName || "Find4U").slice(0, 100));
+  form.append(
+    "source",
+    new Blob([fs.readFileSync(REEL_FILE)], {type: "video/mp4"}),
+    "reel.mp4"
+  );
+
+  const response = await fetch(
+    `${GRAPH_VIDEO}/${process.env.FB_PAGE_ID}/videos`,
+    {method: "POST", body: form}
+  );
+  const json = await response.json().catch(() => ({}));
+
+  if (!response.ok || json.error) {
+    return {
+      ok: false,
+      reason: `Facebook ${response.status}: ${JSON.stringify(
+        json.error || json
+      ).slice(0, 400)}`,
+    };
+  }
+
+  console.log(`[publish] Facebook video: ${json.id}`);
+  return {ok: true, id: json.id};
+}
+
+// ---- YouTube -----------------------------------------------------------
+function youtubeConfigured() {
+  return Boolean(
+    process.env.YOUTUBE_CLIENT_ID &&
+      process.env.YOUTUBE_CLIENT_SECRET &&
+      process.env.YOUTUBE_REFRESH_TOKEN
+  );
+}
+
+async function youtubeAccessToken() {
+  const response = await fetch("https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: {"Content-Type": "application/x-www-form-urlencoded"},
+    body: new URLSearchParams({
+      grant_type: "refresh_token",
+      client_id: process.env.YOUTUBE_CLIENT_ID,
+      client_secret: process.env.YOUTUBE_CLIENT_SECRET,
+      refresh_token: process.env.YOUTUBE_REFRESH_TOKEN,
+    }).toString(),
+  });
+  const json = await response.json().catch(() => ({}));
+  if (!response.ok || !json.access_token) {
+    throw new Error(
+      `YouTube token: ${JSON.stringify(json).slice(0, 300)}`
+    );
+  }
+  return json.access_token;
+}
+
+async function publishYouTube(meta, caption) {
+  if (!youtubeConfigured()) {
+    return {
+      ok: false,
+      reason:
+        "YOUTUBE_CLIENT_ID / YOUTUBE_CLIENT_SECRET / YOUTUBE_REFRESH_TOKEN are not set",
+    };
+  }
+  if (process.env.SKIP_YOUTUBE === "1") {
+    return {ok: false, reason: "SKIP_YOUTUBE=1"};
+  }
+
+  const token = await youtubeAccessToken();
+  const video = fs.readFileSync(REEL_FILE);
+  const boundary = `----find4u${Date.now()}`;
+
+  const metadata = {
+    snippet: {
+      title: String(meta.productName || "Find4U").slice(0, 100),
+      description: caption.slice(0, 4900),
+      tags: ["Find4U", "עליאקספרס", "דילים", "מוצרים מומלצים"],
+      categoryId: "22",
+      defaultLanguage: "he",
+      defaultAudioLanguage: "he",
+    },
+    status: {
+      privacyStatus: process.env.YOUTUBE_PRIVACY || "public",
+      selfDeclaredMadeForKids: false,
+    },
+  };
+
+  const head = Buffer.from(
+    `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(
+      metadata
+    )}\r\n--${boundary}\r\nContent-Type: video/mp4\r\n\r\n`,
+    "utf8"
+  );
+  const tail = Buffer.from(`\r\n--${boundary}--\r\n`, "utf8");
+  const body = Buffer.concat([head, video, tail]);
+
+  const response = await fetch(
+    "https://www.googleapis.com/upload/youtube/v3/videos?uploadType=multipart&part=snippet,status",
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": `multipart/related; boundary=${boundary}`,
+        "Content-Length": String(body.length),
+      },
+      body,
+    }
+  );
+  const json = await response.json().catch(() => ({}));
+
+  if (!response.ok || json.error) {
+    return {
+      ok: false,
+      reason: `YouTube ${response.status}: ${JSON.stringify(
+        json.error || json
+      ).slice(0, 400)}`,
+    };
+  }
+
+  console.log(`[publish] YouTube video: ${json.id}`);
+  return {
+    ok: true,
+    id: json.id,
+    url: json.id ? `https://youtu.be/${json.id}` : undefined,
+  };
+}
+
+// ---- TikTok ------------------------------------------------------------
+function tiktokConfigured() {
+  return Boolean(process.env.TIKTOK_ACCESS_TOKEN);
+}
+
+// טיקטוק דורש העלאה בחלקים: 5–64MB לכל חלק, והחלק האחרון יכול להיות קטן.
+function tiktokChunks(size) {
+  const MIN = 5 * 1024 * 1024;
+  const MAX = 64 * 1024 * 1024;
+
+  if (size <= MAX) {
+    return {chunkSize: size, count: 1};
+  }
+
+  let chunkSize = Math.min(MAX, Math.max(MIN, Math.ceil(size / 10)));
+  // חייב להתחלק בדיוק, אחרת טיקטוק דוחה את מספר החלקים.
+  chunkSize = Math.ceil(chunkSize / 1024) * 1024;
+  const count = Math.ceil(size / chunkSize);
+  return {chunkSize, count};
+}
+
+async function tiktokInitialize(meta, caption) {
+  const video = fs.readFileSync(REEL_FILE);
+  const size = video.length;
+  const {chunkSize, count} = tiktokChunks(size);
+  const mode = (process.env.TIKTOK_MODE || "inbox").toLowerCase();
+
+  const sourceInfo = {
+    source: "FILE_UPLOAD",
+    video_size: size,
+    chunk_size: chunkSize,
+    total_chunk_count: count,
+  };
+
+  const endpoint =
+    mode === "direct"
+      ? `${TIKTOK}/post/publish/video/init/`
+      : `${TIKTOK}/post/publish/inbox/video/init/`;
+
+  const body =
+    mode === "direct"
+      ? {
+          post_info: {
+            title: caption.slice(0, 2200),
+            privacy_level: process.env.TIKTOK_PRIVACY || "SELF_ONLY",
+            disable_comment: false,
+            disable_duet: false,
+            disable_stitch: false,
+            video_cover_timestamp_ms: 1000,
+          },
+          source_info: sourceInfo,
+        }
+      : {source_info: sourceInfo};
+
+  const response = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${process.env.TIKTOK_ACCESS_TOKEN}`,
+      "Content-Type": "application/json; charset=UTF-8",
+    },
+    body: JSON.stringify(body),
+  });
+  const json = await response.json().catch(() => ({}));
+
+  if (!response.ok || (json.error && json.error.code !== "ok")) {
+    throw new Error(
+      `TikTok init ${response.status}: ${JSON.stringify(
+        json.error || json
+      ).slice(0, 400)}`
+    );
+  }
+
+  const data = json.data || {};
+  const uploadUrl = data.upload_url;
+  const publishId = data.publish_id;
+  if (!uploadUrl) throw new Error("TikTok init: no upload_url returned");
+
+  for (let index = 0; index < count; index += 1) {
+    const start = index * chunkSize;
+    const end = Math.min(start + chunkSize, size) - 1;
+    const chunk = video.subarray(start, end + 1);
+
+    const put = await fetch(uploadUrl, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "video/mp4",
+        "Content-Length": String(chunk.length),
+        "Content-Range": `bytes ${start}-${end}/${size}`,
+      },
+      body: chunk,
+    });
+
+    if (!put.ok) {
+      throw new Error(
+        `TikTok chunk ${index + 1}/${count}: ${put.status} ${await put
+          .text()
+          .catch(() => "")}`
+      );
+    }
+  }
+
+  return {publishId, mode};
+}
+
+async function tiktokStatus(publishId) {
+  const response = await fetch(`${TIKTOK}/post/publish/status/fetch/`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${process.env.TIKTOK_ACCESS_TOKEN}`,
+      "Content-Type": "application/json; charset=UTF-8",
+    },
+    body: JSON.stringify({publish_id: publishId}),
+  });
+  return response.json().catch(() => ({}));
+}
+
+async function publishTikTok(meta, caption) {
+  if (!tiktokConfigured()) {
+    return {ok: false, reason: "TIKTOK_ACCESS_TOKEN is not set"};
+  }
+  if (process.env.SKIP_TIKTOK === "1") {
+    return {ok: false, reason: "SKIP_TIKTOK=1"};
+  }
+
+  const {publishId, mode} = await tiktokInitialize(meta, caption);
+  console.log(
+    `[publish] TikTok ${mode}: publish_id ${publishId || "(none)"} — uploaded ${
+      fs.statSync(REEL_FILE).size
+    } bytes`
+  );
+
+  if (!publishId) {
+    return {ok: false, reason: "TikTok did not return publish_id"};
+  }
+
+  // בתיבה (inbox) הסרטון ממתין לפתיחה באפליקציה; בסטטוס הוא יהיה
+  // PROCESSING/PUBLISHED. לא מכשילים את הריצה על סטטוס שעוד מתעבד.
+  let last = null;
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    await sleep(6000);
+    last = await tiktokStatus(publishId);
+    const status = last?.data?.status;
+    console.log(`[publish] TikTok status: ${status || "unknown"}`);
+    if (status === "PUBLISH_COMPLETE" || status === "SEND_TO_USER_INBOX") {
+      return {
+        ok: true,
+        id: publishId,
+        note:
+          mode === "inbox"
+            ? "draft sent to the TikTok inbox — add the trending sound and publish in the app"
+            : undefined,
+      };
+    }
+    if (status === "FAILED") {
+      return {
+        ok: false,
+        reason: `TikTok failed: ${last?.data?.fail_reason || "unknown"}`,
+      };
+    }
+  }
+
+  return {
+    ok: false,
+    reason: `TikTok status not final: ${JSON.stringify(last).slice(0, 200)}`,
+  };
 }
 
 // ---- Main --------------------------------------------------------------
@@ -192,31 +543,46 @@ async function main() {
   const meta = loadMeta();
   console.log(`[publish] product: ${meta.productId} | ${meta.productName}`);
 
+  const caption = captionWithTags(meta);
   const results = {};
   const channels = [];
 
-  // אין לאן לפרסם: הסרטון נשאר ב־out/ ומועלה כ־artifact, בלי כישלון.
-  if (!process.env.TELEGRAM_BOT_TOKEN && !igConfigured()) {
+  const channelsConfigured = [
+    Boolean(process.env.TELEGRAM_BOT_TOKEN),
+    igConfigured(),
+    fbConfigured(),
+    youtubeConfigured(),
+    tiktokConfigured(),
+  ].filter(Boolean).length;
+
+  if (channelsConfigured === 0) {
     console.warn(
-      "[publish] no channel is configured (TELEGRAM_BOT_TOKEN / IG_USER_ID + IG_ACCESS_TOKEN) — " +
+      "[publish] no channel is configured (Telegram / Instagram / Facebook / YouTube / TikTok) — " +
         "the reel was only rendered. Download it from the run artifacts."
     );
     return;
   }
 
-  results.telegram = await sendTelegram(meta).catch((error) => ({
-    ok: false,
-    reason: error.message,
-  }));
-  if (results.telegram.ok) channels.push("telegram");
-  else console.warn(`[publish] Telegram skipped: ${results.telegram.reason}`);
+  const run = async (name, fn) => {
+    results[name] = await fn().catch((error) => ({
+      ok: false,
+      reason: error.message,
+    }));
+    if (results[name].ok) {
+      channels.push(name);
+      console.log(`[publish] ${name}: ok`);
+      if (results[name].url) console.log(`[publish] ${name}: ${results[name].url}`);
+      if (results[name].note) console.log(`[publish] ${name}: ${results[name].note}`);
+    } else {
+      console.warn(`[publish] ${name} skipped: ${results[name].reason}`);
+    }
+  };
 
-  results.instagram = await publishInstagram(meta).catch((error) => ({
-    ok: false,
-    reason: error.message,
-  }));
-  if (results.instagram.ok) channels.push("instagram");
-  else console.warn(`[publish] Instagram skipped: ${results.instagram.reason}`);
+  await run("telegram", () => sendTelegram(meta));
+  await run("instagram", () => publishInstagram(meta, caption));
+  await run("facebook", () => publishFacebook(meta, caption));
+  await run("youtube", () => publishYouTube(meta, caption));
+  await run("tiktok", () => publishTikTok(meta, caption));
 
   if (channels.length === 0) {
     console.error(

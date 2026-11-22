@@ -1,14 +1,22 @@
-name: Weekly product reel
+name: Daily product reel
 
-# פעם בשבוע: מייצר ריל אנכי מהסרטון של המוצר הבא (לא מתמונות),
-# עם קריינות עברית וכתוביות, שולח אותו לטלגרם, ומפרסם לאינסטגרם
-# אם מוגדרים הסודות של ה־Graph API.
+# פעם ביום: מייצר ריל אנכי מהסרטון של המוצר הבא (לא מתמונות),
+# עם קריינות עברית וכתוביות, ומפרסם לכל ערוץ שמוגדר בסודות:
+# טלגרם, אינסטגרם, פייסבוק, יוטיוב וטיקטוק.
 #
-# סודות נדרשים:
+# סודות נדרשים (לפחות ערוץ אחד):
 #   FIREBASE_SERVICE_ACCOUNT  (כמו בג'וב ההורלי)
 #   GEMINI_API_KEY            (Gemini TTS — הקול העברי הטבעי, מפתח מ-AI Studio)
 #   GOOGLE_TTS_API_KEY        (Cloud TTS / WaveNet — הגיבוי)
 #   ELEVENLABS_API_KEY        (אופציונלי — קול ElevenLabs)
+#
+# ערוצי פרסום (כל אחד בלי תלות באחר):
+#   TELEGRAM_BOT_TOKEN / TELEGRAM_CHANNEL
+#   IG_USER_ID / IG_ACCESS_TOKEN
+#   FB_PAGE_ID / FB_PAGE_ACCESS_TOKEN
+#   YOUTUBE_CLIENT_ID / YOUTUBE_CLIENT_SECRET / YOUTUBE_REFRESH_TOKEN
+#   TIKTOK_ACCESS_TOKEN  (+ TIKTOK_MODE=inbox|direct, TIKTOK_PRIVACY)
+#
 # אופציונלי:
 #   TTS_PROVIDER              (auto = Gemini קודם; gemini / google / elevenlabs)
 #   GEMINI_TTS_VOICE          (ברירת מחדל Sadachbia; אנרגטיים: Fenrir, Zephyr, Puck, Aoede)
@@ -21,13 +29,13 @@ name: Weekly product reel
 #   ELEVENLABS_MODEL / ELEVENLABS_VOICE_ID  (קול עברי מ־Voice Library)
 #   ELEVENLABS_STABILITY (0.3) / ELEVENLABS_STYLE (0.55) — כיוונון הבעתיות
 #   ELEVENLABS_SIMILARITY (0.85) / ELEVENLABS_SPEED (1) / ELEVENLABS_FORMAT
-#   TELEGRAM_BOT_TOKEN / TELEGRAM_CHANNEL
-#   IG_USER_ID / IG_ACCESS_TOKEN  (פרסום כריל באינסטגרם)
+#   REEL_MUSIC_FILE / REEL_MUSIC_VOLUME  (שכבת מוזיקה שקטה, ברירת מחדל 0.01)
+#   YOUTUBE_PRIVACY           (public / unlisted / private)
 #   SITE_URL
 
 on:
   schedule:
-    - cron: "0 7 * * 1"
+    - cron: "0 7 * * *"
   workflow_dispatch:
 
 permissions:
@@ -115,7 +123,7 @@ jobs:
             git push
           fi
 
-      - name: Publish to Telegram / Instagram
+      - name: Publish to every configured channel
         working-directory: video
         env:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
@@ -123,6 +131,15 @@ jobs:
           TELEGRAM_CHANNEL: ${{ secrets.TELEGRAM_CHANNEL }}
           IG_USER_ID: ${{ secrets.IG_USER_ID }}
           IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
+          FB_PAGE_ID: ${{ secrets.FB_PAGE_ID }}
+          FB_PAGE_ACCESS_TOKEN: ${{ secrets.FB_PAGE_ACCESS_TOKEN }}
+          YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
+          YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
+          YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
+          YOUTUBE_PRIVACY: ${{ secrets.YOUTUBE_PRIVACY }}
+          TIKTOK_ACCESS_TOKEN: ${{ secrets.TIKTOK_ACCESS_TOKEN }}
+          TIKTOK_MODE: ${{ secrets.TIKTOK_MODE }}
+          TIKTOK_PRIVACY: ${{ secrets.TIKTOK_PRIVACY }}
           SITE_URL: ${{ secrets.SITE_URL }}
         run: node scripts/publish.js
 
