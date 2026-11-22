@@ -24,11 +24,13 @@ const {initFirebase, pickProducts, downloadVideo} = require("./product");
 const {synthesizeSentences} = require("./tts");
 const {mp4DurationSeconds} = require("./mp4-duration");
 const {buildTimeline} = require("./timeline");
+const {planSourceShots} = require("./scene-cuts");
 const {
   buildScript,
   speechText,
   captionText,
   formatShekels,
+  SENTENCE_SECONDS,
 } = require("./script");
 
 const VIDEO_DIR = path.join(__dirname, "..");
@@ -112,6 +114,19 @@ async function main() {
   // לפריים מעבר לסוף הסרטון מפיל את הרינדור ("No frame found at position").
   const videoFrames = Math.max(1, Math.floor((videoSeconds || 8) * FPS));
 
+  // גבולות השוטים האמיתיים של הסרטון — החיתוכים בריל ייפלו עליהם, ולא
+  // באמצע תנועה. אם ffmpeg לא זמין או לא נמצאו חיתוכים, planSourceShots
+  // מחזיר חלוקה שווה.
+  const {shots, source: shotSource} = planSourceShots(videoFile, {
+    fps: FPS,
+    seconds: videoSeconds || 8,
+  });
+  console.log(
+    `[render] shots: ${shots.length} (${shotSource}) — ${shots
+      .map((shot) => (shot.frames / FPS).toFixed(1) + "s")
+      .join(", ")}`
+  );
+
   console.log(
     `[render] product: ${product.id} | ${product.name} | ${formatShekels(
       product.price
@@ -121,10 +136,16 @@ async function main() {
   );
 
   // ---- 1. תסריט --------------------------------------------------------
-  const {sentences, keyword} = buildScript(product);
+  // סרטון של 14 שניות לא יכול לשאת קריינות של 26 שניות: בלי התקרה הזאת
+  // אותה תנועה חוזרת שלוש פעמים וזה נראה כמו עריכה שבורה.
+  const maxSentences = Math.max(
+    7,
+    Math.round(((videoSeconds || 8) * 1.15) / SENTENCE_SECONDS)
+  );
+  const {sentences, keyword} = buildScript(product, {maxSentences});
   const text = speechText(sentences);
   console.log(
-    `[render] script (${text.length} chars, ${sentences.length} sentences, keyword "${keyword}")`
+    `[render] script (${text.length} chars, ${sentences.length}/${maxSentences} sentences, keyword "${keyword}")`
   );
   sentences.forEach((item, index) =>
     console.log(`  ${index + 1}. [${item.role}] ${item.speech} (${item.rate}x)`)
@@ -143,6 +164,7 @@ async function main() {
     sentences,
     durations: segments.map((segment) => segment.seconds),
     videoFrames,
+    shots,
     fps: FPS,
     leadInFrames: LEAD_IN_FRAMES,
     outroFrames: OUTRO_FRAMES,
@@ -165,6 +187,15 @@ async function main() {
   );
   console.log(
     `[render] captions: ${timeline.captions.length} cues, first "${timeline.captions[0].text}" @${timeline.captions[0].from}`
+  );
+  console.log(
+    `[render] clips: ${timeline.clips.length} — ` +
+      timeline.clips
+        .map(
+          (clip) =>
+            `${clip.layout}@${(clip.from / FPS).toFixed(1)}s ${clip.playbackRate}x`
+        )
+        .join(", ")
   );
 
   const inputProps = {
@@ -255,6 +286,11 @@ async function main() {
     slug: product.slug,
     sourceVideo: product.videoUrl,
     sourceVideoSeconds: videoSeconds ? Number(videoSeconds.toFixed(2)) : null,
+    sourceShots: shots.map((shot) => ({
+      start: Number((shot.start / FPS).toFixed(2)),
+      seconds: Number((shot.frames / FPS).toFixed(2)),
+    })),
+    shotSource,
     file: path.relative(VIDEO_DIR, outputLocation).split(path.sep).join("/"),
     publicFile: `public/videos/${fileName}`,
     publicUrl,

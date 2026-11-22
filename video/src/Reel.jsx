@@ -121,11 +121,13 @@ const HeroClip = ({clip, src}) => {
 
   return (
     <AbsoluteFill>
-      {/* מקטע המקור קצר מהמשפט, לכן הוא מסתובב בלופ בתוך המקטע שלו */}
-      <Loop durationInFrames={Math.max(1, clip.clipFrames)}>
+      {/* מקטע המקור קצר מהמשפט, לכן הוא מואט בעדינות ממלא את המקטע
+          שלו (playbackRate מהציר) ורק אז חוזר על עצמו, אם בכלל. */}
+      <Loop durationInFrames={Math.max(1, clip.loopFrames || clip.clipFrames)}>
         <OffthreadVideo
           src={staticFile(src)}
           startFrom={clip.clipStart}
+          playbackRate={clip.playbackRate || 1}
           muted
           style={{
             position: 'absolute',
@@ -168,10 +170,11 @@ const CardClip = ({clip, src}) => {
 
   return (
     <AbsoluteFill>
-      <Loop durationInFrames={Math.max(1, clip.clipFrames)}>
+      <Loop durationInFrames={Math.max(1, clip.loopFrames || clip.clipFrames)}>
         <OffthreadVideo
           src={staticFile(src)}
           startFrom={clip.clipStart}
+          playbackRate={clip.playbackRate || 1}
           muted
           style={{
             width: '100%',

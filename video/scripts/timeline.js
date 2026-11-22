@@ -19,6 +19,11 @@
  */
 
 const MIN_CUE_FRAMES = 12; // ביטוי קצר מדי מהבהב על המסך
+// יותר קליפים מזה הופכים את הריל לג'יטר. פחות מזה מאלץ להאיץ שוט
+// אחד על פני כמה משפטים.
+const MAX_CLIPS = 8;
+// האטה עדינה של שוט קצר עדיפה על לופ שחוזר על עצמו באמצע משפט.
+const MIN_PLAYBACK_RATE = 0.55;
 const MIN_PHRASE_CHARS = 12;
 // כתובית ארוכה מדי נקראת כמו פסקה. מפצלים לחלקים של עד ארבע מילים.
 const MAX_CUE_CHARS = 28;
@@ -170,10 +175,161 @@ function phrasesOf(speech) {
 }
 
 /**
+ * שוטים תקינים: בתוך גבולות הסרטון, לפחות פריים אחד.
+ * @returns {Array<{start:number, frames:number}>|null}
+ */
+function normalizeShots(shots, videoFrames) {
+  const list = (Array.isArray(shots) ? shots : [])
+    .filter((shot) => shot && shot.start < videoFrames && shot.frames >= 1)
+    .map((shot) => {
+      const start = Math.max(0, Math.round(shot.start));
+      return {
+        start,
+        frames: Math.max(1, Math.min(Math.round(shot.frames), videoFrames - start)),
+      };
+    });
+
+  return list.length ? list : null;
+}
+
+/** נפילה לאחור: חלוקה שווה כשאין זיהוי שוטים. */
+function evenShots(videoFrames, count) {
+  const total = Math.max(1, Math.min(Math.max(1, count), videoFrames));
+  const list = [];
+  let start = 0;
+  for (let i = 0; i < total; i += 1) {
+    const end =
+      i === total - 1 ? videoFrames : Math.round(((i + 1) / total) * videoFrames);
+    list.push({start, frames: Math.max(1, end - start)});
+    start = end;
+  }
+  return list;
+}
+
+/**
+ * בוחר את השוטים הארוכים (הקצרים הם לרוב הבהוב מעבר), ומחזיר את ההוק
+ * ראשון — השוט הארוך ביותר — ואחריו השאר לפי סדר המקור.
+ */
+function chooseShots(shots, wanted) {
+  const picked = [...shots]
+    .sort((a, b) => b.frames - a.frames)
+    .slice(0, Math.max(1, Math.min(wanted, shots.length)));
+  const [hero, ...rest] = picked;
+  return [hero, ...rest.sort((a, b) => a.start - b.start)];
+}
+
+/**
+ * מחלק את משפטי הקריינות (חוץ מההוק) לקבוצות רצופות, אחת לכל קליפ.
+ * הקבוצה גדלה לפי אורך השוט: שוט של 6 שניות מחזיק שלושה משפטים ושוט של
+ * שתיים מחזיק אחד — כך הקליפ ממלא את הזמן שלו בלי להאיץ ובלי לחזור על
+ * עצמו. כל קליפ מתחלף בהתחלה של משפט — לא באמצע מילה.
+ */
+function clipSlots(timings, shots) {
+  const rest = timings.slice(1);
+  if (!rest.length || !shots.length) return [];
+
+  const groups = Math.min(shots.length, rest.length);
+  const weights = shots.slice(0, groups).map((shot) => Math.max(1, shot.frames));
+  const totalWeight = weights.reduce((sum, value) => sum + value, 0);
+
+  // עיגול על המצברים ולא על כל קבוצה: מינימום של משפט לקבוצה היה מנפח
+  // את השוטים הקצרים והיה מותיר את השוט הארוך בלי מספיק משפטים.
+  const sizes = [];
+  let weightSoFar = 0;
+  let sentenceSoFar = 0;
+  for (let i = 0; i < groups; i += 1) {
+    weightSoFar += weights[i];
+    const target = Math.round((weightSoFar / totalWeight) * rest.length);
+    sizes.push(Math.max(0, target - sentenceSoFar));
+    sentenceSoFar = target;
+  }
+
+  // משפט לא נשאר בלי קליפ, וקליפ לא נשאר בלי משפט.
+  for (let i = 0; i < sizes.length; i += 1) {
+    if (sizes[i] > 0) continue;
+    const donor = sizes.indexOf(Math.max(...sizes));
+    if (sizes[donor] > 1) {
+      sizes[i] += 1;
+      sizes[donor] -= 1;
+    }
+  }
+
+  const plan = [];
+  let cursor = 0;
+  for (let i = 0; i < sizes.length; i += 1) {
+    const size = sizes[i];
+    if (size <= 0 || cursor >= rest.length) continue;
+    plan.push({shot: shots[i], from: rest[cursor].from});
+    cursor += size;
+  }
+
+  return plan.map((slot, index) => ({
+    shot: slot.shot,
+    from: slot.from,
+    to:
+      index + 1 < plan.length ? plan[index + 1].from : rest[rest.length - 1].to,
+  }));
+}
+
+function makeClip(index, from, to, shot, layout) {
+  const screenFrames = Math.max(1, Math.round(to - from));
+  const playbackRate = Math.max(
+    MIN_PLAYBACK_RATE,
+    Math.min(1, shot.frames / screenFrames)
+  );
+  return {
+    index,
+    from: Math.round(from),
+    durationInFrames: screenFrames,
+    clipStart: shot.start,
+    // לא מבקשים מהמקור פריים שאין בו — זה מפיל את הרינדור.
+    clipFrames: shot.frames,
+    playbackRate: Number(playbackRate.toFixed(3)),
+    // הלופ נגמר בדיוק בסוף הקליפ, ולכן בפועל אין חזרה על אותה תנועה.
+    loopFrames: Math.max(1, Math.round(shot.frames / playbackRate)),
+    layout,
+  };
+}
+
+/**
+ * קליפ לכל שוט אמיתי מהסרטון, לא לכל משפט. שוט קצר מהזמן שלו מואט
+ * בעדינות (עד 0.55x) כדי למלא אותו בלי לחזור על אותה תנועה.
+ */
+function buildClips({timings, heroEnd, audioEnd, videoFrames, shots, fps}) {
+  const source = normalizeShots(shots, videoFrames) || evenShots(videoFrames, 5);
+  // כל שוט אמיתי מקבל קליפ משלו (עד התקרה) — קליפ קצר ושני שוטים קצרים
+  // עדיפים על שוט אחד שנמתח על ארבעה משפטים ומואץ עד 0.55x.
+  const kept = chooseShots(source, Math.min(MAX_CLIPS, source.length));
+  const slots = clipSlots(timings, kept.slice(1));
+
+  const clips = [makeClip(0, 0, heroEnd, kept[0], "hero")];
+  slots.forEach((slot, index) => {
+    if (slot.to <= slot.from) return;
+    clips.push(makeClip(index + 1, slot.from, slot.to, slot.shot, "card"));
+  });
+
+  // אחרי הקליפ האחרון אין קליפ שיכסה את שארית הקריינות (כשהיו פחות
+  // שוטים מהקבוצות) — האחרון נמתח עד סוף הדיבור.
+  const last = clips[clips.length - 1];
+  if (last && last.from + last.durationInFrames < audioEnd) {
+    clips[clips.length - 1] = makeClip(
+      last.index,
+      last.from,
+      audioEnd,
+      {start: last.clipStart, frames: last.clipFrames},
+      last.layout
+    );
+  }
+
+  return clips;
+}
+
+/**
  * @param {object} options
  * @param {Array} options.sentences   משפטים מ-buildScript (role, speech, gapAfterMs)
  * @param {number[]} options.durations משך אפקטיבי בשניות לכל משפט
  * @param {number} options.videoFrames אורך סרטון המוצר בפריימים
+ * @param {Array} [options.shots]     שוטים אמיתיים מהסרטון ({start, frames})
  * @param {number} [options.fps=30]
  * @param {number} [options.leadInFrames] פריימים לפני שהדיבור מתחיל
  * @param {number} [options.outroFrames]  אורך מסך הסיום
@@ -182,6 +338,7 @@ function buildTimeline({
   sentences,
   durations,
   videoFrames,
+  shots,
   fps = 30,
   leadInFrames = 6,
   outroFrames = 45,
@@ -220,35 +377,23 @@ function buildTimeline({
     silenceAfterFrames: timing.gapFrames,
   }));
 
-  // ---- 3. קליפים: כל משפט מקבל מקטע אחר של סרטון המוצר ----------------
-  // הסרטון של המוכר קצר מהקריינות, לכן מחלקים אותו למקטעים לפי מספר
-  // המשפטים. כל מקטע מוצג בזמן שהמשפט שמדבר עליו נאמר (ומסתובב
-  // בלופ אם המשפט ארוך ממנו), וממשיך עד המשפט הבא כדי שלא יהיו חורים.
-  const safeVideoFrames = Math.max(1, Number(videoFrames) || 1);
-  const clips = timings.map((timing, index) => {
-    const from = timing.from;
-    const to = index + 1 < count ? timings[index + 1].from : timing.to;
-    const start = Math.min(
-      Math.floor((index / count) * safeVideoFrames),
-      safeVideoFrames - 1
-    );
-    const end = Math.min(
-      Math.floor(((index + 1) / count) * safeVideoFrames),
-      safeVideoFrames
-    );
-    return {
-      index,
-      from,
-      durationInFrames: Math.max(1, to - from),
-      clipStart: start,
-      // לא מבקשים מהמקור פריים שאין בו — זה מפיל את הרינדור.
-      clipFrames: Math.max(1, Math.min(end - start, safeVideoFrames - start)),
-      layout: index === 0 ? "hero" : "card",
-    };
-  });
+  // ---- 3. קליפים: על גבולות השוטים האמיתיים של הסרטון -----------------
+  // קודם הסרטון נחתך לפרוסה שווה לכל משפט — עשרה חיתוכים באמצע תנועה עם
+  // לופ שחוזר על עצמו. עכשיו כל קליפ הוא שוט אמיתי, מחזיק כמה משפטים,
+  // ומתחלף בהתחלת משפט כדי שהמעבר ייראה מכוון.
+  const safeVideoFrames = Math.max(1, Math.round(Number(videoFrames) || 1));
 
   // ההוק (המשפט הראשון) הוא ויז'ואל full-bleed, עד שהמשפט השני מתחיל.
   const heroEnd = count > 1 ? timings[1].from : timings[0].to;
+
+  const clips = buildClips({
+    timings,
+    heroEnd,
+    audioEnd,
+    videoFrames: safeVideoFrames,
+    shots,
+    fps,
+  });
 
   // ---- 4. כתוביות: ביטוי אחד בכל פעם, ציטוט מדויק ---------------------
   const captions = [];
@@ -290,4 +435,10 @@ function buildTimeline({
   };
 }
 
-module.exports = {buildTimeline, phrasesOf, chunkPhrase, MIN_CUE_FRAMES};
+module.exports = {
+  buildTimeline,
+  buildClips,
+  phrasesOf,
+  chunkPhrase,
+  MIN_CUE_FRAMES,
+};

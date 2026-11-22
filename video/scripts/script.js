@@ -79,8 +79,28 @@ const FAMILIES = [
     keyword: "שמן",
   },
   {
+    // קודם כל פנס של כלי רכב: שם "פנס" לבדו הוא לא בהכרח מנורה בבית,
+    // ובלבול כזה הוציא סרטון של פנס אופנוע עם קריינות של מנורת לילה.
+    id: "vehicle-light",
+    core: /פנס.{0,14}(אופניים|אופנוע|קורקינט|קסדה|רחפן|רכב|טסלה)|פנס (אחורי|קדמי)|אור (אחורי|קדמי) ל(אופניים|אופנוע|רכב)|(bike|bicycle|motorcycle|scooter|car|drone) ?(light|tail ?light|lamp)|rear ?light/i,
+    re: /אופניים|אופנוע|קורקינט|קסדה|רחפן|bicycle|motorcycle|scooter/i,
+    hook: [
+      "מי עוד נוסע בלילה בלי שאף אחד רואה אותו?",
+      "כמה פעמים יצאתם לדרך והרכבים לא שמו לב אליכם?",
+    ],
+    pain: [
+      "אור קטן שלא רואים אותו בכלל.",
+      "ובדרך חשוכה זה מרגיש ממש מסוכן.",
+    ],
+    reveal: [
+      "זה פנס שמתלבש על הכלי בקליק אחד.",
+      "והוא מאיר למרחק בלי שום חיבור מסובך.",
+    ],
+    keyword: "פנס",
+  },
+  {
     id: "light",
-    core: /מנור|פנס|נור[הי]|תאורה|תאורת|פרוז'קטור|night ?light|\blamp\b|light ?bulb/i,
+    core: /מנור|נור[הי]|תאורה|תאורת|פרוז'קטור|night ?light|\blamp\b|light ?bulb/i,
     re: /\bled\b/i,
     hook: [
       "מי עוד קם בלילה לחפש את המתג?",
@@ -90,9 +110,11 @@ const FAMILIES = [
       "מגששים בחושך לאורך הקיר.",
       "וכל התעסקות כזאת מעירה אתכם לגמרי.",
     ],
+    // האור נדלק בלחיצה — לא ממציאים חיישן שלא הוזכר במוצר. את עניין
+    // החיישן מוסיפה הפיצ'ר "motion" רק כשהמוצר באמת כזה.
     reveal: [
-      "מנורה קטנה שנדלקת לבד ברגע שאתם נכנסים.",
-      "והיא נכבה לבד כשיוצאים.",
+      "זה אור קטן שמתחבר בלי חוטים ובלי מתקין.",
+      "והוא נדלק בלחיצה אחת.",
     ],
     keyword: "מנורה",
   },
@@ -269,6 +291,34 @@ const FEATURES = [
     re: /silent|quiet|noise.?cancel|noise.?reduc|שקט|דממה|בלי רעש/i,
     speech: "שקט מספיק כדי להפעיל ליד מי שכבר נרדם.",
   },
+  // החיישן הוא הסיפור של המוצר — הוא נבדק ראשון, אחרת הוא נחתך מהתסריט
+  // בגלל תקרת שלושת היתרונות.
+  {
+    id: "motion",
+    only: ["light"],
+    re: /motion|pir|sensor|חיישן|תנועה|חיישנית/i,
+    speech: [
+      "הוא נדלק לבד ברגע שהוא מרגיש תנועה.",
+      "ונכבה לבד כשאין תנועה בחדר.",
+    ],
+  },
+  {
+    id: "flashing",
+    only: ["vehicle-light"],
+    re: /flashing|blink|flash|מהבהב|הבהוב/i,
+    speech: ["ויש מצב מהבהב שמושך את העין בכביש."],
+  },
+  {
+    // שבעה צבעים הם הסיפור השני של המוצר — לפני שהיתרונות הכלליים
+    // (סוללה, קומפקטי) תופסים את שלושת המקומות.
+    id: "colors",
+    only: ["light", "vehicle-light"],
+    re: /7 ?colou?r|7 ?צבע|שבעה צבעים|rgb|multicolou?r|צבעים/i,
+    speech: [
+      "ואפשר להחליף בין הצבעים בלחיצה.",
+      "כל פעם צבע אחר.",
+    ],
+  },
   {
     id: "wireless",
     group: "power",
@@ -355,7 +405,7 @@ const FEATURES = [
   },
   {
     id: "led",
-    only: ["light"],
+    only: ["light", "vehicle-light"],
     re: /\bled\b|תאורת/i,
     speech: "התאורה חזקה וברורה גם כשחושך מסביב.",
   },
@@ -424,6 +474,11 @@ const SHIPPING_BENEFIT = ["המשלוח מגיע לישראל.", "ישר עד ה
 // ---------------------------------------------------------------------
 const KEYWORDS = [
   { re: /שמן אתרי|שמנים אתריים|essential oil|aroma/i, word: "שמן" },
+  // פנס של כלי רכב הוא "פנס", לא "מנורה" — הלקוח מגיב את המילה הנכונה.
+  {
+    re: /פנס.{0,14}(אופניים|אופנוע|קורקינט|קסדה|רחפן|רכב)|(bike|motorcycle|car|drone) ?light|rear ?light/i,
+    word: "פנס",
+  },
   { re: /מנור|פנס|נור[הי]|תאורה|\bled\b|\blamp\b|light/i, word: "מנורה" },
   { re: /מתג|switch/i, word: "מתג" },
   { re: /גילוח|shaver|razor|trimmer/i, word: "גילוח" },
@@ -592,11 +647,58 @@ function commentKeyword(product) {
 // בונים את המשפטים
 // ---------------------------------------------------------------------
 
+// קריינות ארוכה בהרבה מסרטון המוצר מחייבת לחזור על אותה תנועה שוב ושוב —
+// זה מה שנראה כמו עריכה מקוטעת. לכן מספר המשפטים נגזר מאורך הסרטון.
+const SENTENCE_SECONDS = 2.3;
+
+/**
+ * מקצר תסריט כשהוא ארוך מהסרטון: קודם מוותרים על משפט כאב כפול, אחר כך
+ * על יתרון נוסף, ורק בסוף על גילוי כפול. ההוק, הגילוי הראשון והיתרון
+ * הראשון (הם מה שהמוצר נמכר בו) והקריאה לפעולה נשארים תמיד.
+ */
+function fitSentences(sentences, limit) {
+  if (!Number.isFinite(limit) || limit <= 0) return sentences;
+  const list = [...sentences];
+
+  const dropOne = (predicate) => {
+    for (let i = list.length - 1; i >= 0; i -= 1) {
+      if (predicate(list[i], i)) {
+        list.splice(i, 1);
+        return true;
+      }
+    }
+    return false;
+  };
+
+  while (list.length > limit) {
+    const dropped =
+      dropOne(
+        (sentence, index) =>
+          sentence.role === "pain" &&
+          list.findIndex((item) => item.role === "pain") !== index
+      ) ||
+      dropOne(
+        (sentence, index) =>
+          sentence.role === "feature" &&
+          list.findIndex((item) => item.role === "feature") !== index
+      ) ||
+      dropOne(
+        (sentence, index) =>
+          sentence.role === "reveal" &&
+          list.findIndex((item) => item.role === "reveal") !== index
+      );
+    if (!dropped) break;
+  }
+
+  return list;
+}
+
 /**
  * מחזיר {keyword, family, sentences} — כל משפט עם role, rate ו-gapAfterMs.
  * המשפטים עצמם הם גם הקריינות וגם הכתוביות (ציטוט מדויק).
+ * options.maxSentences — תקרה שנגזרת מאורך סרטון המוצר.
  */
-function buildScript(product) {
+function buildScript(product, options = {}) {
   const family = familyFor(product);
   const features = productFeatures(product, 3, {family});
   const sentences = [];
@@ -626,10 +728,12 @@ function buildScript(product) {
   // אנגלי, וזה מה שהרג את הסרטונים. המיתוג כבר על המסך.
   add("cta", [`תגיבו ${keyword}.`, "ואשלח לכם לינק לרכישה ישירות."]);
 
+  const fitted = fitSentences(sentences, options.maxSentences);
+
   return {
     keyword,
     family: family.id,
-    sentences: sentences.map((sentence, index) => ({
+    sentences: fitted.map((sentence, index) => ({
       ...sentence,
       id: index + 1,
       text: sentence.speech,
@@ -684,6 +788,8 @@ module.exports = {
   productFeatures,
   familyFor,
   painFor: familyFor,
+  fitSentences,
+  SENTENCE_SECONDS,
   FAMILIES,
   FEATURES,
   KEYWORDS,
