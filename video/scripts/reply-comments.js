@@ -11,8 +11,11 @@
  *   עם הלינק למוצר. כאן קוראים את המסמך הזה — בלי לנחש לפי טקסט.
  *
  * כללים:
- *   • עונים רק לתגובות ראשיות (לא לתגובות על תגובות) ולא על תגובות שלי.
- *   • תגובה שכל שרשור שלה כבר קיבל ממני תגובה — לא נוגעים.
+ *   • תגובה ראשית שכל השרשור שלה כבר קיבל ממני תגובה עם הלינק — לא נוגעים.
+ *   • מי שמגיב על התגובה שלנו ("כמה זה עולה?") מקבל תשובה קבועה שמפנה
+ *     לדף המוצר באתר — אין דרך להבין את השאלה, ולכן לא ממציאים תשובה.
+ *   • הלינקים בכל התגובות מקוצרים, כי הקישור הארוך של אליאקספרס לא
+ *     ניתן ללחיצה.
  *   • כל תגובה שענינו עליה נרשמת ב-answeredComments/<commentId>, כדי
  *     שריצה חוזרת לא תשלח את אותו לינק פעמיים.
  *   • תקרת תגובות לריצה (ברירת מחדל 30) כדי לא לשרוף את המכסה של יוטיוב.
@@ -37,6 +40,7 @@
 
 const fs = require("fs");
 const {loadEnvFile, truthy} = require("./env");
+const {shortenUrl} = require("./short");
 
 loadEnvFile();
 
@@ -236,9 +240,20 @@ function productUrl(link) {
 }
 
 function replyText(link) {
-  const url = productUrl(link);
-  const name = String(link.productName || "").trim();
-  return name ? `${name} 👉 ${url}` : `הלינק לרכישה 👉 ${url}`;
+  return shortenUrl(productUrl(link) || "").then((url) => {
+    const name = String(link.productName || "").trim();
+    if (!url) return name || "המוצר שלנו באתר Find4U";
+    return name ? `${name} 👉 ${url}` : `הלינק לרכישה 👉 ${url}`;
+  });
+}
+
+// תשובה למי שמגיב על התגובה שלנו עם הלינק. הוא יכול לשאול כל דבר, ולכן
+// במקום לנסות לנחש — מפנים אותו לדף המוצר, שבו כל הפרטים.
+async function infoText(link) {
+  const url = await shortenUrl(productUrl(link) || "");
+  return url
+    ? `כל הפרטים והמחירים של המוצר מופיעים בדף המוצר שלנו 👉 ${url}`
+    : "כל הפרטים והמחירים של המוצר מופיעים בדף המוצר באתר Find4U";
 }
 
 // מוצר שנמחק: מפנים למוצר החלופי במקום ללינק מת. בלי חלופה — לעמוד באתר,
@@ -274,7 +289,7 @@ async function repairBrokenLinks(token, store, link) {
   if (!(link.replacementUrl || link.replacementLink)) return;
   if (link.repairedAt) return;
 
-  const text = replyText(replyTarget(link));
+  const text = await replyText(replyTarget(link));
   const ids = [];
 
   if (link.firstCommentId) ids.push(link.firstCommentId);
@@ -316,6 +331,90 @@ async function repairBrokenLinks(token, store, link) {
       })
       .catch(() => {});
   }
+}
+
+// תגובות ישירות לתגובה שלנו: קוראים אותן לפי parentId, ועונים לכל אחת
+// פעם אחת בלבד (answeredComments).
+async function repliesToOurComment(token, ourCommentId) {
+  const json = await api(token, "comments", {
+    part: "snippet",
+    parentId: ourCommentId,
+    maxResults: "100",
+    textFormat: "plainText",
+  });
+  return json.items || [];
+}
+
+async function answerRepliesToOurs(
+  token,
+  store,
+  videoId,
+  ourCommentId,
+  channelId,
+  link,
+  budget
+) {
+  if (!ourCommentId || budget <= 0) return 0;
+
+  let children = [];
+  try {
+    children = await repliesToOurComment(token, ourCommentId);
+  } catch (error) {
+    console.warn(
+      `[reply] ${videoId}: could not read replies to our comment — ${error.message}`
+    );
+    return 0;
+  }
+
+  if (children.length === 0) return 0;
+  const text = await infoText(link);
+  let answered = 0;
+
+  for (const child of children) {
+    if (answered >= budget) break;
+    const snippet = child.snippet || {};
+    if (!child.id) continue;
+    if (snippet.authorChannelId?.value === channelId) continue;
+    if (await store.alreadyAnswered(child.id)) continue;
+
+    if (DRY_RUN) {
+      console.log(`[reply] DRY_RUN would answer nested ${child.id}: ${text}`);
+      answered += 1;
+      continue;
+    }
+
+    try {
+      const created = await api(
+        token,
+        "comments",
+        {part: "snippet"},
+        {
+          method: "POST",
+          body: JSON.stringify({
+            snippet: {parentId: child.id, textOriginal: text},
+          }),
+        }
+      );
+      await store.remember(child.id, {
+        videoId,
+        commentId: child.id,
+        replyId: created.id || null,
+        productId: link.productId || null,
+        nested: true,
+        repliedAt: new Date().toISOString(),
+      });
+      answered += 1;
+      console.log(`[reply] ${videoId}: answered nested ${child.id}`);
+    } catch (error) {
+      console.warn(
+        `[reply] ${videoId}: nested reply failed — ${error.message}`
+      );
+    }
+
+    await sleep(400);
+  }
+
+  return answered;
 }
 
 async function main() {
@@ -382,12 +481,33 @@ async function main() {
         // תגובה שלי — לא עונים לעצמי.
         if (snippet.authorChannelId?.value === channelId) continue;
 
-        // כבר יש תגובה שלי בשרשור.
+        // כבר יש תגובה שלי בשרשור. את התגובה הראשית כבר לא עונים — אבל
+        // מי שהגיב על התגובה שלנו עם הלינק מקבל הפניה לדף המוצר.
         const replies = thread.replies?.comments || [];
-        const mine = replies.some(
+        const ours = replies.filter(
           (item) => item.snippet?.authorChannelId?.value === channelId
         );
-        if (mine) continue;
+        if (ours.length > 0) {
+          for (const ourComment of ours) {
+            if (replied >= MAX_REPLIES) break;
+            try {
+              replied += await answerRepliesToOurs(
+                token,
+                store,
+                videoId,
+                ourComment.id,
+                channelId,
+                target,
+                MAX_REPLIES - replied
+              );
+            } catch (error) {
+              console.warn(
+                `[reply] ${videoId}: nested answers failed — ${error.message}`
+              );
+            }
+          }
+          continue;
+        }
 
         if (snippet.publishedAt) {
           const published = new Date(snippet.publishedAt).getTime();
@@ -396,7 +516,7 @@ async function main() {
 
         if (await store.alreadyAnswered(commentId)) continue;
 
-        const text = replyText(target);
+        const text = await replyText(target);
         if (DRY_RUN) {
           console.log(`[reply] DRY_RUN would answer ${commentId}: ${text}`);
           replied += 1;

@@ -1,7 +1,7 @@
 import Head from 'next/head';
 import Image from 'next/image';
 import Link from 'next/link';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
 import {
   collection,
@@ -147,6 +147,100 @@ function buildOrder(products, likedIds) {
   }
 
   return [...ordered, ...older].slice(0, FEED_LIMIT);
+}
+
+// כל מוצר בפיד מתחיל מהסרטון שנמשך מהחנו� (אם יש), ואחריו התמונה הראשית
+// ושאר תמונות הגלריה. הבחירה נשמרת רק בזיכרון של השקופית — מי שיוצא מהפיד
+// וחוזר מתחיל שוב מהסרטון, ולא נתקע על תמונה שראה קודם.
+function mediaItemsOf(product) {
+  const images = [product.image, ...(product.gallery || [])].filter(Boolean);
+  const unique = [...new Set(images)];
+  const items = unique.map((src) => ({ type: 'image', src }));
+  if (product.videoUrl) items.unshift({ type: 'video', src: product.videoUrl });
+  return items;
+}
+
+function FeedMedia({ product, href, near, autoplay }) {
+  const items = useMemo(() => mediaItemsOf(product), [product]);
+  const [active, setActive] = useState(0);
+  const videoRef = useRef(null);
+  const current = items[Math.min(active, items.length - 1)];
+  const isVideo = current && current.type === 'video';
+
+  // סרטון מתנגן רק כשהשקופית באמת במרכז, ולא ברקע של השקופיות הסמוכות.
+  useEffect(() => {
+    const node = videoRef.current;
+    if (!node) return;
+    if (autoplay) {
+      const started = node.play();
+      if (started && typeof started.catch === 'function') started.catch(() => {});
+    } else {
+      node.pause();
+    }
+  }, [autoplay, active]);
+
+  return (
+    <>
+      <Link
+        href={href}
+        className={styles.mediaLink}
+        tabIndex={-1}
+        aria-hidden="true"
+      >
+        <div className={styles.media}>
+          {near && isVideo ? (
+            <video
+              key={current.src}
+              ref={videoRef}
+              className={styles.video}
+              src={current.src}
+              poster={product.image || undefined}
+              muted
+              loop
+              playsInline
+              preload="metadata"
+            />
+          ) : near && current ? (
+            <Image
+              src={current.src}
+              alt={product.name || 'מוצר'}
+              fill
+              sizes="(max-width: 768px) 100vw, 520px"
+              style={{ objectFit: 'cover' }}
+            />
+          ) : null}
+          <span className={styles.shade} />
+        </div>
+      </Link>
+
+      {near && items.length > 1 ? (
+        <div className={styles.thumbs} role="group" aria-label="מדיה של המוצר">
+          {items.map((item, position) => (
+            <button
+              key={`${item.type}-${item.src}`}
+              type="button"
+              className={`${styles.thumb}${position === active ? ` ${styles.thumbActive}` : ''}`}
+              aria-label={item.type === 'video' ? 'סרטון המוצר' : 'תמונת מוצר'}
+              aria-pressed={position === active ? 'true' : 'false'}
+              onClick={() => setActive(position)}
+            >
+              <img
+                className={styles.thumbImage}
+                src={item.type === 'video' ? product.image : item.src}
+                alt=""
+                loading="lazy"
+              />
+              {item.type === 'video' ? (
+                <span className={styles.thumbPlay} aria-hidden="true">
+                  ▶
+                </span>
+              ) : null}
+            </button>
+          ))}
+        </div>
+      ) : null}
+    </>
+  );
 }
 
 export default function FeedPage({ initialProducts = [] }) {
@@ -298,25 +392,12 @@ export default function FeedPage({ initialProducts = [] }) {
                       className={styles.slide}
                       aria-label={product.name || 'מוצר'}
                     >
-                      <Link
+                      <FeedMedia
+                        product={product}
                         href={productHref(product)}
-                        className={styles.mediaLink}
-                        tabIndex={-1}
-                        aria-hidden="true"
-                      >
-                        <div className={styles.media}>
-                          {near ? (
-                            <Image
-                              src={product.image}
-                              alt={product.name || 'מוצר'}
-                              fill
-                              sizes="(max-width: 768px) 100vw, 520px"
-                              style={{ objectFit: 'cover' }}
-                            />
-                          ) : null}
-                          <span className={styles.shade} />
-                        </div>
-                      </Link>
+                        near={near}
+                        autoplay={index === activeIndex}
+                      />
 
                       <div className={styles.topRow}>
                         <div className={styles.topActions}>
