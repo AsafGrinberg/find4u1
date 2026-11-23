@@ -1,17 +1,22 @@
 #!/usr/bin/env node
 // scripts/reset-catalog.mjs
 // ---------------------------------------------------------------------------
-// איפוס מלא של הקטלוג: מוחק את *כל* המוצרים מ-products.
+// איפוס מלא של הקטלוג: מוחק את *כל* המוצרים מ-products ואת *כל* הקטגוריות
+// מ-categories. בלי זה דף הבית מציג "0 מוצרים / 41 קטגוריות", וכל דפי
+// הקטגוריה נשארים באוויר כשלדים ריקים.
 //
 // לפני כל מחיקה נשמר גיבוי כפול, כדי שתמיד אפשר יהיה לחזור אחורה:
-//   1. קובץ מקומי: exports/catalog-backup-<תאריך>.json
-//   2. ארכיון ב-Firestore: deletedProducts/<id> עם deletedAt ו-deletedReason
+//   1. קובץ מקומי: exports/catalog-backup-<תאריך>.json  (מוצרים + קטגוריות)
+//   2. ארכיון ב-Firestore: deletedProducts/<id> ו-deletedCategories/<id>
+//      עם deletedAt ו-deletedReason
 //
 // הרצה:
 //   node scripts/reset-catalog.mjs                 # בדיקה בלבד (dry run)
 //   node scripts/reset-catalog.mjs --apply         # גיבוי, ארכיון ומחיקה
 //   node scripts/reset-catalog.mjs --apply --keep-state
 //                                                  # בלי לאפס את job_state
+//   node scripts/reset-catalog.mjs --apply --only=categories
+//                                                  # רק קטגוריות
 //
 // קריאה עובדת בלי הרשאות (REST ציבורי). --apply דורש service account:
 //   FIREBASE_SERVICE_ACCOUNT_FILE=video/serviceAccount.json
@@ -41,6 +46,16 @@ const STATE_DOC = 'job_state/recommendedProducts';
 const args = new Set(process.argv.slice(2));
 const APPLY = args.has('--apply');
 const KEEP_STATE = args.has('--keep-state');
+const onlyArg = [...args].find((arg) => arg.startsWith('--only='));
+const ONLY = onlyArg ? onlyArg.split('=')[1] : 'all';
+
+if (!['all', 'products', 'categories'].includes(ONLY)) {
+  console.error(`[reset] unknown --only=${ONLY} (use products, categories or all)`);
+  process.exit(1);
+}
+
+const wantsProducts = ONLY !== 'categories';
+const wantsCategories = ONLY !== 'products';
 
 // ---- קריאה ----------------------------------------------------------------
 
@@ -65,14 +80,14 @@ function parseFields(fields) {
   return result;
 }
 
-async function readProducts() {
+async function readCollection(collectionName) {
   const rows = [];
   let pageToken = null;
 
   do {
     const url =
       `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}` +
-      `/databases/(default)/documents/products?pageSize=${PAGE_SIZE}&key=${API_KEY}` +
+      `/databases/(default)/documents/${collectionName}?pageSize=${PAGE_SIZE}&key=${API_KEY}` +
       (pageToken ? `&pageToken=${encodeURIComponent(pageToken)}` : '');
     const response = await fetch(url, { headers: { Accept: 'application/json' } });
     if (!response.ok) {
@@ -120,34 +135,42 @@ function initFirebase() {
   return { admin, db: admin.firestore() };
 }
 
-function writeBackup(products) {
+function writeBackup(products, categories) {
   const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
   const file = path.join(ROOT, 'exports', `catalog-backup-${stamp}.json`);
   fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.writeFileSync(
     file,
     JSON.stringify(
-      { createdAt: new Date().toISOString(), projectId: PROJECT_ID, products },
+      {
+        createdAt: new Date().toISOString(),
+        projectId: PROJECT_ID,
+        products,
+        categories,
+      },
       null,
       2
     )
   );
-  return `${path.relative(ROOT, file)} (${products.length} products)`;
+  return `${path.relative(ROOT, file)} (${products.length} products, ${categories.length} categories)`;
 }
 
-async function wipe(db, admin, products) {
-  const archive = db.collection('deletedProducts');
-  const collection = db.collection('products');
+// מעביר כל מסמך לארכיון ואז מוחק אותו. שם האוסף נשמר בתוך המסמך, כדי
+// שארכיון אחד יוכל להחזיק גם מוצרים וגם קטגוריות בלי בלבול.
+async function wipe(db, admin, collectionName, rows, archiveName) {
+  const archive = db.collection(archiveName);
+  const collection = db.collection(collectionName);
 
   let removed = 0;
-  for (let start = 0; start < products.length; start += BATCH_SIZE) {
-    const slice = products.slice(start, start + BATCH_SIZE);
+  for (let start = 0; start < rows.length; start += BATCH_SIZE) {
+    const slice = rows.slice(start, start + BATCH_SIZE);
     const batch = db.batch();
 
-    slice.forEach((product) => {
-      const { id, ...data } = product;
+    slice.forEach((row) => {
+      const { id, ...data } = row;
       batch.set(archive.doc(String(id)), {
         ...data,
+        sourceCollection: collectionName,
         deletedAt: admin.firestore.FieldValue.serverTimestamp(),
         deletedReason: 'catalog-reset',
       });
@@ -156,7 +179,7 @@ async function wipe(db, admin, products) {
 
     await batch.commit();
     removed += slice.length;
-    console.log(`[reset] archived and deleted ${removed}/${products.length}`);
+    console.log(`[reset] ${collectionName}: archived and deleted ${removed}/${rows.length}`);
   }
 
   return removed;
@@ -180,10 +203,13 @@ async function resetState(db, admin) {
 // ---- Main -----------------------------------------------------------------
 
 async function main() {
-  const products = await readProducts();
-  console.log(`products in Firestore: ${products.length}`);
+  const products = wantsProducts ? await readCollection('products') : [];
+  const categories = wantsCategories ? await readCollection('categories') : [];
 
-  if (!products.length) {
+  console.log(`products in Firestore: ${products.length}`);
+  console.log(`categories in Firestore: ${categories.length}`);
+
+  if (!products.length && !categories.length) {
     console.log('catalog is already empty.');
     return;
   }
@@ -191,7 +217,12 @@ async function main() {
   products.slice(0, 10).forEach((product) => {
     console.log(`  • ${String(product.name || product.sourceTitle || '').slice(0, 60)} [${product.id}]`);
   });
-  if (products.length > 10) console.log(`  …and ${products.length - 10} more`);
+  if (products.length > 10) console.log(`  …and ${products.length - 10} more products`);
+
+  categories.slice(0, 10).forEach((category) => {
+    console.log(`  • ${String(category.name || '').slice(0, 60)} [${category.id}]`);
+  });
+  if (categories.length > 10) console.log(`  …and ${categories.length - 10} more categories`);
 
   if (!APPLY) {
     console.log(
@@ -202,15 +233,24 @@ async function main() {
   }
 
   // קודם גיבוי מקומי — רק אם הוא נכתב ממשיכים למחיקה.
-  console.log(`[reset] backup written: ${writeBackup(products)}`);
+  console.log(`[reset] backup written: ${writeBackup(products, categories)}`);
 
   const { admin, db } = initFirebase();
-  const removed = await wipe(db, admin, products);
+  const removedProducts = products.length
+    ? await wipe(db, admin, 'products', products, 'deletedProducts')
+    : 0;
+  const removedCategories = categories.length
+    ? await wipe(db, admin, 'categories', categories, 'deletedCategories')
+    : 0;
   if (!KEEP_STATE) await resetState(db, admin);
 
-  const left = await readProducts();
-  console.log(`\n[reset] deleted ${removed} products, left in products: ${left.length}`);
-  console.log('[reset] the old copies are in deletedProducts (deletedReason: catalog-reset)');
+  const leftProducts = await readCollection('products');
+  const leftCategories = await readCollection('categories');
+  console.log(
+    `\n[reset] deleted ${removedProducts} products and ${removedCategories} categories, ` +
+      `left in Firestore: ${leftProducts.length} products, ${leftCategories.length} categories`
+  );
+  console.log('[reset] the old copies are in deletedProducts / deletedCategories (deletedReason: catalog-reset)');
 }
 
 main().catch((error) => {

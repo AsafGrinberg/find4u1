@@ -289,14 +289,19 @@ export default function Home({ initialProducts = [], initialCategories = [] }) {
               ) : null}
             </div>
 
-            <div className="hero-stats">
-              <span className="hero-stat">
-                <b>{base.length}</b> מוצרים נבחרים
-              </span>
-              <span className="hero-stat">
-                <b>{categories.length}</b> קטגוריות
-              </span>
-            </div>
+            {/* קטלוג ריק לא מציג "0 מוצרים / 0 קטגוריות" — זה נראה שבור. */}
+            {base.length > 0 ? (
+              <div className="hero-stats">
+                <span className="hero-stat">
+                  <b>{base.length}</b> מוצרים נבחרים
+                </span>
+                {categories.length > 0 ? (
+                  <span className="hero-stat">
+                    <b>{categories.length}</b> קטגוריות
+                  </span>
+                ) : null}
+              </div>
+            ) : null}
           </section>
 
           {!isSearching && categoryRows.length > 0 ? (

@@ -6,26 +6,52 @@
  * מנפיק טוקנים פעם אחת מהמחשב שלכם, בלי שירות צד שלישי:
  *
  *   YouTube (refresh token ארוך טווח):
- *     YOUTUBE_CLIENT_ID=... YOUTUBE_CLIENT_SECRET=... \
- *       node scripts/auth-token.js youtube
+ *     node scripts/auth-token.js youtube
+ *     node scripts/auth-token.js youtube --client-secret "C:\\path\\client_secret_xxx.json"
  *
  *   TikTok (access + refresh token):
- *     TIKTOK_CLIENT_KEY=... TIKTOK_CLIENT_SECRET=... \
- *       node scripts/auth-token.js tiktok
+ *     node scripts/auth-token.js tiktok
+ *
+ * מאיפה מגיעים פרטי הלקוח של גוגל (לפי הסדר):
+ *   1. YOUTUBE_CLIENT_ID / YOUTUBE_CLIENT_SECRET במשתני הסביבה
+ *   2. video/.env (הסקריפט טוען אותו לבד — אין צורך "להדביק" ידנית)
+ *   3. GOOGLE_CLIENT_SECRET_FILE=/path/to/client_secret.json, או קובץ JSON
+ *      שהורדתם מ-Google Cloud ומועבר כארגומנט אחרי youtube
  *
  * הסקריפט פותח שרת מקומי בכתובת http://127.0.0.1:53682/callback, מדפיס
  * קישור לאישור, ומחזיר את הטוקנים. את הכתובת הזאת צריך לרשום באפליקציה
  * (Google: Authorized redirect URI, TikTok: Redirect URI).
  *
- * אין כאן שום סוד קבוע — הכול מגיע ממשתני הסביבה שאתם ממלאים.
+ * ההרשאות המבוקשות מיוטיוב הן העלאה + ניהול תגובות (youtube.force-ssl),
+ * כדי שאותו טוקן ישמש גם את ג'וב המענה האוטומטי לתגובות.
  */
 
+const fs = require("fs");
 const http = require("http");
+const path = require("path");
 const {URL} = require("url");
+
+const VIDEO_DIR = path.join(__dirname, "..");
+
+// טוען video/.env ידנית. אין כאן תלות חיצונית, ומשתנה סביבה אמיתי תמיד
+// גובר על מה שכתוב בקובץ.
+function loadEnvFile(file) {
+  if (!fs.existsSync(file)) return;
+  for (const line of fs.readFileSync(file, "utf8").split(/\r?\n/)) {
+    const match = /^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=(.*)$/.exec(line);
+    if (!match) continue;
+    const key = match[1];
+    const value = match[2].trim().replace(/^["']|["']$/g, "");
+    if (!process.env[key]) process.env[key] = value;
+  }
+}
+
+loadEnvFile(path.join(VIDEO_DIR, ".env"));
 
 const PORT = Number(process.env.OAUTH_PORT || 53682);
 const REDIRECT = `http://127.0.0.1:${PORT}/callback`;
-const provider = (process.argv[2] || "").toLowerCase();
+const argv = process.argv.slice(2);
+const provider = (argv[0] || "").toLowerCase();
 
 function openAuthUrl(url) {
   console.log("\nפתחו את הקישור הזה בדפדפן ואשרו:\n");
@@ -74,12 +100,56 @@ function waitForCode(state) {
   });
 }
 
-async function youtube() {
-  const clientId = process.env.YOUTUBE_CLIENT_ID;
-  const clientSecret = process.env.YOUTUBE_CLIENT_SECRET;
-  if (!clientId || !clientSecret) {
-    throw new Error("YOUTUBE_CLIENT_ID / YOUTUBE_CLIENT_SECRET are missing");
+// קובץ client_secret שהורד מ-Google Cloud מכיל "installed" או "web".
+function clientFromSecretFile(file) {
+  const json = JSON.parse(fs.readFileSync(file, "utf8"));
+  const block = json.installed || json.web || json;
+  return {clientId: block.client_id, clientSecret: block.client_secret};
+}
+
+function googleClient() {
+  let clientId = process.env.YOUTUBE_CLIENT_ID;
+  let clientSecret = process.env.YOUTUBE_CLIENT_SECRET;
+
+  if (clientId && clientSecret) return {clientId, clientSecret};
+
+  const flagIndex = argv.indexOf("--client-secret");
+  const flagFile = flagIndex >= 0 ? argv[flagIndex + 1] : null;
+  const file =
+    flagFile ||
+    process.env.GOOGLE_CLIENT_SECRET_FILE ||
+    argv.find((value) => value.toLowerCase().endsWith(".json"));
+
+  if (file) {
+    const resolved = path.resolve(file);
+    if (!fs.existsSync(resolved)) {
+      throw new Error(`client secret file not found: ${resolved}`);
+    }
+    const fromFile = clientFromSecretFile(resolved);
+    clientId = clientId || fromFile.clientId;
+    clientSecret = clientSecret || fromFile.clientSecret;
   }
+
+  if (!clientId || !clientSecret) {
+    throw new Error(
+      "YOUTUBE_CLIENT_ID / YOUTUBE_CLIENT_SECRET are missing. " +
+        "Put them in video/.env, or pass the downloaded JSON: " +
+        'node scripts/auth-token.js youtube --client-secret "C:\\path\\client_secret_xxx.json"'
+    );
+  }
+
+  return {clientId, clientSecret};
+}
+
+async function youtube() {
+  const {clientId, clientSecret} = googleClient();
+
+  // העלאה + ניהול תגובות. youtube.force-ssl הוא מה שמאפשר לענות לתגובות
+  // בערוץ; בלי הוא כל comments.insert מחזיר 403 insufficient scope.
+  const scope = [
+    "https://www.googleapis.com/auth/youtube.upload",
+    "https://www.googleapis.com/auth/youtube.force-ssl",
+  ].join(" ");
 
   const state = String(Date.now());
   const authUrl =
@@ -88,12 +158,13 @@ async function youtube() {
       client_id: clientId,
       redirect_uri: REDIRECT,
       response_type: "code",
-      scope: "https://www.googleapis.com/auth/youtube.upload",
+      scope,
       access_type: "offline",
       prompt: "consent",
       state,
     }).toString();
 
+  console.log(`redirect URI שצריך להיות רשום באפליקציה: ${REDIRECT}`);
   openAuthUrl(authUrl);
   const code = await waitForCode(state);
 
@@ -113,8 +184,9 @@ async function youtube() {
     throw new Error(`Google token: ${JSON.stringify(json).slice(0, 300)}`);
   }
 
-  console.log("\nהעתיקו לסודות GitHub:");
+  console.log("\nהעתיקו לסודות GitHub (Secret בשם YOUTUBE_REFRESH_TOKEN):");
   console.log(`YOUTUBE_REFRESH_TOKEN=${json.refresh_token}`);
+  console.log("\nהטוקן הזה כולל גם הרשאת מענה לתגובות (youtube.force-ssl).");
 }
 
 async function tiktok() {

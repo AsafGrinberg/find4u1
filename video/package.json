@@ -5,7 +5,9 @@
   "description": "Vertical product reels for Find4U: Remotion + Hebrew TTS",
   "scripts": {
     "studio": "remotion studio src/index.js",
-    "render": "node scripts/render.js"
+    "render": "node scripts/render.js",
+    "reply": "node scripts/reply-comments.js",
+    "auth": "node scripts/auth-token.js"
   },
   "dependencies": {
     "@remotion/bundler": "^4.0.0",

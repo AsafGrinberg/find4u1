@@ -638,6 +638,30 @@ async function main() {
       }
     );
     console.log(`[publish] marked ${meta.productId} as videoed (${channels.join(", ")})`);
+
+    // ממפה את מזהה הסרטון ליוטיוב למוצר, כדי שג'וב המענה לתגובות ידע איזה
+    // לינק לשלוח למי שמגיב על הסרטון הזה (reply-comments.js).
+    if (results.youtube && results.youtube.ok && results.youtube.id) {
+      const slug = meta.slug || meta.productId;
+      await db
+        .collection("videoLinks")
+        .doc(String(results.youtube.id))
+        .set(
+          {
+            videoId: results.youtube.id,
+            productId: meta.productId,
+            productName: meta.productName || null,
+            keyword: meta.keyword || null,
+            slug,
+            url: `${SITE_URL}/product/${encodeURIComponent(slug)}`,
+            updatedAt: new Date().toISOString(),
+          },
+          {merge: true}
+        );
+      console.log(
+        `[publish] linked YouTube ${results.youtube.id} → ${slug} (for comment replies)`
+      );
+    }
   } else {
     console.warn("[publish] FIREBASE_SERVICE_ACCOUNT is missing — product not marked.");
   }

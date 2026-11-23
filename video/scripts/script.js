@@ -213,6 +213,45 @@ const FAMILIES = [
     keyword: "מטען",
   },
   {
+    // מיטה לחתול או לכלב. חייבת לבוא לפני sleep: שם המילה "כרית" לבדה
+    // תפסה מיטת חתול והקריינות דיברה על שמיכה לאנשים.
+    id: "pet-bed",
+    // "מיטה עגולה לחתולים" — שם התואר בין המילה "מיטה" לבעל החיים, ולכן
+    // לא מחפשים רצף מדויק אלא עד 30 תווים ביניהם.
+    core: /מיט[הת][^.!?|]{0,30}(חתול|כלב|חיות מחמד)|pet ?bed|cat ?bed|dog ?bed|cat ?(house|nest|cave)|dog ?(house|bed|cave)|(cat|dog) (sofa|mat)/i,
+    hook: [
+      "חיית המחמד שלכם ישנה בכל מקום חוץ מהמיטה שלה?",
+      "החתול שלכם מעדיף את הרצפה על המיטה שקניתם לו?",
+    ],
+    pain: [
+      "המיטה הקודמת שקועה ולא נוחה.",
+      "ולכן היא בוחרת את הספה או את הרצפה הקרה.",
+    ],
+    reveal: [
+      "זו מיטה רכה ועמוקה שחיית המחמד נכנסת אליה לבד.",
+      "והקצוות הגבוהים נותנים לה תחושה מוגנת.",
+    ],
+    keyword: "מיטה",
+  },
+  {
+    // שאר מוצרי חיות מחמד: צעצוע, רצועה, קערה, מכרסם.
+    id: "pet",
+    // (?!\s*\d) — כדי ש"CAT 6 cable" (כבל רשת) לא יהפוך למוצר לחתולים.
+    core: /\bpet\b|\bcats?\b(?!\s*\d)|\bdogs?\b(?!\s*\d)|puppy|kitten|לחתול|לכלב|חתול|כלב|חיות מחמד|dog ?(toy|leash|harness|bowl|collar)|cat ?(toy|scratcher|tree|tunnel)/i,
+    hook: [
+      "חיית המחמד שלכם משתעממת כשהיא לבד בבית?",
+      "החתול או הכלב שלכם מחפשים מה לעשות כל היום?",
+    ],
+    pain: [
+      "היא מפרקת את הספה במקום את הצעצוע.",
+      "ואין לה שום דבר שמעסיק אותה באמת.",
+    ],
+    reveal: [
+      "זה אביזר קטן שהופך לה את היום להרבה יותר מעניין.",
+      "והיא חוזרת אליו שוב ושוב.",
+    ],
+  },
+  {
     id: "sleep",
     core: /שמיכ|כרית|מזרן|מצעים|blanket|pillow|mattress|bedding/i,
     hook: "אתם מתעוררים באמצע הלילה בלי סיבה?",
@@ -444,7 +483,7 @@ const FEATURES = [
   },
   {
     id: "washable",
-    only: ["sleep", "baby", "beauty", "clean"],
+    only: ["sleep", "baby", "beauty", "clean", "pet-bed", "pet"],
     re: /washable|נשטף|כיבוס|לכיבוס/i,
     speech: "נכנס לכיבוס רגיל ויוצא משם כמו חדש.",
   },
@@ -694,6 +733,26 @@ function fitSentences(sentences, limit) {
 }
 
 /**
+ * שם המוצר כפי שאומרים אותו בקריינות: עד שישה מילים, בעברית אם אפשר,
+ * בלי מירכאות ובלי סימני פיסוק בסוף. null אם אין מה לקרוא.
+ */
+function productNameForSpeech(product) {
+  const words = String(product.name || "")
+    .replace(/[\r\n]+/g, " ")
+    .replace(/["'״׳]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .split(" ")
+    .filter(Boolean);
+
+  const hebrew = words.filter((word) => /[\u0590-\u05FF]/.test(word));
+  const chosen = (hebrew.length >= 2 ? hebrew : words).slice(0, 6);
+  const text = chosen.join(" ").replace(/[.,:;!?\-–—]+$/g, "").trim();
+
+  return text || null;
+}
+
+/**
  * מחזיר {keyword, family, sentences} — כל משפט עם role, rate ו-gapAfterMs.
  * המשפטים עצמם הם גם הקריינות וגם הכתוביות (ציטוט מדויק).
  * options.maxSentences — תקרה שנגזרת מאורך סרטון המוצר.
@@ -717,7 +776,15 @@ function buildScript(product, options = {}) {
 
   add("hook", one(family.hook));
   add("pain", family.pain);
-  add("reveal", family.reveal);
+
+  // כשאין משפחה מתאימה, המשפחה הכללית מדברת על "המוצר הזה" בלי לומר מה הוא,
+  // וזה מה שנשמע כאילו הקריינות לא קשורה לסרטון. כאן המוצר נקרא בשמו.
+  const named = family.id === GENERIC_FAMILY.id ? productNameForSpeech(product) : null;
+  if (named) {
+    add("reveal", [`זה ${named}.`, "והוא עושה את העבודה במקומכם בלי מאמץ."]);
+  } else {
+    add("reveal", family.reveal);
+  }
 
   features.forEach((feature) => add("feature", feature.speech));
   // תסריט של ארבעה משפטים נגמר לפני שהספקתם למכור: סוגרים ביתרון אמיתי.
