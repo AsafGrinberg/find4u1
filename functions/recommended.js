@@ -744,7 +744,10 @@ function pickDiverse(candidates, limit) {
 // Telegram
 // ---------------------------------------------------------------------
 
-async function telegramRequest(method, body) {
+// טלגרם מחזיר 429 ("Too Many Requests: retry after N") כשהוא מקבל יותר
+// מדי בקשות, וזה מה שהפיל ריצות הורליות שלמות. מנסים שוב אחרי ההמתנה
+// שהוא מבקש, ורק אז נכשלים.
+async function telegramRequest(method, body, attempt = 1) {
   const response = await fetch(
     `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/${method}`,
     {
@@ -756,6 +759,16 @@ async function telegramRequest(method, body) {
 
   const json = await response.json().catch(() => ({}));
   if (!json.ok) {
+    const retryAfter = Number(json.parameters && json.parameters.retry_after);
+    const transient = response.status === 429 || response.status >= 500;
+    if (transient && attempt < 3) {
+      const wait = (Number.isFinite(retryAfter) ? retryAfter : 5) * 1000 * attempt;
+      console.log(
+        `[telegram] ${method} ${response.status} — retry in ${Math.round(wait / 1000)}s`
+      );
+      await new Promise((resolve) => setTimeout(resolve, Math.min(wait, 45000)));
+      return telegramRequest(method, body, attempt + 1);
+    }
     throw new Error(
       `Telegram ${method} failed: ${json.description || response.status}`
     );
@@ -1238,7 +1251,14 @@ async function runRecommendedProducts() {
       categoriesCreated.push(categoryHe);
     }
 
-    await postProductToTelegram(product, affiliateLink, nameHe, slug);
+    // מוצר שנשמר אבל לא עלה לטלגרם לא אמור להפיל את כל הריצה.
+    try {
+      await postProductToTelegram(product, affiliateLink, nameHe, slug);
+    } catch (error) {
+      console.error(
+        `[recommended] telegram post failed for ${product.product_id}: ${error.message}`
+      );
+    }
 
     published.push({
       id: String(product.product_id),
