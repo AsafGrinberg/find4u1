@@ -132,14 +132,22 @@ function telegramCaption(meta, links) {
   return lines.join("\n").trim();
 }
 
-// ביוטיוב הקישורים בתיאור כן ניתנים ללחיצה, ולכן הם חוזרים גם שם.
+// ביוטיוב שורטס הלינקים בתיאור ובתגובות אינם לחיצים — זו מדיניות של יוטיוב
+// מאז 2023, ואין קיצור או ניסוח שמשנה אותה. לכן התיאור לא מבטיח לחיצה:
+// הוא מרכז את הכתובת של האתר (שאפשר להקליד) ומפנה ללינק הקבוע שנמצא
+// בדף הערוץ, שם הלינקים כן לחיצים. הלינקים עצמם נשארים כאן כדי שאפשר
+// יהיה להעתיק אותם.
 function youtubeDescription(caption, links) {
-  const lines = [caption];
+  const domain = SITE_URL.replace(/^https?:\/\//, "");
+  const lines = [caption, ""];
+  lines.push(`🌐 כל המוצרים והסרטונים: ${domain}`);
+  lines.push("🔗 הקישורים הלחיצים מרוכזים בדף הערוץ (Links).");
+
   if (links.affiliate) {
-    lines.push("", "🛒 לרכישה מאליאקספרס:", links.affiliate);
+    lines.push("", "🛒 לרכישה מאליאקספרס (להעתקה):", links.affiliate);
   }
   if (links.site) {
-    lines.push("", "🔗 לדף המוצר באתר Find4U:", links.site);
+    lines.push("", "🔗 דף המוצר באתר Find4U (להעתקה):", links.site);
   }
   return lines.join("\n").trim();
 }
@@ -449,7 +457,10 @@ async function postFirstComment(meta, links) {
   }
 
   const token = await youtubeAccessToken();
-  const text = `${meta.productName || "המוצר"} 👉 ${affiliate}`;
+  // הלינק בתגובה לא לחיץ בשורטס, ולכן התגובה מפנה גם לכתובת האתר
+  // ולדף הערוץ, שם אפשר ללחוץ.
+  const domain = SITE_URL.replace(/^https?:\/\//, "");
+  const text = `${meta.productName || "המוצר"}\n🛒 לרכישה: ${affiliate}\n🌐 כל הפרטים: ${domain}\n🔗 הקישורים הלחיצים בדף הערוץ (Links)`;
   const response = await fetch(
     `${YT_API}/commentThreads?part=snippet`,
     {
@@ -763,9 +774,28 @@ async function main() {
     // מזהה ההודעה של הסרטון בטלגרם — כדי שאפשר יהיה לערוך אותה (למשל
     // להחליף קישור) בלי לחפש את הפוסט בערוץ.
     const telegramMessageId = results.telegram?.messageId || null;
-    if (telegramMessageId) {
-      await ref.set({telegramReelMessageId: telegramMessageId}, {merge: true});
-    }
+
+    // הסרטון עצמו נרשם על המוצר, וזה מה שמאפשר לו להופיע בפיד האתר
+    // עם הלינק לדף המוצר ולרכישה — ולא רק בטלגרם וברשתות.
+    await ref.set(
+      {
+        ...(telegramMessageId
+          ? {telegramReelMessageId: telegramMessageId}
+          : {}),
+        reel: {
+          url: meta.publicUrl || null,
+          file: meta.publicFile || null,
+          durationSeconds: meta.totalSeconds || null,
+          keyword: meta.keyword || null,
+          youtubeId: results.youtube?.id || null,
+          youtubeUrl: results.youtube?.url || null,
+          telegramMessageId: telegramMessageId,
+          publishedAt: new Date().toISOString(),
+        },
+      },
+      {merge: true}
+    );
+    console.log(`[publish] reel saved on ${meta.productId} for the site feed`);
 
     // ממפה את מזהה הסרטון ליוטיוב למוצר, כדי שג'וב המענה לתגובות ידע איזה
     // לינק לשלוח למי שמגיב על הסרטון הזה (reply-comments.js).

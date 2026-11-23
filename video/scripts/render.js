@@ -21,12 +21,13 @@ const {bundle} = require("@remotion/bundler");
 const {selectComposition, renderMedia} = require("@remotion/renderer");
 
 const {initFirebase, pickProducts, downloadVideo} = require("./product");
+const {enrichProduct} = require("./product-details");
+const {writeScript} = require("./copywriter");
 const {synthesizeSentences} = require("./tts");
 const {mp4DurationSeconds} = require("./mp4-duration");
 const {buildTimeline} = require("./timeline");
 const {planSourceShots} = require("./scene-cuts");
 const {
-  buildScript,
   speechText,
   captionText,
   formatShekels,
@@ -136,16 +137,25 @@ async function main() {
   );
 
   // ---- 1. תסריט --------------------------------------------------------
+  // קודם משלימים את התיאור והמפרט מאליאקספרס: בלעדיהם כותב התסריט מכיר
+  // רק את שם המוצר, וזה מה שהוציא קריינות על "משמרת לילה" למצלמה.
+  await enrichProduct(product);
+
   // סרטון של 14 שניות לא יכול לשאת קריינות של 26 שניות: בלי התקרה הזאת
   // אותה תנועה חוזרת שלוש פעמים וזה נראה כמו עריכה שבורה.
   const maxSentences = Math.max(
     7,
     Math.round(((videoSeconds || 8) * 1.15) / SENTENCE_SECONDS)
   );
-  const {sentences, keyword} = buildScript(product, {maxSentences});
+  const {sentences, keyword, source, model, reason} = await writeScript(
+    product,
+    {maxSentences}
+  );
   const text = speechText(sentences);
   console.log(
-    `[render] script (${text.length} chars, ${sentences.length}/${maxSentences} sentences, keyword "${keyword}")`
+    `[render] script (${text.length} chars, ${sentences.length}/${maxSentences} sentences, keyword "${keyword}", ${source}${
+      model ? `:${model}` : ""
+    }${reason ? ` — ${reason}` : ""})`
   );
   sentences.forEach((item, index) =>
     console.log(`  ${index + 1}. [${item.role}] ${item.speech} (${item.rate}x)`)
@@ -370,6 +380,9 @@ async function main() {
       keyword
     ),
     script: text,
+    scriptSource: source,
+    scriptModel: model || null,
+    descriptionSource: product.sourceDescription ? "aliexpress" : null,
     sentences,
   };
 

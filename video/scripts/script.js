@@ -36,6 +36,9 @@
  *     עושות ההפסקות שבין המשפטים.
  */
 
+const {EXTRA_FAMILIES, GLOSSARY} = require("./taxonomy");
+const {familyHint} = require("./vocabulary");
+
 // קצב דיבור לכל סוג משפט (speakingRate של Google).
 // 1.0 הוא הקצב של קריין רגוע; ריל מכירה צריך 1.2 ומעלה — אחרת הוא נשמע
 // כמו הקראת טקסט ולא כמו מישהי שמדברת איתכם.
@@ -292,6 +295,9 @@ const FAMILIES = [
   {
     id: "baby",
     core: /תינוק|פעוט|ילדים|baby|toddler|kids/i,
+    // מצלמה או מנטר לתינוק הם קודם כל מצלמה. בלי זה מוצר שמסווג "לתינוק"
+    // קיבל קריינות של משמרות לילה והתעוררויות, במקום מה שהמוצר עושה.
+    not: /מצלמ|מנטר|מוניטור|monitor|camera|בייבימוניטור/i,
     hook: "הלילה שלכם נראה כמו משמרת?",
     pain: ["מתעוררים כל שעה.", "וקמים בבוקר גמורים."],
     reveal: "מוצר קטן שמקל על הלילות בלי שתצטרכו לקום כל שעה.",
@@ -305,6 +311,8 @@ const FAMILIES = [
     reveal: "משחק קטן שהם חוזרים אליו שוב ושוב.",
     keyword: "משחק",
   },
+  // המילון הרחב (כל קטגוריות אליאקספרס) מגיע מ-taxonomy.js.
+  ...EXTRA_FAMILIES,
 ];
 
 // כשהכותרת לא מספקת התאמה: עדיין סרטון עם מבנה מכירתי, בלי להמציא עובדה.
@@ -370,11 +378,25 @@ const FEATURES = [
   {
     id: "power",
     group: "power",
+    // הסוללה היא הסיפור רק במוצרים שבאמת חיים ממנה. במצלמה או במנטר זו
+    // שורה טכנית שלא אומרת כלום, והיא נשמעה כמו קריינות של מוצר אחר.
+    only: [
+      "power",
+      "audio",
+      "stand",
+      "vehicle-light",
+      "light",
+      "grooming",
+      "massage",
+      "computer",
+      "clock",
+      "phone-accessory",
+    ],
     exclude: ["aroma", "kitchen", "organizer", "toys"],
     re: /rechargeable|battery|סוללה|נטען|נטענת|chargeable|usb|טעינה מהירה|fast.?charg|quick.?charg/i,
     speech: [
       "הסוללה נטענת בכבל רגיל.",
-      "אז נגמרו הסוללות שנגמרות באמצע.",
+      "אז אין עוד סוללות שנגמרות באמצע.",
     ],
   },
   {
@@ -598,12 +620,34 @@ function formatShekels(value) {
   })} ₪`;
 }
 
+// תרגום המילים האנגליות מהכותרת של המוכר, כי לרוב דווקא שם כתוב מה
+// המוצר באמת עושה ("night vision", "two way audio") והשם העברי הוא קיצור.
+const GLOSSARY_ENTRIES = Object.entries(GLOSSARY).map(([term, hebrew]) => ({
+  re: new RegExp(
+    `(^|[^a-z])${term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}([^a-z]|$)`,
+    "i"
+  ),
+  hebrew,
+}));
+
+function expandEnglish(text) {
+  const value = String(text || "");
+  if (!value) return "";
+  const found = [];
+  for (const entry of GLOSSARY_ENTRIES) {
+    if (entry.re.test(value)) found.push(...entry.hebrew);
+  }
+  return found.length ? [...new Set(found)].join(" ") : "";
+}
+
 function haystack(product) {
   return [
     product.sourceTitle,
+    expandEnglish(product.sourceTitle),
     product.name,
     product.sourceCategory,
     product.category,
+    product.sourceDescription,
   ]
     .filter(Boolean)
     .join(" | ");
@@ -618,18 +662,44 @@ function familyFor(product) {
   const name = String(product.name || "");
   const title = [
     product.sourceTitle,
+    expandEnglish(product.sourceTitle),
     product.sourceCategory,
     product.category,
   ]
     .filter(Boolean)
     .join(" | ");
 
-  return (
-    FAMILIES.find((family) => family.core.test(name)) ||
-    FAMILIES.find((family) => family.re && family.re.test(name)) ||
-    FAMILIES.find((family) => family.core.test(title)) ||
-    GENERIC_FAMILY
+  // `not` חוסם משפחה שהמילים שלה מופיעות במוצר אבל הן לא מה שהוא. למשל
+  // מנטר תינוק עם הקטגוריה "לתינוק" — הוא לא מוצר תינוק, הוא מצלמה.
+  const usable = (family) =>
+    !(
+      family.not &&
+      (family.not.test(name) || family.not.test(title))
+    );
+
+  const byCore = FAMILIES.find((family) => usable(family) && family.core.test(name));
+  if (byCore) return byCore;
+
+  const byLoose = FAMILIES.find(
+    (family) => usable(family) && family.re && family.re.test(name)
   );
+  if (byLoose) return byLoose;
+
+  const byTitle = FAMILIES.find(
+    (family) => usable(family) && family.core.test(title)
+  );
+  if (byTitle) return byTitle;
+
+  // מה שנלמד מאלפי כותרות אמיתיות של אליאקספרס (corpus/vocabulary.json).
+  const hint = familyHint(haystack(product));
+  if (hint) {
+    const family = FAMILIES.find(
+      (item) => item.id === hint.family && usable(item)
+    );
+    if (family) return family;
+  }
+
+  return GENERIC_FAMILY;
 }
 
 function productFeatures(product, limit = 3, options = {}) {
@@ -849,6 +919,10 @@ module.exports = {
   buildScript,
   speechText,
   captionText,
+  expandEnglish,
+  GLOSSARY,
+  RATES,
+  GAPS_MS,
   formatShekels,
   commentKeyword,
   shekelsSpeech,

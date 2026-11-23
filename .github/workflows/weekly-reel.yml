@@ -104,6 +104,8 @@ jobs:
           ELEVENLABS_SIMILARITY: ${{ secrets.ELEVENLABS_SIMILARITY }}
           ELEVENLABS_SPEED: ${{ secrets.ELEVENLABS_SPEED }}
           ELEVENLABS_FORMAT: ${{ secrets.ELEVENLABS_FORMAT }}
+          # מודל Gemini שכותב את הקריינות (ריק = gemini-2.5-flash).
+          GEMINI_SCRIPT_MODEL: ${{ secrets.GEMINI_SCRIPT_MODEL }}
           SITE_URL: ${{ secrets.SITE_URL }}
         run: node scripts/render.js
 

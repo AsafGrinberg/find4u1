@@ -1,0 +1,70 @@
+name: Build product vocabulary
+
+# בונה את מאגר המילים של הסרטונים מכותרות אמיתיות של אליאקספרס —
+# לכל הקטגוריות. זה לא מפרסם מוצרים ולא נוגע ב-products: הקובץ שנוצר
+# (video/corpus/vocabulary.json) משמש רק לזיהוי נכון יותר של מוצר
+# ולמילים שכותר התסריט מקבל כהקשר.
+#
+# הרצה ידנית: Actions → Build product vocabulary → Run workflow.
+# pages=1 הוא 50 מוצרים לשאילתה; pages=2 כבר 100.
+
+on:
+  workflow_dispatch:
+    inputs:
+      pages:
+        description: "עמודים לכל שאילתה (50 מוצרים בעמוד)"
+        required: false
+        default: "1"
+      queries:
+        description: "שאילתות מופרדות בפסיק (ריק = כל הקטגוריות)"
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+
+jobs:
+  vocabulary:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Build the vocabulary
+        working-directory: video
+        env:
+          ALIEXPRESS_APP_KEY: ${{ secrets.ALIEXPRESS_APP_KEY }}
+          ALIEXPRESS_APP_SECRET: ${{ secrets.ALIEXPRESS_APP_SECRET }}
+          ALIEXPRESS_TRACKING_ID: ${{ secrets.ALIEXPRESS_TRACKING_ID }}
+        env:
+          PAGES: ${{ github.event.inputs.pages || '1' }}
+          QUERIES: ${{ github.event.inputs.queries }}
+        run: |
+          ARGS=(--pages "$PAGES")
+          if [ -n "$QUERIES" ]; then
+            ARGS+=(--queries "$QUERIES")
+          fi
+          node scripts/build-vocabulary.js "${ARGS[@]}"
+
+      - name: Commit the vocabulary
+        run: |
+          if [ ! -f video/corpus/vocabulary.json ]; then
+            echo "No vocabulary was written."
+            exit 1
+          fi
+          git config user.name "find4u-bot"
+          git config user.email "bot@find4u.local"
+          git add video/corpus/vocabulary.json
+          if git diff --cached --quiet; then
+            echo "Vocabulary unchanged."
+            exit 0
+          fi
+          git commit -m "Rebuild the AliExpress product vocabulary"
+          git push

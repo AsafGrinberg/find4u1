@@ -154,7 +154,8 @@
 }
 
 .like,
-.share {
+.share,
+.sound {
   display: grid;
   place-items: center;
   width: 42px;
@@ -172,9 +173,20 @@
 }
 
 .like:hover,
-.share:hover {
+.share:hover,
+.sound:hover {
   transform: translateY(-1px);
   background: rgba(12, 16, 28, 0.6);
+}
+
+/* מתג הרמקול: מתחיל מושתק, לחיצה מדליקה את הקריינות של הסרטון. */
+.sound {
+  font-size: 1.05rem;
+}
+
+.soundOn {
+  border-color: rgba(95, 213, 255, 0.65);
+  background: rgba(95, 213, 255, 0.18);
 }
 
 .liked {

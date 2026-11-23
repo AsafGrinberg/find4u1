@@ -149,18 +149,25 @@ function buildOrder(products, likedIds) {
   return [...ordered, ...older].slice(0, FEED_LIMIT);
 }
 
-// כל מוצר בפיד מתחיל מהסרטון שנמשך מהחנו� (אם יש), ואחריו התמונה הראשית
-// ושאר תמונות הגלריה. הבחירה נשמרת רק בזיכרון של השקופית — מי שיוצא מהפיד
-// וחוזר מתחיל שוב מהסרטון, ולא נתקע על תמונה שראה קודם.
+// כל מוצר בפיד מתחיל בסרטון שה-AI הכין לו (עם קריינות), אחר כך בסרטון של
+// המוכר ואז בתמונות. הסרטון מוביל לדף המוצר ולרכישה, בדיוק כמו שאר הפריט.
+// הבחירה נשמרת רק בזיכרון של השקופית — מי שיוצא מהפיד וחוזר מתחיל שוב
+// מהסרטון, ולא נתקע על תמונה שראה קודם.
+function aiReelUrl(product) {
+  return (product.reel && product.reel.url) || null;
+}
+
 function mediaItemsOf(product) {
   const images = [product.image, ...(product.gallery || [])].filter(Boolean);
   const unique = [...new Set(images)];
   const items = unique.map((src) => ({ type: 'image', src }));
+  const reel = aiReelUrl(product);
   if (product.videoUrl) items.unshift({ type: 'video', src: product.videoUrl });
+  if (reel) items.unshift({ type: 'video', src: reel, reel: true });
   return items;
 }
 
-function FeedMedia({ product, href, near, autoplay }) {
+function FeedMedia({ product, href, near, autoplay, muted }) {
   const items = useMemo(() => mediaItemsOf(product), [product]);
   const [active, setActive] = useState(0);
   const videoRef = useRef(null);
@@ -168,16 +175,19 @@ function FeedMedia({ product, href, near, autoplay }) {
   const isVideo = current && current.type === 'video';
 
   // סרטון מתנגן רק כשהשקופית באמת במרכז, ולא ברקע של השקופיות הסמוכות.
+  // הרמקול בפיד מתחיל מושתק (כמו באינסטגרם) — כל דפדפן חוסם וידאו
+  // אוטומטי עם קול, ולכן הקול נדלק רק בלחיצה של המשתמש.
   useEffect(() => {
     const node = videoRef.current;
     if (!node) return;
+    node.muted = muted;
     if (autoplay) {
       const started = node.play();
       if (started && typeof started.catch === 'function') started.catch(() => {});
     } else {
       node.pause();
     }
-  }, [autoplay, active]);
+  }, [autoplay, active, muted]);
 
   return (
     <>
@@ -195,7 +205,7 @@ function FeedMedia({ product, href, near, autoplay }) {
               className={styles.video}
               src={current.src}
               poster={product.image || undefined}
-              muted
+              muted={muted}
               loop
               playsInline
               preload="metadata"
@@ -220,7 +230,13 @@ function FeedMedia({ product, href, near, autoplay }) {
               key={`${item.type}-${item.src}`}
               type="button"
               className={`${styles.thumb}${position === active ? ` ${styles.thumbActive}` : ''}`}
-              aria-label={item.type === 'video' ? 'סרטון המוצר' : 'תמונת מוצר'}
+              aria-label={
+                item.type === 'video'
+                  ? item.reel
+                    ? 'סרטון AI של המוצר'
+                    : 'סרטון המוצר'
+                  : 'תמונת מוצר'
+              }
               aria-pressed={position === active ? 'true' : 'false'}
               onClick={() => setActive(position)}
             >
@@ -256,6 +272,9 @@ export default function FeedPage({ initialProducts = [] }) {
   );
   const [likesReady, setLikesReady] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
+  // מתג הרמקול של הפיד. ברירת המחדל מושתקת, בדיוק כמו באינסטגרם:
+  // הסרטון מתנגן לבד בלי קול, ולחיצה אחת מדליקה את הקריינות.
+  const [soundOn, setSoundOn] = useState(false);
   const feedRef = useRef(null);
   const orderedOnce = useRef(false);
 
@@ -385,6 +404,7 @@ export default function FeedPage({ initialProducts = [] }) {
                   // תמונה נטענת רק בסמוך לשקופית הנוכחית, כדי שהפיד לא יוריד
                   // 120 תמונות בבת אחת.
                   const near = Math.abs(index - activeIndex) <= 2;
+                  const hasVideo = Boolean(aiReelUrl(product) || product.videoUrl);
 
                   return (
                     <section
@@ -397,10 +417,23 @@ export default function FeedPage({ initialProducts = [] }) {
                         href={productHref(product)}
                         near={near}
                         autoplay={index === activeIndex}
+                        muted={!soundOn}
                       />
 
                       <div className={styles.topRow}>
                         <div className={styles.topActions}>
+                          {hasVideo ? (
+                            <button
+                              type="button"
+                              className={`${styles.sound}${soundOn ? ` ${styles.soundOn}` : ''}`}
+                              aria-label={soundOn ? 'השתק את הסרטון' : 'הפעל קול'}
+                              aria-pressed={soundOn ? 'true' : 'false'}
+                              onClick={() => setSoundOn((current) => !current)}
+                            >
+                              {soundOn ? '🔊' : '🔇'}
+                            </button>
+                          ) : null}
+
                           <button
                             type="button"
                             className={`${styles.like}${liked ? ` ${styles.liked}` : ''}`}

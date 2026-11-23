@@ -77,6 +77,10 @@ function toProduct(doc) {
     // נדרש לקופירייטר: מכאן מזהים את היתרונות האמיתיים של המוצר.
     sourceTitle: String(data.sourceTitle || "").trim(),
     sourceCategory: String(data.sourceCategory || "").trim(),
+    // התיאור והמפרט הארוכים מאליאקספרס (product-details.js ממלא אותם).
+    sourceDescription: String(data.sourceDescription || "").trim(),
+    specs: Array.isArray(data.sourceSpecs) ? data.sourceSpecs : [],
+    brand: data.brand || null,
     category:
       (Array.isArray(data.category) && data.category[0]) || "מוצרים מומלצים",
     price: toNumber(data.price),
@@ -88,6 +92,9 @@ function toProduct(doc) {
     link: data.link || "",
     images: imageList(data),
     videoUrl: String(data.videoUrl || "").trim(),
+    // הסרטון שהפייפליין ייצר למוצר (עם קריינות). הוא זה שמוביל מהפיד
+    // לדף המוצר, בניגוד לסרטון המקורי של המוכר.
+    reel: data.reel || null,
     videoPublishedAt: data.videoPublishedAt || null,
   };
 }

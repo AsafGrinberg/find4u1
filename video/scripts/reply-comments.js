@@ -239,11 +239,16 @@ function productUrl(link) {
   return null;
 }
 
+// ביוטיוב שורטס הלינק בתגובה אינו לחיץ (מדיניות של יוטיוב), ולכן כל תגובה
+// כוללת גם את כתובת האתר בטקסט רגיל — אותה אפשר להקליד או להעתיק בקלות.
+const SITE_DOMAIN = SITE_URL.replace(/^https?:\/\//, "");
+
 function replyText(link) {
   return shortenUrl(productUrl(link) || "").then((url) => {
     const name = String(link.productName || "").trim();
     if (!url) return name || "המוצר שלנו באתר Find4U";
-    return name ? `${name} 👉 ${url}` : `הלינק לרכישה 👉 ${url}`;
+    const head = name ? `${name}\n` : "";
+    return `${head}🛒 ${url}\n🌐 ${SITE_DOMAIN}`;
   });
 }
 
@@ -252,7 +257,7 @@ function replyText(link) {
 async function infoText(link) {
   const url = await shortenUrl(productUrl(link) || "");
   return url
-    ? `כל הפרטים והמחירים של המוצר מופיעים בדף המוצר שלנו 👉 ${url}`
+    ? `כל הפרטים והמחירים של המוצר מופיעים בדף המוצר שלנו 👉 ${url}\n🌐 ${SITE_DOMAIN}`
     : "כל הפרטים והמחירים של המוצר מופיעים בדף המוצר באתר Find4U";
 }
 
