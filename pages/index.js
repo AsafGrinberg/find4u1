@@ -323,9 +323,12 @@ export default function Home({ initialProducts = [], initialCategories = [] }) {
               <h2 className="section-title">
                 {isSearching ? 'תוצאות חיפוש' : 'כל המוצרים שלנו'}
               </h2>
-              <span className="section-count">
-                {filteredProducts.length} מוצרים
-              </span>
+              {/* בקטלוג ריק לא מציגים "0 מוצרים" ליד הכותרת. */}
+              {!loading && filteredProducts.length > 0 ? (
+                <span className="section-count">
+                  {filteredProducts.length} מוצרים
+                </span>
+              ) : null}
             </div>
 
             {loading ? (

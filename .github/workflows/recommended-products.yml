@@ -1,9 +1,10 @@
 name: Recommended products (hourly)
 
 on:
-  # הריצה ההורלית מושהית בזמן איפוס הקטלוג. להפעלה מחדש: להחזיר את שורת ה-cron.
-  # schedule:
-  #   - cron: "0 * * * *"
+  # כל שעה בעגלה: פונה לפיילייט API של אליאקספרס, לוקח 3 זוויות חיפוש,
+  # שומר מוצרים ל-Firestore (האתר) ומפרסם לטלגרם.
+  schedule:
+    - cron: "0 * * * *"
   workflow_dispatch:
 
 permissions:
