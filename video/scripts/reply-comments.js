@@ -22,12 +22,23 @@
  *   YOUTUBE_CLIENT_ID=... YOUTUBE_CLIENT_SECRET=... YOUTUBE_REFRESH_TOKEN=... \
  *   node scripts/reply-comments.js
  *
- * בדיקה בלי לשלוח כלום: DRY_RUN=1 node scripts/reply-comments.js
+ * בדיקה בלי לשלוח כלום:
+ *   node scripts/reply-comments.js --dry-run
+ * (ב-Windows CMD אין DRY_RUN=1 לפני הפקודה — לכן יש דגל.)
+ *
+ * את YOUTUBE_* אפשר לשים ב-video/.env; הסקריפט טוען אותו לבד.
+ * אם חסרים פרטי לקוח, אפשר גם GOOGLE_CLIENT_SECRET_FILE=<client_secret.json>.
+ *
+ * בלי שום הגדרה מקומית אפשר להריץ את ה-workflow
+ * "YouTube comment replies" ידנית מ-GitHub Actions עם dry_run=true.
  *
  * דורש הרשאת youtube.force-ssl בטוקן (auth-token.js מבקש אותה).
  */
 
-const {initFirebase} = require("./product");
+const fs = require("fs");
+const {loadEnvFile, truthy} = require("./env");
+
+loadEnvFile();
 
 const API = "https://www.googleapis.com/youtube/v3";
 const SITE_URL = (process.env.SITE_URL || "https://find4u.vercel.app").replace(
@@ -38,18 +49,38 @@ const SITE_URL = (process.env.SITE_URL || "https://find4u.vercel.app").replace(
 const MAX_REPLIES = Number(process.env.REPLY_MAX_PER_RUN || 30);
 const MAX_AGE_DAYS = Number(process.env.REPLY_MAX_AGE_DAYS || 30);
 const VIDEO_LIMIT = Number(process.env.REPLY_VIDEOS || 25);
-const DRY_RUN = process.env.DRY_RUN === "1";
+const ARGV = process.argv.slice(2);
+const DRY_RUN = ARGV.includes("--dry-run") || truthy(process.env.DRY_RUN);
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+// פרטי הלקוח: משתני סביבה, או קובץ client_secret שהורד מגוגל.
+function clientCredentials() {
+  let clientId = process.env.YOUTUBE_CLIENT_ID;
+  let clientSecret = process.env.YOUTUBE_CLIENT_SECRET;
+  if (clientId && clientSecret) return {clientId, clientSecret};
+
+  const file = process.env.GOOGLE_CLIENT_SECRET_FILE;
+  if (file && fs.existsSync(file)) {
+    const json = JSON.parse(fs.readFileSync(file, "utf8"));
+    const block = json.installed || json.web || json;
+    clientId = clientId || block.client_id;
+    clientSecret = clientSecret || block.client_secret;
+  }
+
+  return {clientId, clientSecret};
+}
+
 async function accessToken() {
-  const clientId = process.env.YOUTUBE_CLIENT_ID;
-  const clientSecret = process.env.YOUTUBE_CLIENT_SECRET;
+  const {clientId, clientSecret} = clientCredentials();
   const refreshToken = process.env.YOUTUBE_REFRESH_TOKEN;
 
   if (!clientId || !clientSecret || !refreshToken) {
     throw new Error(
-      "YOUTUBE_CLIENT_ID / YOUTUBE_CLIENT_SECRET / YOUTUBE_REFRESH_TOKEN are missing"
+      "חסרים YOUTUBE_CLIENT_ID / YOUTUBE_CLIENT_SECRET / YOUTUBE_REFRESH_TOKEN. " +
+        "בהרצה מקומית שימו אותם ב-video/.env (או GOOGLE_CLIENT_SECRET_FILE לפרטי הלקוח), " +
+        "או הריצו את ה-workflow \"YouTube comment replies\" ידנית מ-GitHub Actions — " +
+        "שם הסודות כבר מוגדרים."
     );
   }
 
@@ -142,6 +173,8 @@ function videoIdOf(url) {
 
 async function openStore() {
   try {
+    // נטען רק כאן, כדי שבדיקת dry-run מקומית תעבוד גם בלי firebase-admin מותקן.
+    const {initFirebase} = require("./product");
     const db = initFirebase();
     const answered = db.collection("answeredComments");
     const links = db.collection("videoLinks");

@@ -30,23 +30,9 @@ const fs = require("fs");
 const http = require("http");
 const path = require("path");
 const {URL} = require("url");
+const {loadEnvFile} = require("./env");
 
-const VIDEO_DIR = path.join(__dirname, "..");
-
-// טוען video/.env ידנית. אין כאן תלות חיצונית, ומשתנה סביבה אמיתי תמיד
-// גובר על מה שכתוב בקובץ.
-function loadEnvFile(file) {
-  if (!fs.existsSync(file)) return;
-  for (const line of fs.readFileSync(file, "utf8").split(/\r?\n/)) {
-    const match = /^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=(.*)$/.exec(line);
-    if (!match) continue;
-    const key = match[1];
-    const value = match[2].trim().replace(/^["']|["']$/g, "");
-    if (!process.env[key]) process.env[key] = value;
-  }
-}
-
-loadEnvFile(path.join(VIDEO_DIR, ".env"));
+loadEnvFile();
 
 const PORT = Number(process.env.OAUTH_PORT || 53682);
 const REDIRECT = `http://127.0.0.1:${PORT}/callback`;
@@ -164,7 +150,13 @@ async function youtube() {
       state,
     }).toString();
 
-  console.log(`redirect URI שצריך להיות רשום באפליקציה: ${REDIRECT}`);
+  console.log(`redirect URI (רק לאפליקציה מסוג Web application): ${REDIRECT}`);
+  console.log(
+    "באפליקציה מסוג Desktop (כמו Find4UDesktopapp) אין צורך לרשום redirect URI — פשוט אשרו בדפדפן."
+  );
+  console.log(
+    "הדף /callback נפתח על ידי הסקריפט הזה שרץ כרגע. אם הוא לא נטען — לא לפתוח את הכתובת ידנית אחרי שהסקריפט נסגר."
+  );
   openAuthUrl(authUrl);
   const code = await waitForCode(state);
 
