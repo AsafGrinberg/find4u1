@@ -28,6 +28,7 @@ import {
   dedupeProducts,
   filterProducts,
   sortProducts,
+  withoutUnavailable,
   SITE_URL,
 } from '../../lib/urls';
 import ProductCard from '../../components/ProductCard';
@@ -60,7 +61,7 @@ export async function getStaticProps({ params }) {
   const name = categoryNameFromSlug(params.slug, names) || ALL_PRODUCTS;
   const isAll = name === ALL_PRODUCTS;
 
-  const all = dedupeProducts(products);
+  const all = withoutUnavailable(dedupeProducts(products));
   const items = isAll
     ? all
     : all.filter((product) => categoriesOf(product).includes(name));
@@ -131,7 +132,7 @@ export default function CategoryPage({
   }, []);
 
   const visible = useMemo(() => {
-    const all = dedupeProducts(products);
+    const all = withoutUnavailable(dedupeProducts(products));
     const inCategory = isAll
       ? all
       : all.filter((product) => categoriesOf(product).includes(categoryName));

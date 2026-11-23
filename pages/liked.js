@@ -7,6 +7,7 @@ import { collection, deleteDoc, doc, getDocs, increment, updateDoc } from 'fireb
 import { auth, db } from '../firebase/firebase-config';
 import { fetchProducts } from '../lib/products.module';
 import { readGuestLikes, toggleGuestLike } from '../lib/likes';
+import { withoutUnavailable } from '../lib/urls';
 import ProductCard from '../components/ProductCard';
 
 export default function LikedPage() {
@@ -20,7 +21,7 @@ export default function LikedPage() {
 
     fetchProducts().then((data) => {
       if (cancelled) return;
-      setProducts(data);
+      setProducts(withoutUnavailable(data));
       setLoading(false);
     });
 

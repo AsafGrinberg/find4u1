@@ -437,6 +437,222 @@ async function refreshMissingGalleries({limit = 300, batchSize = 50} = {}) {
   return {scanned: snapshot.size, pending: pending.length, updated: updated};
 }
 
+// ---------------------------------------------------------------------
+// Availability: hide products that AliExpress no longer sells
+// ---------------------------------------------------------------------
+
+// דירוג של מוצר חלופי: דירוג גבוה, מכירות אמיתיות והנחה — כמו בחירת המוצרים.
+function availabilityScore(doc) {
+  const rating = toNumber(doc.get("rating")) || 0;
+  const sales = toNumber(doc.get("sales")) || 0;
+  const discount = toNumber(doc.get("discountPercent")) || 0;
+  return rating * 2 + Math.log10(sales + 1) + discount / 20;
+}
+
+// מוצר חלופי: אותו מוצר מבחינת קטגוריה, שעדיין זמין ויש לו קישור לרכישה.
+function replacementFor(doc, pool) {
+  const categories = []
+    .concat(doc.get("category") || [])
+    .map((name) => String(name).trim())
+    .filter(Boolean);
+
+  const candidates = pool.filter((other) => {
+    if (other.id === doc.id) return false;
+    if (!other.get("link") || !other.get("slug")) return false;
+    const otherCategories = []
+      .concat(other.get("category") || [])
+      .map((name) => String(name).trim());
+    return categories.some((name) => otherCategories.includes(name));
+  });
+
+  if (candidates.length === 0) return null;
+  candidates.sort((a, b) => availabilityScore(b) - availabilityScore(a));
+  const best = candidates[0];
+  return {
+    id: best.id,
+    slug: best.get("slug"),
+    name: best.get("name") || "",
+    url: siteProductUrl(best.get("slug")),
+    link: best.get("link") || "",
+  };
+}
+
+/**
+ * בודק אילו מוצרים בקטלוג עדיין קיימים באליאקספרס.
+ * מוצר שלא חוזר מקריאת productdetail.get מסומן unavailable (האתר מסתיר אותו
+ * ומציע מוצר חלופי), והפוסטים שלו ביוטיוב מקבלים את הלינק החלופי.
+ * אם המוצר חוזר להיות זמין — הסימון מוסר אוטומטית.
+ */
+async function checkProductAvailability({limit = 300, batchSize = 50} = {}) {
+  const snapshot = await db()
+    .collection("products")
+    .orderBy("postedAt", "desc")
+    .limit(limit)
+    .get();
+
+  const docs = snapshot.docs.filter((doc) =>
+    String(doc.get("sourceId") || "").trim()
+  );
+  const bySourceId = new Map(
+    docs.map((doc) => [String(doc.get("sourceId")).trim(), doc])
+  );
+  const ids = [...bySourceId.keys()];
+
+  const gone = new Set();
+  const alive = new Set();
+
+  for (let start = 0; start < ids.length; start += batchSize) {
+    const batch = ids.slice(start, start + batchSize);
+    let details = [];
+    try {
+      details = await productDetails(batch);
+    } catch (error) {
+      console.error(
+        `[availability] detail call failed (${start}-${start + batch.length}): ${error.message}`
+      );
+      continue;
+    }
+
+    const returned = new Set(
+      details.map((item) => String((item && item.product_id) || "")).filter(Boolean)
+    );
+
+    // תשובה ריקה על קבוצה שלמה היא כמעט תמיד תקלה זמנית, לא מחיקה של הכול.
+    if (returned.size === 0) {
+      console.warn(
+        `[availability] empty answer for ${batch.length} products — skipped this batch`
+      );
+      continue;
+    }
+
+    batch.forEach((id) => {
+      if (returned.has(id)) alive.add(id);
+      else gone.add(id);
+    });
+  }
+
+  console.log(
+    `[availability] checked ${ids.length}, alive ${alive.size}, missing ${gone.size}`
+  );
+
+  const now = new Date().toISOString();
+  // החלופה חייבת להיות מוצר שעדיין קיים — לא מוצר אחר שנמחק באותה ריצה.
+  const pool = snapshot.docs.filter(
+    (doc) =>
+      !doc.get("unavailable") &&
+      doc.get("link") &&
+      alive.has(String(doc.get("sourceId") || "").trim())
+  );
+  const hidden = [];
+  const restored = [];
+  let telegramRemoved = 0;
+
+  for (const sourceId of gone) {
+    const doc = bySourceId.get(sourceId);
+    if (!doc || doc.get("unavailable")) continue;
+
+    const replacement = replacementFor(doc, pool);
+    const update = {
+      unavailable: true,
+      unavailableAt: now,
+      lastCheckedAt: now,
+    };
+    if (replacement) {
+      update.replacementId = replacement.id;
+      update.replacementSlug = replacement.slug;
+      update.replacementName = replacement.name;
+      update.replacementUrl = replacement.url;
+      update.replacementLink = replacement.link;
+    }
+
+    await doc.ref.set(update, {merge: true});
+
+    // כל סרטון יוטיוב שמפנה למוצר הזה יקבל את הלינק החלופי בתגובות.
+    try {
+      const links = await db()
+        .collection("videoLinks")
+        .where("productId", "==", doc.id)
+        .get();
+      for (const link of links.docs) {
+        await link.ref.set(
+          {
+            broken: true,
+            brokenAt: now,
+            replacementSlug: replacement ? replacement.slug : null,
+            replacementUrl: replacement ? replacement.url : null,
+            replacementLink: replacement ? replacement.link : null,
+          },
+          {merge: true}
+        );
+      }
+    } catch (error) {
+      console.error(
+        `[availability] videoLinks update failed for ${doc.id}: ${error.message}`
+      );
+    }
+
+    // פוסטים בטלגרם אפשר למחוק רק אם הם צעירים מ־48 שעות; הישנים נשארים.
+    const messageIds = Array.isArray(doc.get("telegramMessageIds"))
+      ? doc.get("telegramMessageIds")
+      : [];
+    for (const messageId of messageIds) {
+      try {
+        await telegramRequest("deleteMessage", {
+          chat_id: TELEGRAM_CHANNEL,
+          message_id: messageId,
+        });
+        telegramRemoved += 1;
+      } catch (error) {
+        console.warn(
+          `[availability] telegram message ${messageId} not deleted (probably older than 48h): ${error.message}`
+        );
+      }
+    }
+
+    hidden.push({
+      id: doc.id,
+      name: doc.get("name"),
+      replacement: replacement ? replacement.slug : null,
+    });
+  }
+
+  // מוצר שחזר להופיע ב-API — מסירים ממנו את סימון החוסר.
+  for (const sourceId of alive) {
+    const doc = bySourceId.get(sourceId);
+    if (!doc || !doc.get("unavailable")) continue;
+
+    const cleared = {
+      unavailable: false,
+      restoredAt: now,
+      lastCheckedAt: now,
+      replacementId: admin.firestore.FieldValue.delete(),
+      replacementSlug: admin.firestore.FieldValue.delete(),
+      replacementName: admin.firestore.FieldValue.delete(),
+      replacementUrl: admin.firestore.FieldValue.delete(),
+      replacementLink: admin.firestore.FieldValue.delete(),
+      unavailableAt: admin.firestore.FieldValue.delete(),
+    };
+    await doc.ref.set(cleared, {merge: true});
+    restored.push({id: doc.id, name: doc.get("name")});
+  }
+
+  if (hidden.length > 0) {
+    console.log(`[availability] hidden: ${JSON.stringify(hidden)}`);
+  }
+  if (restored.length > 0) {
+    console.log(`[availability] restored: ${JSON.stringify(restored)}`);
+  }
+
+  return {
+    checked: ids.length,
+    alive: alive.size,
+    missing: gone.size,
+    hidden: hidden.length,
+    restored: restored.length,
+    telegramRemoved: telegramRemoved,
+  };
+}
+
 async function buildAffiliateLink(product) {
   if (product.promotion_link) return product.promotion_link;
 
@@ -852,7 +1068,7 @@ async function postProductToTelegram(product, affiliateLink, nameHe, slug) {
   const video = productVideoUrl(product);
   if (video) {
     try {
-      await telegramRequest("sendMediaGroup", {
+      const messages = await telegramRequest("sendMediaGroup", {
         chat_id: TELEGRAM_CHANNEL,
         media: [
           {
@@ -864,7 +1080,9 @@ async function postProductToTelegram(product, affiliateLink, nameHe, slug) {
           {type: "video", media: video, supports_streaming: true},
         ],
       });
-      return;
+      return (Array.isArray(messages) ? messages : [])
+        .map((message) => message && message.message_id)
+        .filter(Boolean);
     } catch (error) {
       console.error(
         `[recommended] album failed for ${product.product_id}: ${error.message}`
@@ -872,7 +1090,7 @@ async function postProductToTelegram(product, affiliateLink, nameHe, slug) {
     }
   }
 
-  await telegramRequest("sendPhoto", {
+  const message = await telegramRequest("sendPhoto", {
     chat_id: TELEGRAM_CHANNEL,
     photo: mainImage(product),
     caption: caption,
@@ -885,6 +1103,9 @@ async function postProductToTelegram(product, affiliateLink, nameHe, slug) {
         }
       : undefined,
   });
+
+  // מחזירים את מזהי ההודעות כדי שאפשר יהיה למחוק פוסט של מוצר שנמחק.
+  return message && message.message_id ? [message.message_id] : [];
 }
 
 // ---------------------------------------------------------------------
@@ -1253,7 +1474,18 @@ async function runRecommendedProducts() {
 
     // מוצר שנשמר אבל לא עלה לטלגרם לא אמור להפיל את כל הריצה.
     try {
-      await postProductToTelegram(product, affiliateLink, nameHe, slug);
+      const messageIds = await postProductToTelegram(
+        product,
+        affiliateLink,
+        nameHe,
+        slug
+      );
+      if (Array.isArray(messageIds) && messageIds.length > 0) {
+        await db()
+          .collection("products")
+          .doc(`aliexpress_${product.product_id}`)
+          .set({telegramMessageIds: messageIds}, {merge: true});
+      }
     } catch (error) {
       console.error(
         `[recommended] telegram post failed for ${product.product_id}: ${error.message}`
@@ -1311,6 +1543,7 @@ async function runRecommendedProducts() {
 module.exports = {
   runRecommendedProducts,
   refreshMissingGalleries,
+  checkProductAvailability,
   __test: {
     searchProducts,
     isRecommended,

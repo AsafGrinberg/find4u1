@@ -432,6 +432,26 @@ export default function ProductPage({ initialProduct }) {
                 </p>
               ) : null}
 
+              {product.unavailable ? (
+                <div className={styles.unavailableNote}>
+                  <strong>המוצר הזה כבר לא זמין באליאקספרס</strong>
+                  <span>
+                    ייתכן שהמוכר הסיר אותו מהמכירה. אפשר לעבור למוצר חלופי דומה
+                    שעדיין זמין.
+                  </span>
+                  {product.replacementSlug ? (
+                    <Link
+                      href={`/product/${encodeURIComponent(
+                        product.replacementSlug
+                      )}`}
+                      className={styles.unavailableLink}
+                    >
+                      למוצר החלופי ←
+                    </Link>
+                  ) : null}
+                </div>
+              ) : null}
+
               <div className={styles.priceCard}>
                 <div className={styles.priceRow}>
                   <span className={styles.price}>
@@ -449,15 +469,17 @@ export default function ProductPage({ initialProduct }) {
                   ) : null}
                 </div>
 
-                <a
-                  href={goHref(product)}
-                  target="_blank"
-                  rel="noopener noreferrer sponsored"
-                  className={styles.buyBtn}
-                >
-                  לרכישה מאליאקספרס
-                  <span aria-hidden="true">←</span>
-                </a>
+                {product.unavailable ? null : (
+                  <a
+                    href={goHref(product)}
+                    target="_blank"
+                    rel="noopener noreferrer sponsored"
+                    className={styles.buyBtn}
+                  >
+                    לרכישה מאליאקספרס
+                    <span aria-hidden="true">←</span>
+                  </a>
+                )}
 
                 <div className={styles.secondaryRow}>
                   <button

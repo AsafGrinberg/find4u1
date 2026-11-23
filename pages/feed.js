@@ -26,6 +26,7 @@ import {
   productHref,
   productUrl,
   sortProducts,
+  withoutUnavailable,
   SITE_URL,
 } from '../lib/urls';
 import ShareButton from '../components/ShareButton';
@@ -95,7 +96,9 @@ function tokensOf(product) {
  * לתחומים שאהבת, כדי שהפיד לא יהפוך למעגל סגור.
  */
 function buildOrder(products, likedIds) {
-  const pool = dedupeProducts(products).filter((product) => product.image);
+  const pool = withoutUnavailable(dedupeProducts(products)).filter(
+    (product) => product.image
+  );
   if (pool.length === 0) return [];
 
   const seen = new Set(readSeen());
@@ -151,7 +154,9 @@ export default function FeedPage({ initialProducts = [] }) {
   const [likedProducts, setLikedProducts] = useState(new Set());
   const [items, setItems] = useState(() =>
     sortProducts(
-      dedupeProducts(initialProducts).filter((product) => product.image),
+      withoutUnavailable(dedupeProducts(initialProducts)).filter(
+        (product) => product.image
+      ),
       'bestsellers'
     ).slice(0, FEED_LIMIT)
   );

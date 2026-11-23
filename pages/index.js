@@ -24,6 +24,7 @@ import {
   dedupeProducts,
   filterProducts,
   sortProducts,
+  withoutUnavailable,
   SITE_URL,
 } from '../lib/urls';
 import ProductCard from '../components/ProductCard';
@@ -112,7 +113,10 @@ export default function Home({ initialProducts = [], initialCategories = [] }) {
     return () => unsubscribe();
   }, []);
 
-  const base = useMemo(() => dedupeProducts(products), [products]);
+  const base = useMemo(
+    () => withoutUnavailable(dedupeProducts(products)),
+    [products]
+  );
 
   const searched = useMemo(() => {
     const term = searchTerm.trim();

@@ -3,6 +3,7 @@ import {
   categoriesOf,
   findProductByParam,
   productSlug,
+  SITE_URL,
 } from '../../lib/urls';
 
 // דף מעבר לקישור האפיליאטיבי. הוא מאפשר לספור הקלקות בלי לגעת בקישור עצמו,
@@ -62,7 +63,27 @@ export async function getServerSideProps({ params, req }) {
   const products = await fetchProductsServer();
   const product = findProductByParam(products, params.id);
 
-  if (!product || !product.link) {
+  if (!product) {
+    return { notFound: true };
+  }
+
+  // מוצר שנמחק מהחנות: לא שולחים את הגולש ללינק מת, אלא למוצר החלופי.
+  if (product.unavailable) {
+    const fallback =
+      product.replacementLink ||
+      (product.replacementSlug
+        ? `${SITE_URL}/product/${encodeURIComponent(product.replacementSlug)}`
+        : `${SITE_URL}/product/${encodeURIComponent(productSlug(product))}`);
+
+    return {
+      redirect: {
+        destination: fallback,
+        permanent: false,
+      },
+    };
+  }
+
+  if (!product.link) {
     return { notFound: true };
   }
 

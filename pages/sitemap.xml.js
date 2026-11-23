@@ -8,6 +8,7 @@ import {
   collectCategoryNames,
   dedupeProducts,
   productSlug,
+  withoutUnavailable,
   SITE_URL,
 } from '../lib/urls';
 import { fetchProductsServer, fetchCategoriesServer } from '../lib/firestore-server';
@@ -48,7 +49,7 @@ export async function getServerSideProps({ res }) {
       fetchCategoriesServer(),
     ]);
 
-    const list = dedupeProducts(products);
+    const list = withoutUnavailable(dedupeProducts(products));
 
     collectCategoryNames(categories, list)
       .filter((name) => name !== ALL_PRODUCTS)

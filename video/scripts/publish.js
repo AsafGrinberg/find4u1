@@ -27,6 +27,7 @@ const {initFirebase, markVideoPublished} = require("./product");
 const VIDEO_DIR = path.join(__dirname, "..");
 const META_FILE = path.join(VIDEO_DIR, "out", "reel.json");
 const REEL_FILE = path.join(VIDEO_DIR, "out", "reel.mp4");
+const YT_API = "https://www.googleapis.com/youtube/v3";
 const GRAPH = "https://graph.facebook.com/v21.0";
 const GRAPH_VIDEO = "https://graph-video.facebook.com/v21.0";
 const TIKTOK = "https://open.tiktokapis.com/v2";
@@ -371,6 +372,47 @@ async function publishYouTube(meta, caption) {
   };
 }
 
+// תגובה ראשונה מתחת לסרטון, עם הלינק לרכישה. היא נשמרת ב-videoLinks כדי
+// שג'וב המענה לתגובות יוכל לערוך אותה אם המוצר יימחק מהחנות.
+async function postFirstComment(meta) {
+  if (!youtubeConfigured() || process.env.SKIP_YOUTUBE === "1") return null;
+  if (!meta.link) {
+    console.log("[publish] no affiliate link on the product — no first comment");
+    return null;
+  }
+
+  const token = await youtubeAccessToken();
+  const text = `${meta.productName || "המוצר"} 👉 ${meta.link}`;
+  const response = await fetch(
+    `${YT_API}/commentThreads?part=snippet`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json; charset=UTF-8",
+      },
+      body: JSON.stringify({
+        snippet: {
+          videoId: meta.youtubeId,
+          topLevelComment: {snippet: {textOriginal: text}},
+        },
+      }),
+    }
+  );
+  const json = await response.json().catch(() => ({}));
+  if (!response.ok || json.error) {
+    throw new Error(
+      `YouTube comment: ${response.status} ${JSON.stringify(
+        json.error || json
+      ).slice(0, 300)}`
+    );
+  }
+
+  const commentId = json.snippet?.topLevelComment?.id || json.id || null;
+  console.log(`[publish] YouTube first comment: ${commentId}`);
+  return commentId;
+}
+
 // ---- TikTok ------------------------------------------------------------
 function tiktokConfigured() {
   return Boolean(
@@ -617,6 +659,17 @@ async function main() {
   await run("youtube", () => publishYouTube(meta, caption));
   await run("tiktok", () => publishTikTok(meta, caption));
 
+  // הלינק לרכישה בתגובה הראשונה — רק כשיש סרטון יוטיוב ולינק שותפים.
+  let firstCommentId = null;
+  if (results.youtube && results.youtube.ok && results.youtube.id) {
+    try {
+      meta.youtubeId = results.youtube.id;
+      firstCommentId = await postFirstComment(meta);
+    } catch (error) {
+      console.warn(`[publish] first comment skipped: ${error.message}`);
+    }
+  }
+
   if (channels.length === 0) {
     console.error(
       "[publish] nothing was published — the video stays in out/ and the product is not marked."
@@ -654,6 +707,9 @@ async function main() {
             keyword: meta.keyword || null,
             slug,
             url: `${SITE_URL}/product/${encodeURIComponent(slug)}`,
+            affiliateUrl: meta.link || null,
+            firstCommentId: firstCommentId,
+            broken: false,
             updatedAt: new Date().toISOString(),
           },
           {merge: true}

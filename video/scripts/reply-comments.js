@@ -191,7 +191,14 @@ async function openStore() {
       },
       async linkFor(videoId) {
         const doc = await links.doc(String(videoId)).get();
-        return doc.exists ? doc.data() : null;
+        return doc.exists ? {...doc.data(), ref: doc.ref} : null;
+      },
+      // כל התגובות שאנחנו כתבנו על הסרטון (כדי לערוך את הלינק כשהמוצר נמחק).
+      async repliesFor(videoId) {
+        const snapshot = await answered
+          .where("videoId", "==", String(videoId))
+          .get();
+        return snapshot.docs.map((item) => item.data());
       },
     };
   } catch (error) {
@@ -201,16 +208,21 @@ async function openStore() {
     );
     const seen = new Set();
     const links = new Map();
+    const rows = [];
     return {
       persistent: false,
       async alreadyAnswered(commentId) {
         return seen.has(String(commentId));
       },
-      async remember(commentId) {
+      async remember(commentId, data) {
         seen.add(String(commentId));
+        if (data) rows.push(data);
       },
       async linkFor(videoId) {
         return links.get(String(videoId)) || null;
+      },
+      async repliesFor(videoId) {
+        return rows.filter((row) => String(row.videoId) === String(videoId));
       },
       _links: links,
     };
@@ -227,6 +239,83 @@ function replyText(link) {
   const url = productUrl(link);
   const name = String(link.productName || "").trim();
   return name ? `${name} 👉 ${url}` : `הלינק לרכישה 👉 ${url}`;
+}
+
+// מוצר שנמחק: מפנים למוצר החלופי במקום ללינק מת. בלי חלופה — לעמוד באתר,
+// שמציג שהמוצר לא זמין.
+function replyTarget(link) {
+  if (link.broken && (link.replacementUrl || link.replacementLink)) {
+    return {
+      url: link.replacementUrl || link.replacementLink,
+      productName: link.productName,
+    };
+  }
+  return link;
+}
+
+async function editComment(token, commentId, text) {
+  await api(
+    token,
+    "comments",
+    {part: "snippet"},
+    {
+      method: "PUT",
+      body: JSON.stringify({id: commentId, snippet: {textOriginal: text}}),
+    }
+  );
+}
+
+/**
+ * אם המוצר של הסרטון נמחק מהחנות — מעדכנים את הלינק בתגובה הראשונה
+ * ובכל התגובות שכתבנו בעבר על אותו סרטון, פעם אחת בלבד (repairedAt).
+ */
+async function repairBrokenLinks(token, store, link) {
+  if (!link.broken) return;
+  if (!(link.replacementUrl || link.replacementLink)) return;
+  if (link.repairedAt) return;
+
+  const text = replyText(replyTarget(link));
+  const ids = [];
+
+  if (link.firstCommentId) ids.push(link.firstCommentId);
+  try {
+    const rows = await store.repliesFor(link.videoId);
+    rows.forEach((row) => {
+      if (row && row.replyId) ids.push(row.replyId);
+    });
+  } catch (error) {
+    console.warn(`[reply] could not load old replies: ${error.message}`);
+  }
+
+  let edited = 0;
+  for (const commentId of [...new Set(ids)]) {
+    if (DRY_RUN) {
+      console.log(`[reply] DRY_RUN would edit ${commentId}: ${text}`);
+      edited += 1;
+      continue;
+    }
+    try {
+      await editComment(token, commentId, text);
+      edited += 1;
+    } catch (error) {
+      console.warn(`[reply] edit ${commentId} failed — ${error.message}`);
+    }
+    await sleep(400);
+  }
+
+  if (edited > 0) {
+    console.log(
+      `[reply] ${link.videoId}: replaced a broken link with the replacement product (${edited} comments)`
+    );
+  }
+
+  if (!DRY_RUN && link.ref) {
+    await link.ref
+      .set({repairedAt: new Date().toISOString(), repairedComments: edited}, {
+        merge: true,
+      })
+      .catch(() => {});
+  }
 }
 
 async function main() {
@@ -255,6 +344,15 @@ async function main() {
       console.log(`[reply] ${videoId}: no product mapping (skipped)`);
       continue;
     }
+
+    // מוצר שנמחק — מתקנים קודם את הלינקים בתגובות הקיימות.
+    try {
+      await repairBrokenLinks(token, store, link);
+    } catch (error) {
+      console.warn(`[reply] ${videoId}: link repair failed — ${error.message}`);
+    }
+
+    const target = replyTarget(link);
 
     let pageToken = null;
     do {
@@ -298,7 +396,7 @@ async function main() {
 
         if (await store.alreadyAnswered(commentId)) continue;
 
-        const text = replyText(link);
+        const text = replyText(target);
         if (DRY_RUN) {
           console.log(`[reply] DRY_RUN would answer ${commentId}: ${text}`);
           replied += 1;

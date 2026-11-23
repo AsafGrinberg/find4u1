@@ -337,6 +337,8 @@ async function main() {
     rating: product.rating,
     sales: product.sales,
     slug: product.slug,
+    // קישור השותפים לרכישה — משמש לתגובה הראשונה מתחת לסרטון ביוטיוב.
+    link: product.link || null,
     sourceVideo: product.videoUrl,
     sourceVideoSeconds: videoSeconds ? Number(videoSeconds.toFixed(2)) : null,
     sourceShots: shots.map((shot) => ({

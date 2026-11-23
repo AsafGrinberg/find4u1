@@ -17,6 +17,7 @@ import {
   priceDropped,
   productHref,
   productUrl,
+  withoutUnavailable,
   SITE_URL,
 } from '../lib/urls';
 import ShareButton from '../components/ShareButton';
@@ -41,7 +42,7 @@ function writeAlerted(value) {
 
 export async function getServerSideProps() {
   const products = await fetchProductsServer();
-  const drops = dedupeProducts(products)
+  const drops = withoutUnavailable(dedupeProducts(products))
     .filter(priceDropped)
     .sort((a, b) => (b.previousPrice - b.price) - (a.previousPrice - a.price))
     .slice(0, 60);
@@ -59,7 +60,7 @@ export default function AlertsPage({ initialDrops = [] }) {
 
     fetchProducts().then((data) => {
       if (cancelled || !data.length) return;
-      const fromClient = dedupeProducts(data)
+      const fromClient = withoutUnavailable(dedupeProducts(data))
         .filter(priceDropped)
         .sort((a, b) => (b.previousPrice - b.price) - (a.previousPrice - a.price))
         .slice(0, 60);
