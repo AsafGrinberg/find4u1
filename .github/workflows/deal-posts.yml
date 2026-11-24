@@ -1,0 +1,62 @@
+name: Telegram deal posts
+
+# שלושה פוסטי דילים ביום לערוץ הטלגרם, מתוך הקטלוג שלנו.
+# דיל = מוצר אמיתי שהמחיר שלו באמת ירד (price מול originalPrice), עם
+# קישור הרכישה שלנו וכפתור לדף המוצר. אין כאן קופונים מומצאים:
+# קופון רשמי של אליאקספרס מוצג רק אם מדביקים אותו בסוד DEAL_COUPON_TEXT.
+#
+# סודות נדרשים:
+#   FIREBASE_SERVICE_ACCOUNT, TELEGRAM_BOT_TOKEN, TELEGRAM_CHANNEL
+# אופציונלי:
+#   DEAL_COUPON_TEXT     טקסט הקופון הרשמי (קוד + תנאי + תוקף), שורות עם \n
+#   DEALS_PER_RUN        ברירת מחדל 2
+#   DEAL_MIN_DISCOUNT    ברירת מחדל 25 (%)
+#   DEAL_MAX_PRICE       ברירת מחדל 250 (₪)
+#   DEAL_REPEAT_DAYS     ברירת מחדל 4 — אותו מוצר לא חוזר לפני כן
+#   DEALS_DRY_RUN=1      הדפסה בלי לשלוח (לבדיקה ידנית)
+
+on:
+  schedule:
+    # 08:00 / 13:00 / 18:00 UTC = 10:00 / 15:00 / 20:00 בישראל בחורף
+    - cron: "0 8,13,18 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deal-posts
+  cancel-in-progress: false
+
+jobs:
+  deals:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install dependencies
+        working-directory: functions
+        run: npm install --no-audit --no-fund
+
+      - name: Post deals to Telegram
+        working-directory: functions
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHANNEL: ${{ secrets.TELEGRAM_CHANNEL }}
+          SITE_URL: ${{ secrets.SITE_URL }}
+          DEAL_COUPON_TEXT: ${{ secrets.DEAL_COUPON_TEXT }}
+          DEALS_PER_RUN: ${{ secrets.DEALS_PER_RUN }}
+          DEAL_MIN_DISCOUNT: ${{ secrets.DEAL_MIN_DISCOUNT }}
+          DEAL_MAX_PRICE: ${{ secrets.DEAL_MAX_PRICE }}
+          DEAL_REPEAT_DAYS: ${{ secrets.DEAL_REPEAT_DAYS }}
+          DEALS_DRY_RUN: ${{ secrets.DEALS_DRY_RUN }}
+        run: node run-deals.js

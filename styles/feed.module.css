@@ -215,6 +215,13 @@
   color: #fff;
 }
 
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-self: flex-start;
+}
+
 .category {
   align-self: flex-start;
   padding: 4px 10px;
@@ -222,6 +229,17 @@
   background: rgba(255, 255, 255, 0.16);
   font-size: 0.72rem;
   font-weight: 600;
+  letter-spacing: 0.2px;
+}
+
+/* תג על כרטיס הסרטון, כדי שיהיה ברור שזה אותו מוצר אבל פוסט אחר. */
+.reelTag {
+  align-self: flex-start;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(255, 95, 143, 0.9);
+  font-size: 0.72rem;
+  font-weight: 700;
   letter-spacing: 0.2px;
 }
 

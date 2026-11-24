@@ -1545,6 +1545,12 @@ module.exports = {
   refreshMissingGalleries,
   checkProductAvailability,
   __test: {
+    aliexpressCall,
+    productDetails,
+    buildAffiliateLink,
+    saveProduct,
+    slugFor,
+    translateToHebrew,
     searchProducts,
     isRecommended,
     mainImage,

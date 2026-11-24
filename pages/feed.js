@@ -1,7 +1,7 @@
 import Head from 'next/head';
 import Image from 'next/image';
 import Link from 'next/link';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
 import {
   collection,
@@ -149,45 +149,76 @@ function buildOrder(products, likedIds) {
   return [...ordered, ...older].slice(0, FEED_LIMIT);
 }
 
-// כל מוצר בפיד מתחיל בסרטון שה-AI הכין לו (עם קריינות), אחר כך בסרטון של
-// המוכר ואז בתמונות. הסרטון מוביל לדף המוצר ולרכישה, בדיוק כמו שאר הפריט.
-// הבחירה נשמרת רק בזיכרון של השקופית — מי שיוצא מהפיד וחוזר מתחיל שוב
-// מהסרטון, ולא נתקע על תמונה שראה קודם.
+// כל מוצר שהפייפליין הכין לו סרטון AI מקבל שני כרטיסים בפיד: קודם הסרטון
+// כפוסט בפני עצמו, ואחר כך כרטיס המוצר הרגיל. כך הסרטון לא נבלע בגלריית
+// התמונות של המוצר — הוא נראה כמו עוד פוסט על אותו מוצר, ומוביל לאותו דף
+// מוצר ולאותו לינק רכישה.
 function aiReelUrl(product) {
   return (product.reel && product.reel.url) || null;
 }
 
+// כרטיס המוצר לא כולל את סרטון ה-AI: הוא כבר עומד בפני עצמו.
 function mediaItemsOf(product) {
   const images = [product.image, ...(product.gallery || [])].filter(Boolean);
   const unique = [...new Set(images)];
   const items = unique.map((src) => ({ type: 'image', src }));
-  const reel = aiReelUrl(product);
   if (product.videoUrl) items.unshift({ type: 'video', src: product.videoUrl });
-  if (reel) items.unshift({ type: 'video', src: reel, reel: true });
   return items;
 }
 
-function FeedMedia({ product, href, near, autoplay, muted }) {
-  const items = useMemo(() => mediaItemsOf(product), [product]);
+// כרטיס הסרטון מציג רק את הסרטון, בלי תמונות המוצר שמתחתיו.
+function slidesOf(products) {
+  const slides = [];
+
+  products.forEach((product) => {
+    const reel = aiReelUrl(product);
+    if (reel) {
+      slides.push({
+        key: `${product.id}::reel`,
+        kind: 'reel',
+        product,
+        items: [{ type: 'video', src: reel, reel: true }],
+      });
+    }
+
+    const items = mediaItemsOf(product);
+    if (items.length > 0) {
+      slides.push({ key: product.id, kind: 'product', product, items });
+    }
+  });
+
+  return slides;
+}
+
+function FeedMedia({ product, items, href, near, autoplay, muted, onSoundBlocked }) {
   const [active, setActive] = useState(0);
   const videoRef = useRef(null);
   const current = items[Math.min(active, items.length - 1)];
   const isVideo = current && current.type === 'video';
 
   // סרטון מתנגן רק כשהשקופית באמת במרכז, ולא ברקע של השקופיות הסמוכות.
-  // הרמקול בפיד מתחיל מושתק (כמו באינסטגרם) — כל דפדפן חוסם וידאו
-  // אוטומטי עם קול, ולכן הקול נדלק רק בלחיצה של המשתמש.
   useEffect(() => {
     const node = videoRef.current;
     if (!node) return;
     node.muted = muted;
-    if (autoplay) {
-      const started = node.play();
-      if (started && typeof started.catch === 'function') started.catch(() => {});
-    } else {
+    if (!autoplay) {
       node.pause();
+      return;
     }
-  }, [autoplay, active, muted]);
+
+    const started = node.play();
+    if (started && typeof started.catch === 'function') {
+      started.catch(() => {
+        // הדפדפן חוסם ניגון אוטומטי עם קול (מדיניות של כל הדפדפנים).
+        // ממשיכים בהשתקה ומעדכנים את הכפתור, כדי שהוא לא יראה "קול דלוק"
+        // בזמן שהסרטון בפועל מושתק.
+        if (node.muted) return;
+        node.muted = true;
+        node.play().catch(() => {});
+        if (onSoundBlocked) onSoundBlocked();
+      });
+    }
+  }, [autoplay, active, muted, onSoundBlocked]);
 
   return (
     <>
@@ -272,11 +303,15 @@ export default function FeedPage({ initialProducts = [] }) {
   );
   const [likesReady, setLikesReady] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
-  // מתג הרמקול של הפיד. ברירת המחדל מושתקת, בדיוק כמו באינסטגרם:
-  // הסרטון מתנגן לבד בלי קול, ולחיצה אחת מדליקה את הקריינות.
-  const [soundOn, setSoundOn] = useState(false);
+  // הסרטונים בפיד מתחילים עם קול. אם הדפדפן חוסם ניגון אוטומטי עם קול —
+  // הסרטון ממשיך מושתק והכפתור מתעדכן, ולחיצה אחת מדליקה את הקריינות.
+  const [soundOn, setSoundOn] = useState(true);
+  const handleSoundBlocked = useCallback(() => setSoundOn(false), []);
   const feedRef = useRef(null);
   const orderedOnce = useRef(false);
+
+  // כל מוצר עם סרטון AI מופיע פעמיים: כסרטון וככרטיס מוצר.
+  const slides = useMemo(() => slidesOf(items), [items]);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
@@ -323,12 +358,12 @@ export default function FeedPage({ initialProducts = [] }) {
     const handleScroll = () => {
       const height = container.clientHeight || 1;
       const next = Math.round(container.scrollTop / height);
-      setActiveIndex(Math.max(0, Math.min(items.length - 1, next)));
+      setActiveIndex(Math.max(0, Math.min(slides.length - 1, next)));
     };
 
     container.addEventListener('scroll', handleScroll, { passive: true });
     return () => container.removeEventListener('scroll', handleScroll);
-  }, [items.length]);
+  }, [slides.length]);
 
   async function toggleLike(productId) {
     if (!user) {
@@ -392,7 +427,8 @@ export default function FeedPage({ initialProducts = [] }) {
           ) : (
             <>
               <div className={styles.feed} ref={feedRef}>
-                {items.map((product, index) => {
+                {slides.map((slide, index) => {
+                  const product = slide.product;
                   const price = formatPrice(product.price);
                   const original = formatPrice(product.originalPrice);
                   const hasDiscount =
@@ -408,16 +444,18 @@ export default function FeedPage({ initialProducts = [] }) {
 
                   return (
                     <section
-                      key={product.id}
+                      key={slide.key}
                       className={styles.slide}
                       aria-label={product.name || 'מוצר'}
                     >
                       <FeedMedia
                         product={product}
+                        items={slide.items}
                         href={productHref(product)}
                         near={near}
                         autoplay={index === activeIndex}
                         muted={!soundOn}
+                        onSoundBlocked={handleSoundBlocked}
                       />
 
                       <div className={styles.topRow}>
@@ -458,11 +496,16 @@ export default function FeedPage({ initialProducts = [] }) {
                       </div>
 
                       <div className={styles.info}>
-                        {categories.length > 0 ? (
-                          <span className={styles.category}>
-                            {categoryLabel(categories[0])}
-                          </span>
-                        ) : null}
+                        <div className={styles.tags}>
+                          {categories.length > 0 ? (
+                            <span className={styles.category}>
+                              {categoryLabel(categories[0])}
+                            </span>
+                          ) : null}
+                          {slide.kind === 'reel' ? (
+                            <span className={styles.reelTag}>סרטון AI</span>
+                          ) : null}
+                        </div>
 
                         <h2 className={styles.title}>
                           <Link href={productHref(product)}>{product.name}</Link>
