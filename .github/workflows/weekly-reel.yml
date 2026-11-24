@@ -154,6 +154,12 @@ jobs:
           TIKTOK_MODE: ${{ secrets.TIKTOK_MODE }}
           TIKTOK_PRIVACY: ${{ secrets.TIKTOK_PRIVACY }}
           SITE_URL: ${{ secrets.SITE_URL }}
+          # חתימת הרשתות בכל פוסט (טלגרם/אינסטגרם/פייסבוק/יוטיוב).
+          SOCIAL_TELEGRAM: ${{ secrets.SOCIAL_TELEGRAM }}
+          SOCIAL_INSTAGRAM: ${{ secrets.SOCIAL_INSTAGRAM }}
+          SOCIAL_FACEBOOK: ${{ secrets.SOCIAL_FACEBOOK }}
+          SOCIAL_YOUTUBE: ${{ secrets.SOCIAL_YOUTUBE }}
+          SKIP_FACEBOOK: ${{ secrets.SKIP_FACEBOOK }}
         run: node scripts/publish.js
 
       - name: Keep the rendered file as an artifact

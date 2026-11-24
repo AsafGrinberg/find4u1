@@ -1042,10 +1042,17 @@ function dealFieldsOf(product, affiliateLink, nameHe, slug) {
   };
 }
 
-async function postProductToTelegram(product, affiliateLink, nameHe, slug) {
+async function postProductToTelegram(
+  product,
+  affiliateLink,
+  nameHe,
+  slug,
+  signature
+) {
   const {dealMessage} = require("./deals");
   const {caption, keyboard} = dealMessage(
-    dealFieldsOf(product, affiliateLink, nameHe, slug)
+    dealFieldsOf(product, affiliateLink, nameHe, slug),
+    {signature}
   );
   const reply_markup =
     keyboard.length > 0 ? {inline_keyboard: keyboard} : undefined;
@@ -1449,11 +1456,17 @@ async function runRecommendedProducts() {
 
     // מוצר שנשמר אבל לא עלה לטלגרם לא אמור להפיל את כל הריצה.
     try {
+      const socials = require("./socials");
+      const telegramSignature = await socials.signature({
+        skip: ["telegram"],
+        style: "html",
+      });
       const messageIds = await postProductToTelegram(
         product,
         affiliateLink,
         nameHe,
-        slug
+        slug,
+        telegramSignature
       );
       if (Array.isArray(messageIds) && messageIds.length > 0) {
         await db()
@@ -1464,6 +1477,38 @@ async function runRecommendedProducts() {
     } catch (error) {
       console.error(
         `[recommended] telegram post failed for ${product.product_id}: ${error.message}`
+      );
+    }
+
+    // אותו מוצר עולה גם לדף הפייסבוק — פוסט עם כל הפרטים + תגובה ראשונה
+    // של הדף עם אותם פרטים. כישלון בפייסבוק לא מפיל את המוצר.
+    try {
+      const facebook = require("./facebook");
+      const socials = require("./socials");
+      const {dealMessage} = require("./deals");
+      const signature = await socials.signature({skip: ["facebook"]});
+      const text = dealMessage(
+        dealFieldsOf(product, affiliateLink, nameHe, slug),
+        {format: "text", signature}
+      ).caption;
+      const post = await facebook.publish({
+        message: text,
+        comment: text,
+        image: mainImage(product),
+        link: affiliateLink,
+      });
+      if (post.ok) {
+        await db()
+          .collection("products")
+          .doc(`aliexpress_${product.product_id}`)
+          .set({facebookPostIds: [post.id]}, {merge: true});
+        console.log(`[recommended] facebook post ${post.id}`);
+      } else {
+        console.warn(`[recommended] facebook skipped: ${post.reason}`);
+      }
+    } catch (error) {
+      console.error(
+        `[recommended] facebook post failed for ${product.product_id}: ${error.message}`
       );
     }
 

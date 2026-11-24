@@ -172,12 +172,23 @@ function dealScore(product, now = Date.now()) {
 }
 
 /**
- * הכיתוב של הפוסט.
- * link      — הקישור שמוטמע בשם המוצר ובכפתור (קישור השותפים האמיתי).
+ * הכיתוב של הפוסט — אותה כותרת בדיוק בכל הרשתות, בשני פורמטים:
+ *   html  — לטלגרם (קישור בשם, הדגשה, מחיר עם פס).
+ *   plain — לפייסבוק ולאינסטגרם, שאין בהן HTML.
+ *
+ * link        — הקישור שמוטמע בשם המוצר ובכפתור (קישור השותפים האמיתי).
  * displayLink — מה שמודפס כטקסט מתחת ל-BUY NOW (מקוצר אם צריך).
  */
-function dealCaption(product, link, displayLink) {
-  const name = escapeHtml(product.name);
+function dealCaption(product, link, displayLink, options = {}) {
+  const plain = Boolean(options.plain);
+  const bold = (value) => (plain ? String(value) : `<b>${value}</b>`);
+  const strike = (value) => (plain ? String(value) : `<s>${value}</s>`);
+  const anchor = (href, text) =>
+    plain ? String(text) : `<a href="${escapeHtml(href)}">${text}</a>`;
+
+  const name = plain
+    ? String(product.name || "")
+    : escapeHtml(product.name);
   const price = shekels(product.price);
   const original = shekels(product.originalPrice);
   const discount = discountOf(product);
@@ -187,16 +198,21 @@ function dealCaption(product, link, displayLink) {
   const target = String(link || product.link || "");
   const visible = String(displayLink || target);
 
-  const lines = ["🔥 <b>דיל של השעה</b>", ""];
+  const lines = [`🔥 ${bold("דיל של השעה")}`, ""];
 
   lines.push(
-    target ? `<a href="${escapeHtml(target)}"><b>${name}</b></a>` : `<b>${name}</b>`
+    target ? anchor(target, bold(name)) : bold(name)
   );
 
   if (price && original && Number(product.originalPrice) > Number(product.price)) {
-    lines.push(`🟡 <b>${price}</b> <s>${original}</s> 🟡`);
+    // בפורמט טקסט אין קו חוצה, ולכן כותבים "במקום" במפורש.
+    lines.push(
+      plain
+        ? `🟡 ${price} במקום ${original} 🟡`
+        : `🟡 ${bold(price)} ${strike(original)} 🟡`
+    );
   } else if (price) {
-    lines.push(`🟡 <b>${price}</b> 🟡`);
+    lines.push(`🟡 ${bold(price)} 🟡`);
   }
   if (discount > 0) lines.push(`📉 ${discount}% הנחה`);
 
@@ -212,17 +228,18 @@ function dealCaption(product, link, displayLink) {
   }
 
   if (COUPON_TEXT) {
-    lines.push("", "🎟️ <b>קופון רשמי של אליאקספרס:</b>");
-    lines.push(escapeHtml(COUPON_TEXT));
+    lines.push("", `🎟️ ${bold("קופון רשמי של אליאקספרס:")}`);
+    lines.push(plain ? COUPON_TEXT : escapeHtml(COUPON_TEXT));
   }
 
   lines.push("🚚 משלוח לישראל");
 
   if (target) {
-    lines.push("", "👇 <b>BUY NOW ON ALIEXPRESS</b> 👇");
-    lines.push(
-      `<a href="${escapeHtml(target)}">${escapeHtml(shortLinkText(visible))}</a>`
-    );
+    lines.push("", `👇 ${bold("BUY NOW ON ALIEXPRESS")} 👇`);
+    // בטלגרם הקישור המלא יושב בהיפר-קישור, ולכן די בהתחלה שלו. בפייסבוק
+    // אין קישור נסתר — חייבים להדפיס את הכתובת השלמה, אחרת היא לא לחיצה.
+    const shown = shortLinkText(plain ? target : visible);
+    lines.push(anchor(target, plain ? shown : escapeHtml(shown)));
   }
 
   return lines.join("\n").trim();
@@ -336,7 +353,9 @@ function dealKeyboard(fields = {}) {
  * מוצר מהקטלוג שלנו, מוצר שיובא מערוץ מתחרה, או מוצר שיובא מאליאקספרס.
  * כל הפוסטים בטלגרם עוברים כאן, כדי שלא יהיו שני פורמטים שונים.
  */
-function dealMessage(fields = {}) {
+function dealMessage(fields = {}, options = {}) {
+  const plain = options.format === "text";
+  const signature = String(options.signature || "").trim();
   const link = String(fields.link || "").trim();
   const site = String(fields.site || "").trim();
   const display = clip(shortLinkText(link), VISIBLE_LINK_MAX);
@@ -353,18 +372,26 @@ function dealMessage(fields = {}) {
           rating: fields.rating,
         },
         link,
-        display
+        display,
+        {plain}
       ),
-      site ? `🔗 <a href="${escapeHtml(site)}">דף המוצר באתר Find4U</a>` : "",
+      site
+        ? plain
+          ? `🔗 דף המוצר באתר Find4U: ${site}`
+          : `🔗 <a href="${escapeHtml(site)}">דף המוצר באתר Find4U</a>`
+        : "",
+      plain ? "📍 כל המידע והמחירים אפשר למצוא בדף המוצר" : "",
+      signature,
     ]
       .filter(Boolean)
       .join("\n\n");
 
   // אסור לחתוך את הכיתוב עצמו: חיתוך באמצע תגית שובר את ה-HTML וטלגרם
   // דוחה את כל הפוסט ("Unclosed start tag"). מקצרים את שם המוצר במקום.
+  const limit = plain ? 4000 : CAPTION_TEXT_LIMIT;
   let nameMax = 160;
   let caption = build(nameMax);
-  while (visibleLength(caption) > CAPTION_TEXT_LIMIT && nameMax > 20) {
+  while (visibleLength(caption) > limit && nameMax > 20) {
     nameMax = Math.floor(nameMax * 0.7);
     caption = build(nameMax);
   }
@@ -372,8 +399,10 @@ function dealMessage(fields = {}) {
   return {caption, keyboard: dealKeyboard({link, site, name: fields.name})};
 }
 
-async function postDeal(product, links) {
-  const {caption, keyboard} = dealMessage({
+// שדות הפוסט מתוך מוצר בקטלוג — משמש גם את טלגרם וגם את פייסבוק, כדי
+// ששני הפוסטים יציגו בדיוק את אותם מספרים.
+function dealFieldsOfProduct(product, links) {
+  return {
     name: product.name,
     price: product.price,
     originalPrice: product.originalPrice,
@@ -382,6 +411,12 @@ async function postDeal(product, links) {
     rating: product.rating,
     link: links.affiliate,
     site: siteUrlOf(product),
+  };
+}
+
+async function postDeal(product, links, signature) {
+  const {caption, keyboard} = dealMessage(dealFieldsOfProduct(product, links), {
+    signature,
   });
 
   const message = await telegramApi("sendPhoto", {
@@ -401,6 +436,15 @@ async function postDeal(product, links) {
  */
 async function runDealPosts(firestore) {
   const handle = await describeChannel();
+
+  // חתימת הרשתות: בטלגרם בלי טלגרם, בפייסבוק בלי פייסבוק.
+  const socials = require("./socials");
+  const facebook = require("./facebook");
+  const telegramSignature = await socials.signature({
+    skip: ["telegram"],
+    style: "html",
+  });
+  const facebookSignature = await socials.signature({skip: ["facebook"]});
 
   const snapshot = await firestore
     .collection("products")
@@ -451,20 +495,55 @@ async function runDealPosts(firestore) {
     }
 
     try {
-      const messageId = await postDeal(product, links);
+      const messageId = await postDeal(product, links, telegramSignature);
+
+      // אותו מוצר בדיוק עולה גם לדף הפייסבוק: פוסט עם הפרטים + תגובה
+      // ראשונה של הדף עם אותם פרטים ולינקים. כשל בפייסבוק לא מפיל את
+      // הפוסט בטלגרם.
+      let facebookPost = null;
+      try {
+        const fields = dealFieldsOfProduct(product, links);
+        const text = dealMessage(fields, {
+          format: "text",
+          signature: facebookSignature,
+        }).caption;
+        facebookPost = await facebook.publish({
+          message: text,
+          comment: text,
+          image: product.image,
+          link: links.affiliate,
+        });
+        if (!facebookPost.ok) {
+          console.warn(`[deals] facebook skipped: ${facebookPost.reason}`);
+        }
+      } catch (error) {
+        console.warn(`[deals] facebook failed for ${product.id}: ${error.message}`);
+        facebookPost = null;
+      }
+
       await product.ref.set(
         {
           dealPostedAt: new Date().toISOString(),
           dealMessageIds: [messageId].filter(Boolean),
+          ...(facebookPost && facebookPost.ok && facebookPost.id
+            ? {facebookPostIds: [facebookPost.id]}
+            : {}),
         },
         {merge: true}
       );
       const link = messageLinkOf(handle, messageId);
       console.log(
         `[deals] posted ${product.id} | ${product.name} | message ${messageId}` +
-          (link ? ` | ${link}` : "")
+          (link ? ` | ${link}` : "") +
+          (facebookPost && facebookPost.ok ? ` | facebook ${facebookPost.id}` : "")
       );
-      posted.push({id: product.id, name: product.name, messageId, link});
+      posted.push({
+        id: product.id,
+        name: product.name,
+        messageId,
+        link,
+        facebookId: facebookPost && facebookPost.ok ? facebookPost.id : null,
+      });
       if (category) usedCategories.add(category);
     } catch (error) {
       console.error(`[deals] failed for ${product.id}: ${error.message}`);

@@ -62,4 +62,16 @@ jobs:
           DEAL_MAX_PRICE: ${{ secrets.DEAL_MAX_PRICE }}
           DEAL_REPEAT_DAYS: ${{ secrets.DEAL_REPEAT_DAYS }}
           DEALS_DRY_RUN: ${{ secrets.DEALS_DRY_RUN }}
+          # אותו פוסט עולה גם לדף הפייסבוק (פוסט + תגובה ראשונה של הדף).
+          # בלי הסודות האלה הפייסבוק פשוט מדולג והטלגרם ממשיך לעבוד.
+          FB_PAGE_ID: ${{ secrets.FB_PAGE_ID }}
+          FB_PAGE_ACCESS_TOKEN: ${{ secrets.FB_PAGE_ACCESS_TOKEN }}
+          IG_USER_ID: ${{ secrets.IG_USER_ID }}
+          IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
+          SKIP_FACEBOOK: ${{ secrets.SKIP_FACEBOOK }}
+          # חתימת הרשתות בתחתית הפוסט (אפשר לקבוע קישור ידני).
+          SOCIAL_TELEGRAM: ${{ secrets.SOCIAL_TELEGRAM }}
+          SOCIAL_INSTAGRAM: ${{ secrets.SOCIAL_INSTAGRAM }}
+          SOCIAL_FACEBOOK: ${{ secrets.SOCIAL_FACEBOOK }}
+          SOCIAL_YOUTUBE: ${{ secrets.SOCIAL_YOUTUBE }}
         run: node run-deals.js

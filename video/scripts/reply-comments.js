@@ -41,6 +41,7 @@
 const fs = require("fs");
 const {loadEnvFile, truthy} = require("./env");
 const {shortenUrl} = require("./short");
+const socials = require("../../functions/socials");
 
 loadEnvFile();
 
@@ -243,22 +244,35 @@ function productUrl(link) {
 // כוללת גם את כתובת האתר בטקסט רגיל — אותה אפשר להקליד או להעתיק בקלות.
 const SITE_DOMAIN = SITE_URL.replace(/^https?:\/\//, "");
 
-function replyText(link) {
-  return shortenUrl(productUrl(link) || "").then((url) => {
-    const name = String(link.productName || "").trim();
-    if (!url) return name || "המוצר שלנו באתר Find4U";
-    const head = name ? `${name}\n` : "";
-    return `${head}🛒 ${url}\n🌐 ${SITE_DOMAIN}`;
-  });
+async function replyText(link) {
+  const url = await shortenUrl(productUrl(link) || "");
+  const signature = await socials.signature({skip: ["youtube"]});
+  const name = String(link.productName || "").trim();
+  if (!url) return name || "המוצר שלנו באתר Find4U";
+  return [
+    name,
+    `🛒 ${url}`,
+    `🌐 ${SITE_DOMAIN}`,
+    "📍 כל המידע והמחירים של המוצר אפשר למצוא בדף המוצר",
+    signature,
+  ]
+    .filter(Boolean)
+    .join("\n");
 }
 
 // תשובה למי שמגיב על התגובה שלנו עם הלינק. הוא יכול לשאול כל דבר, ולכן
 // במקום לנסות לנחש — מפנים אותו לדף המוצר, שבו כל הפרטים.
 async function infoText(link) {
   const url = await shortenUrl(productUrl(link) || "");
-  return url
-    ? `כל הפרטים והמחירים של המוצר מופיעים בדף המוצר שלנו 👉 ${url}\n🌐 ${SITE_DOMAIN}`
-    : "כל הפרטים והמחירים של המוצר מופיעים בדף המוצר באתר Find4U";
+  const signature = await socials.signature({skip: ["youtube"]});
+  const lines = url
+    ? [
+        `כל המידע והמחירים של המוצר אפשר למצוא בדף המוצר שלנו 👉 ${url}`,
+        `🌐 ${SITE_DOMAIN}`,
+      ]
+    : ["כל המידע והמחירים של המוצר אפשר למצוא בדף המוצר באתר Find4U"];
+  if (signature) lines.push(signature);
+  return lines.join("\n");
 }
 
 // מוצר שנמחק: מפנים למוצר החלופי במקום ללינק מת. בלי חלופה — לעמוד באתר,
@@ -458,6 +472,11 @@ async function main() {
 
     const target = replyTarget(link);
 
+    // מונים לכל סרטון — כדי שבלוג יהיה אפשר לראות מיד אם הסרטון בכלל
+    // נסרק, אם התגובה שלנו נמצאה, ואם היו תגובות שהשארנו בלי מענה.
+    let threadsSeen = 0;
+    let threadsWithOurs = 0;
+
     let pageToken = null;
     do {
       let threads;
@@ -482,6 +501,7 @@ async function main() {
         const snippet = top?.snippet || {};
         const commentId = top?.id || thread.id;
         scanned += 1;
+        threadsSeen += 1;
 
         // תגובה שלי — לא עונים לעצמי.
         if (snippet.authorChannelId?.value === channelId) continue;
@@ -493,6 +513,7 @@ async function main() {
           (item) => item.snippet?.authorChannelId?.value === channelId
         );
         if (ours.length > 0) {
+          threadsWithOurs += 1;
           for (const ourComment of ours) {
             if (replied >= MAX_REPLIES) break;
             try {
@@ -558,6 +579,11 @@ async function main() {
 
       pageToken = threads.nextPageToken || null;
     } while (pageToken && replied < MAX_REPLIES);
+
+    console.log(
+      `[reply] ${videoId}: threads ${threadsSeen}, with our comment ${threadsWithOurs}, ` +
+        `total replies so far ${replied}`
+    );
   }
 
   console.log(

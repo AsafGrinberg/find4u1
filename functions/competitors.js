@@ -215,22 +215,45 @@ async function resolveShortLink(url, hops = 0) {
 // הכיתוב נכתב אצלנו מהנתונים של אליאקספרס. שום טקסט של המתחרה לא מועתק.
 // הפורמט עצמו מגיע מ-deals.js — שם מוצר לחיץ, מחיר עם פס, אימוג'ים,
 // BUY NOW וקישור s.click.aliexpress.com, בדיוק כמו בכל שאר הפוסטים.
-function importMessage(product) {
+function importMessage(product, options = {}) {
   const {dealMessage} = require("./deals");
-  return dealMessage({
-    name: product.name,
-    price: product.price,
-    originalPrice: product.originalPrice,
-    discountPercent: product.discountPercent,
-    sales: product.sales,
-    rating: product.rating,
+  return dealMessage(
+    {
+      name: product.name,
+      price: product.price,
+      originalPrice: product.originalPrice,
+      discountPercent: product.discountPercent,
+      sales: product.sales,
+      rating: product.rating,
+      link: product.link,
+      site: siteUrlOf(product),
+    },
+    options
+  );
+}
+
+// אותו מוצר עולה גם לדף הפייסבוק: פוסט עם כל הפרטים + תגובה ראשונה של
+// הדף עם אותם פרטים ולינקים.
+async function postImportToFacebook(product) {
+  const facebook = require("./facebook");
+  const socials = require("./socials");
+  const signature = await socials.signature({skip: ["facebook"]});
+  const text = importMessage(product, {format: "text", signature}).caption;
+  return facebook.publish({
+    message: text,
+    comment: text,
+    image: product.image,
     link: product.link,
-    site: siteUrlOf(product),
   });
 }
 
 async function postImport(product) {
-  const {caption, keyboard} = importMessage(product);
+  const socials = require("./socials");
+  const signature = await socials.signature({
+    skip: ["telegram"],
+    style: "html",
+  });
+  const {caption, keyboard} = importMessage(product, {signature});
 
   const message = await telegramApi("sendPhoto", {
     chat_id: TELEGRAM_CHANNEL,
@@ -398,6 +421,19 @@ async function publishCandidate(firestore, candidate) {
       },
       {merge: true}
     );
+  }
+
+  // גם לפייסבוק — באותו תוכן בדיוק.
+  try {
+    const facebookPost = await postImportToFacebook(saved);
+    if (facebookPost.ok) {
+      await ref.set({facebookPostIds: [facebookPost.id]}, {merge: true});
+      console.log(`[import] facebook post ${facebookPost.id}`);
+    } else {
+      console.warn(`[import] facebook skipped: ${facebookPost.reason}`);
+    }
+  } catch (error) {
+    console.error(`[import] facebook failed for ${docId}: ${error.message}`);
   }
 
   return {docId, created: true, posted: Boolean(messageId), messageId};

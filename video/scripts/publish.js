@@ -24,6 +24,10 @@ const fs = require("fs");
 const path = require("path");
 const {initFirebase, markVideoPublished} = require("./product");
 const {shortenUrl} = require("./short");
+// חתימת הרשתות ופרסום לפייסבוק יושבים ב-functions/, כי אותם פוסטים עולים
+// גם מהפייפליין של טלגרם — כדי שכל הרשתות ייראו אותו דבר.
+const socials = require("../../functions/socials");
+const facebookPage = require("../../functions/facebook");
 
 const VIDEO_DIR = path.join(__dirname, "..");
 const META_FILE = path.join(VIDEO_DIR, "out", "reel.json");
@@ -59,7 +63,7 @@ function hashtag(value) {
   return clean ? `#${clean}` : "";
 }
 
-function captionWithTags(meta) {
+function hashtags(meta) {
   const tags = [
     "#find4u",
     "#עליאקספרס",
@@ -76,8 +80,58 @@ function captionWithTags(meta) {
     "#reels",
   ].filter(Boolean);
 
-  const unique = [...new Set(tags)];
-  return `${meta.caption}\n\n${unique.join(" ")}`.trim();
+  return [...new Set(tags)].join(" ");
+}
+
+// הפוסט עצמו (מהתסריט) בלי שורת ההאשטגים שבסופו — כדי שאפשר להוסיף פרטי
+// מוצר, קישורים וחתימת רשתות לפני ההאשטגים ולא אחריהם.
+function captionBody(meta) {
+  const lines = String(meta.caption || "")
+    .trim()
+    .split("\n");
+  while (lines.length > 0 && /^\s*#/.test(lines[lines.length - 1])) {
+    lines.pop();
+  }
+  return lines.join("\n").trim();
+}
+
+// מחיר, הנחה, קישור לרכישה וקישור לדף המוצר — אותם פרטים בכל רשת.
+// prices: false כשהתוכן עצמו כבר כולל את המחיר וההנחה (אינסטגרם/פייסבוק),
+// כדי שלא יופיעו פעמיים.
+function productDetails(meta, links, options = {}) {
+  const price = shekels(meta.price);
+  const original = shekels(meta.originalPrice);
+  const discount = Math.round(Number(meta.discount) || 0);
+  const withPrices = options.prices !== false;
+  const lines = [];
+
+  if (withPrices && price) {
+    lines.push(
+      original && Number(meta.originalPrice) > Number(meta.price)
+        ? `🟡 ${price} במקום ${original}`
+        : `🟡 ${price}`
+    );
+  }
+  if (withPrices && discount > 0) lines.push(`📉 ${discount}% הנחה`);
+  if (links.affiliate) lines.push(`🛒 לרכישה: ${links.affiliate}`);
+  if (links.site) lines.push(`🔗 דף המוצר באתר Find4U: ${links.site}`);
+
+  return lines.join("\n");
+}
+
+// כיתוב לאינסטגרם/פייסבוק: התוכן של הריל + כל פרטי המוצר + חתימת
+// הרשתות (בלי הרשת שעליה מפרסמים) + ההאשטגים בסוף.
+function networkCaption(meta, links, options = {}) {
+  return [
+    captionBody(meta),
+    productDetails(meta, links, {prices: false}),
+    options.note,
+    options.signature,
+    hashtags(meta),
+  ]
+    .filter(Boolean)
+    .join("\n\n")
+    .trim();
 }
 
 function shekels(value) {
@@ -107,7 +161,7 @@ async function shortLinks(meta) {
 // ---- Telegram ----------------------------------------------------------
 // בטלגרם אין תגובות עם לינק אוטומטי כמו באינסטגרם, וההאשטגים של טיקטוק
 // מיותרים שם. לכן הפוסט עצמו נושא את המוצר, המחיר ושני הקישורים הקצרים.
-function telegramCaption(meta, links) {
+function telegramCaption(meta, links, signature) {
   const price = shekels(meta.price);
   const original = shekels(meta.originalPrice);
   const discount = Math.round(Number(meta.discount) || 0);
@@ -129,6 +183,8 @@ function telegramCaption(meta, links) {
     lines.push("", "🔗 לדף המוצר באתר Find4U:", links.site);
   }
 
+  if (signature) lines.push("", signature);
+
   return lines.join("\n").trim();
 }
 
@@ -137,22 +193,25 @@ function telegramCaption(meta, links) {
 // הוא מרכז את הכתובת של האתר (שאפשר להקליד) ומפנה ללינק הקבוע שנמצא
 // בדף הערוץ, שם הלינקים כן לחיצים. הלינקים עצמם נשארים כאן כדי שאפשר
 // יהיה להעתיק אותם.
-function youtubeDescription(caption, links) {
+function youtubeDescription(caption, links, signature) {
   const domain = SITE_URL.replace(/^https?:\/\//, "");
   const lines = [caption, ""];
   lines.push(`🌐 כל המוצרים והסרטונים: ${domain}`);
   lines.push("🔗 הקישורים הלחיצים מרוכזים בדף הערוץ (Links).");
+  lines.push("📍 כל המידע והמחירים של המוצר אפשר למצוא בדף המוצר באתר.");
 
-  if (links.affiliate) {
-    lines.push("", "🛒 לרכישה מאליאקספרס (להעתקה):", links.affiliate);
-  }
-  if (links.site) {
-    lines.push("", "🔗 דף המוצר באתר Find4U (להעתקה):", links.site);
-  }
+  const details = [
+    links.affiliate ? `🛒 לרכישה מאליאקספרס (להעתקה):\n${links.affiliate}` : "",
+    links.site ? `🔗 דף המוצר באתר Find4U (להעתקה):\n${links.site}` : "",
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+  if (details) lines.push("", details);
+  if (signature) lines.push("", signature);
   return lines.join("\n").trim();
 }
 
-async function sendTelegram(meta, links) {
+async function sendTelegram(meta, links, signature) {
   const token = process.env.TELEGRAM_BOT_TOKEN;
   const chatId = process.env.TELEGRAM_CHANNEL || "@Find4U_official";
   if (!token) return {ok: false, reason: "TELEGRAM_BOT_TOKEN is missing"};
@@ -165,7 +224,10 @@ async function sendTelegram(meta, links) {
     new Blob([fs.readFileSync(file)], {type: "video/mp4"}),
     path.basename(file)
   );
-  form.append("caption", telegramCaption(meta, links).slice(0, 1024));
+  // אין חיתוך ל-1024 תווים: הכיתוב נבנה קצר (הקישורים מקוצרים), וחיתוך
+  // באמצע תגית HTML גורם לטלגרם לדחות את כל הפוסט.
+  form.append("caption", telegramCaption(meta, links, signature));
+  if (signature) form.append("parse_mode", "HTML");
   form.append("supports_streaming", "true");
 
   const response = await fetch(
@@ -307,7 +369,7 @@ function fbConfigured() {
 }
 
 async function publishFacebook(meta, caption) {
-  if (!fbConfigured()) {
+  if (!facebookPage.configured()) {
     return {
       ok: false,
       reason: "FB_PAGE_ID / FB_PAGE_ACCESS_TOKEN are not set",
@@ -317,33 +379,24 @@ async function publishFacebook(meta, caption) {
     return {ok: false, reason: "SKIP_FACEBOOK=1"};
   }
 
-  const form = new FormData();
-  form.append("access_token", process.env.FB_PAGE_ACCESS_TOKEN);
-  form.append("description", caption);
-  form.append("title", String(meta.productName || "Find4U").slice(0, 100));
-  form.append(
-    "source",
-    new Blob([fs.readFileSync(REEL_FILE)], {type: "video/mp4"}),
-    "reel.mp4"
-  );
+  const video = await facebookPage.publishVideo({
+    file: REEL_FILE,
+    description: caption,
+    title: meta.productName || "Find4U",
+  });
+  if (!video.ok) return video;
 
-  const response = await fetch(
-    `${GRAPH_VIDEO}/${process.env.FB_PAGE_ID}/videos`,
-    {method: "POST", body: form}
-  );
-  const json = await response.json().catch(() => ({}));
-
-  if (!response.ok || json.error) {
-    return {
-      ok: false,
-      reason: `Facebook ${response.status}: ${JSON.stringify(
-        json.error || json
-      ).slice(0, 400)}`,
-    };
+  // תגובה ראשונה של הדף לפוסט — שוב כל הפרטים והלינקים, כדי שגם מי
+  // שפותח את התגובות מקבל אותם.
+  let commentId = null;
+  try {
+    commentId = await facebookPage.commentOn(video.id, caption);
+    await facebookPage.tryPinComment(commentId);
+  } catch (error) {
+    console.warn(`[publish] Facebook first comment failed: ${error.message}`);
   }
 
-  console.log(`[publish] Facebook video: ${json.id}`);
-  return {ok: true, id: json.id};
+  return {ok: true, id: video.id, commentId, url: video.url};
 }
 
 // ---- YouTube -----------------------------------------------------------
@@ -375,7 +428,7 @@ async function youtubeAccessToken() {
   return json.access_token;
 }
 
-async function publishYouTube(meta, caption, links) {
+async function publishYouTube(meta, caption, links, signature) {
   if (!youtubeConfigured()) {
     return {
       ok: false,
@@ -394,7 +447,7 @@ async function publishYouTube(meta, caption, links) {
   const metadata = {
     snippet: {
       title: String(meta.productName || "Find4U").slice(0, 100),
-      description: youtubeDescription(caption, links).slice(0, 4900),
+      description: youtubeDescription(caption, links, signature).slice(0, 4900),
       tags: ["Find4U", "עליאקספרס", "דילים", "מוצרים מומלצים"],
       categoryId: "22",
       defaultLanguage: "he",
@@ -448,7 +501,7 @@ async function publishYouTube(meta, caption, links) {
 
 // תגובה ראשונה מתחת לסרטון, עם הלינק לרכישה. היא נשמרת ב-videoLinks כדי
 // שג'וב המענה לתגובות יוכל לערוך אותה אם המוצר יימחק מהחנות.
-async function postFirstComment(meta, links) {
+async function postFirstComment(meta, links, signature) {
   if (!youtubeConfigured() || process.env.SKIP_YOUTUBE === "1") return null;
   const affiliate = links.affiliate || meta.link;
   if (!affiliate) {
@@ -457,10 +510,31 @@ async function postFirstComment(meta, links) {
   }
 
   const token = await youtubeAccessToken();
-  // הלינק בתגובה לא לחיץ בשורטס, ולכן התגובה מפנה גם לכתובת האתר
-  // ולדף הערוץ, שם אפשר ללחוץ.
+  // הלינקים בתגובה לא לחיצים בשורטס, ולכן התגובה מפנה לכתובת האתר
+  // ולדף הערוץ, שם אפשר ללחוץ, ומוסיפה את הלינקים להעתקה.
   const domain = SITE_URL.replace(/^https?:\/\//, "");
-  const text = `${meta.productName || "המוצר"}\n🛒 לרכישה: ${affiliate}\n🌐 כל הפרטים: ${domain}\n🔗 הקישורים הלחיצים בדף הערוץ (Links)`;
+  const price = shekels(meta.price);
+  const original = shekels(meta.originalPrice);
+  const discount = Math.round(Number(meta.discount) || 0);
+
+  const lines = [String(meta.productName || "המוצר")];
+  if (price) {
+    lines.push(
+      original && Number(meta.originalPrice) > Number(meta.price)
+        ? `🟡 ${price} במקום ${original}`
+        : `🟡 ${price}`
+    );
+  }
+  if (discount > 0) lines.push(`📉 ${discount}% הנחה`);
+  lines.push("");
+  lines.push("📍 כל המידע והמחירים של המוצר אפשר למצוא בדף המוצר:");
+  if (links.site) lines.push(links.site);
+  lines.push(`🌐 ${domain}`);
+  lines.push("");
+  lines.push(`🛒 לרכישה מאליאקספרס: ${affiliate}`);
+  lines.push("🔗 הקישורים הלחיצים מרוכזים בדף הערוץ (Links).");
+  if (signature) lines.push("", signature);
+  const text = lines.join("\n").trim();
   const response = await fetch(
     `${YT_API}/commentThreads?part=snippet`,
     {
@@ -696,8 +770,34 @@ async function main() {
   const meta = loadMeta();
   console.log(`[publish] product: ${meta.productId} | ${meta.productName}`);
 
-  const caption = captionWithTags(meta);
   const links = await shortLinks(meta);
+
+  // חתימת הרשתות לכל פלטפורמה — בלי הפלטפורמה שעליה מפרסמים.
+  const signatures = {
+    telegram: await socials.signature({skip: ["telegram"], style: "html"}),
+    instagram: await socials.signature({skip: ["instagram"]}),
+    facebook: await socials.signature({skip: ["facebook"]}),
+    youtube: await socials.signature({skip: ["youtube"]}),
+  };
+  console.log(
+    `[publish] social links: ${JSON.stringify(await socials.links())}`
+  );
+
+  const detailNote = "📍 כל המידע והמחירים אפשר למצוא בדף המוצר";
+  // אינסטגרם: רק הריל, עם כל הפרטים — אבל בלי קישור לאינסטגרם עצמה.
+  const instagramCaption = networkCaption(meta, links, {
+    note: detailNote,
+    signature: signatures.instagram,
+  });
+  // פייסבוק: אותו תוכן, בלי קישור לפייסבוק.
+  const facebookCaption = networkCaption(meta, links, {
+    note: detailNote,
+    signature: signatures.facebook,
+  });
+  // בטיקטוק אין קישורים בכיתוב, ולכן רק התוכן וההאשטגים.
+  const tiktokCaption = [captionBody(meta), hashtags(meta)]
+    .filter(Boolean)
+    .join("\n\n");
   const results = {};
   const channels = [];
 
@@ -732,18 +832,20 @@ async function main() {
     }
   };
 
-  await run("telegram", () => sendTelegram(meta, links));
-  await run("instagram", () => publishInstagram(meta, caption));
-  await run("facebook", () => publishFacebook(meta, caption));
-  await run("youtube", () => publishYouTube(meta, caption, links));
-  await run("tiktok", () => publishTikTok(meta, caption));
+  await run("telegram", () => sendTelegram(meta, links, signatures.telegram));
+  await run("instagram", () => publishInstagram(meta, instagramCaption));
+  await run("facebook", () => publishFacebook(meta, facebookCaption));
+  await run("youtube", () =>
+    publishYouTube(meta, captionBody(meta), links, signatures.youtube)
+  );
+  await run("tiktok", () => publishTikTok(meta, tiktokCaption));
 
   // הלינק לרכישה בתגובה הראשונה — רק כשיש סרטון יוטיוב ולינק שותפים.
   let firstCommentId = null;
   if (results.youtube && results.youtube.ok && results.youtube.id) {
     try {
       meta.youtubeId = results.youtube.id;
-      firstCommentId = await postFirstComment(meta, links);
+      firstCommentId = await postFirstComment(meta, links, signatures.youtube);
     } catch (error) {
       console.warn(`[publish] first comment skipped: ${error.message}`);
     }
@@ -831,9 +933,21 @@ async function main() {
   console.log(`[publish] done. site: ${SITE_URL}`);
 }
 
-main()
-  .then(() => process.exit(0))
-  .catch((error) => {
-    console.error("[publish] failed:", error.message);
-    process.exit(1);
-  });
+if (require.main === module) {
+  main()
+    .then(() => process.exit(0))
+    .catch((error) => {
+      console.error("[publish] failed:", error.message);
+      process.exit(1);
+    });
+}
+
+// לחשיפה לבדיקות בלבד — הריצה עצמה היא `node scripts/publish.js`.
+module.exports = {
+  captionBody,
+  hashtags,
+  networkCaption,
+  productDetails,
+  telegramCaption,
+  youtubeDescription,
+};
