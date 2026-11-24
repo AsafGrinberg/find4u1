@@ -49,6 +49,26 @@ const DRY_RUN = process.env.DEALS_DRY_RUN === "1";
 // ריק = פשוט לא מציגים קופון.
 const COUPON_TEXT = String(process.env.DEAL_COUPON_TEXT || "").trim();
 
+// טלגרם מגבילה כיתוב של תמונה/סרטון ל-1024 תווים, והספירה היא של הטקסט
+// הנראה בלבד (תגיות HTML לא נספרות). משאירים מרווח ביטחון.
+const CAPTION_TEXT_LIMIT = 1000;
+// קישורי השותפים של אליאקספרס ארוכים מאוד (סביב 1,000 תווים), ולכן
+// מתחת ל-BUY NOW מדפיסים את ההתחלה שלהם + "…". הקישור המלא נשאר
+// בשם המוצר ובכפתור — אין כאן קיצור דרך tinyurl.
+const VISIBLE_LINK_MAX = 64;
+
+// קיצור טקסט לתצוגה בלבד. לא נוגעים בתגיות: חיתוך עלול לשבור תגית באמצע.
+function clip(value, max) {
+  const text = String(value == null ? "" : value).trim();
+  if (text.length <= max) return text;
+  return `${text.slice(0, Math.max(0, max - 1)).trimEnd()}…`;
+}
+
+// מה שמשתמש רואה בכיתוב — בלי תגיות. זו הצורה שבה טלגרם מודדת את האורך.
+function visibleLength(caption) {
+  return String(caption || "").replace(/<[^>]*>/g, "").length;
+}
+
 function escapeHtml(value) {
   return String(value || "")
     .replace(/&/g, "&amp;")
@@ -319,25 +339,35 @@ function dealKeyboard(fields = {}) {
 function dealMessage(fields = {}) {
   const link = String(fields.link || "").trim();
   const site = String(fields.site || "").trim();
+  const display = clip(shortLinkText(link), VISIBLE_LINK_MAX);
 
-  const caption = [
-    dealCaption(
-      {
-        name: fields.name,
-        price: fields.price,
-        originalPrice: fields.originalPrice,
-        discountPercent: fields.discountPercent,
-        sales: fields.sales,
-        rating: fields.rating,
-      },
-      link,
-      link
-    ),
-    site ? `🔗 <a href="${escapeHtml(site)}">דף המוצר באתר Find4U</a>` : "",
-  ]
-    .filter(Boolean)
-    .join("\n\n")
-    .slice(0, 1024);
+  const build = (nameMax) =>
+    [
+      dealCaption(
+        {
+          name: clip(fields.name, nameMax),
+          price: fields.price,
+          originalPrice: fields.originalPrice,
+          discountPercent: fields.discountPercent,
+          sales: fields.sales,
+          rating: fields.rating,
+        },
+        link,
+        display
+      ),
+      site ? `🔗 <a href="${escapeHtml(site)}">דף המוצר באתר Find4U</a>` : "",
+    ]
+      .filter(Boolean)
+      .join("\n\n");
+
+  // אסור לחתוך את הכיתוב עצמו: חיתוך באמצע תגית שובר את ה-HTML וטלגרם
+  // דוחה את כל הפוסט ("Unclosed start tag"). מקצרים את שם המוצר במקום.
+  let nameMax = 160;
+  let caption = build(nameMax);
+  while (visibleLength(caption) > CAPTION_TEXT_LIMIT && nameMax > 20) {
+    nameMax = Math.floor(nameMax * 0.7);
+    caption = build(nameMax);
+  }
 
   return {caption, keyboard: dealKeyboard({link, site, name: fields.name})};
 }
@@ -457,6 +487,9 @@ module.exports = {
   dealCaption,
   dealMessage,
   dealKeyboard,
+  clip,
+  visibleLength,
+  CAPTION_TEXT_LIMIT,
   dealScore,
   escapeHtml,
   shekels,
