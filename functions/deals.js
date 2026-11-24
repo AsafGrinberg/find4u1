@@ -11,9 +11,23 @@
  *   - "קופון" = טקסט רשמי של אליאקספרס שהמשתמש מדביק בסוד DEAL_COUPON_TEXT.
  *     הוא מוצג כמו שהוא, בלי להוסיף קודים משלנו.
  *
- * כל דיל נשלח עם תמונה, מחיר, הנחה, כפתור רכישה (הקישור השותפים שלנו)
- * וכפתור לדף המוצר באתר. מוצר שכבר נשלח לא נשלח שוב לפני שעברו
- * DEAL_REPEAT_DAYS ימים (dealPostedAt נשמר על המוצר).
+ * איך נראה הפוסט (כמו בערוצי הדילים הגדולים):
+ *
+ *   🔥 דיל של השעה
+ *
+ *   משאבת אוויר נטענת לרכב   <-- שם המוצר, לחיץ, מוביל לקישור השותפים שלנו
+ *   🟡 8.65 ₪  ~20.11 ₪~ 🟡
+ *   📉 57% הנחה
+ *   🔥 37,104 מכירות · ⭐ 4.9
+ *   🚚 משלוח לישראל
+ *
+ *   👇 BUY NOW ON ALIEXPRESS 👇
+ *   s.click.aliexpress.com/e/_xxxx
+ *
+ * ומתחת להודעה כפתורים: רכישה, דף המוצר, שיתוף בטלגרם, שיתוף בוואטסאפ.
+ *
+ * מוצר שכבר נשלח לא נשלח שוב לפני שעברו DEAL_REPEAT_DAYS ימים
+ * (dealPostedAt נשמר על המוצר).
  */
 
 const {__test: ali} = require("./recommended");
@@ -49,6 +63,20 @@ function shekels(value) {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })} ₪`;
+}
+
+// קישור שותפים של אליאקספרס שכבר מקוצר על ידם (s.click.aliexpress.com/e/_xxx)
+// נשאר כמו שהוא — אין סיבה לעטוף אותו שוב ב-tinyurl.
+const ALREADY_SHORT = /^https?:\/\/s\.click\.aliexpress\.com\/e\/[\w-]+\/?$/i;
+
+function isAlreadyShort(url) {
+  return ALREADY_SHORT.test(String(url || "").trim());
+}
+
+// מה שמציגים מתחת ל-BUY NOW: בלי https:// ובלי סלאש בסוף.
+function shortLinkText(url) {
+  const text = String(url || "").trim();
+  return text.replace(/^https?:\/\//i, "").replace(/\/+$/, "");
 }
 
 function dateOf(value) {
@@ -122,21 +150,42 @@ function dealScore(product, now = Date.now()) {
   return discount * 1.2 + Math.log10(sales + 1) * 4 + rating * 2 + freshness * 8;
 }
 
-function dealCaption(product) {
+/**
+ * הכיתוב של הפוסט.
+ * link      — הקישור שמוטמע בשם המוצר ובכפתור (קישור השותפים האמיתי).
+ * displayLink — מה שמודפס כטקסט מתחת ל-BUY NOW (מקוצר אם צריך).
+ */
+function dealCaption(product, link, displayLink) {
   const name = escapeHtml(product.name);
   const price = shekels(product.price);
   const original = shekels(product.originalPrice);
   const discount = discountOf(product);
   const previous = Number(product.previousPrice);
+  const sales = Number(product.sales) || 0;
+  const rating = Number(product.rating) || 0;
+  const target = String(link || product.link || "");
+  const visible = String(displayLink || target);
 
-  const lines = [`🔥 <b>דיל של השעה</b>`, "", `<b>${name}</b>`, ""];
+  const lines = ["🔥 <b>דיל של השעה</b>", ""];
 
-  if (price && original) {
-    lines.push(`💰 <b>${price}</b> במקום ${original}`);
+  lines.push(
+    target ? `<a href="${escapeHtml(target)}"><b>${name}</b></a>` : `<b>${name}</b>`
+  );
+
+  if (price && original && Number(product.originalPrice) > Number(product.price)) {
+    lines.push(`🟡 <b>${price}</b> <s>${original}</s> 🟡`);
   } else if (price) {
-    lines.push(`💰 <b>${price}</b>`);
+    lines.push(`🟡 <b>${price}</b> 🟡`);
   }
   if (discount > 0) lines.push(`📉 ${discount}% הנחה`);
+
+  const stats = [];
+  // אליאקספרס מחזירה סך מכירות, לא פילוח של "החודש האחרון" — לכן לא
+  // כותבים "החודש" (זה היה מספר מומצא).
+  if (sales > 0) stats.push(`🔥 ${sales.toLocaleString("he-IL")} מכירות`);
+  if (rating > 0) stats.push(`⭐ ${rating.toFixed(1)}`);
+  if (stats.length > 0) lines.push(stats.join(" · "));
+
   if (Number.isFinite(previous) && previous > Number(product.price)) {
     lines.push("⬇️ המחיר עוד ירד מאז שהמוצר עלה לאתר");
   }
@@ -146,7 +195,15 @@ function dealCaption(product) {
     lines.push(escapeHtml(COUPON_TEXT));
   }
 
-  lines.push("", "🚚 משלוח לישראל");
+  lines.push("🚚 משלוח לישראל");
+
+  if (target) {
+    lines.push("", "👇 <b>BUY NOW ON ALIEXPRESS</b> 👇");
+    lines.push(
+      `<a href="${escapeHtml(target)}">${escapeHtml(shortLinkText(visible))}</a>`
+    );
+  }
+
   return lines.join("\n").trim();
 }
 
@@ -171,37 +228,89 @@ async function telegramApi(method, body) {
   return json.result;
 }
 
+// מדפיס בלוג למי בדיוק הבוט שולח. אם הפוסט "לא מופיע" — השורה הזאת
+// מגלה מיד אם מדובר בערוץ אחר מזה שאתה מסתכל עליו.
+async function describeChannel() {
+  try {
+    const chat = await telegramApi("getChat", {chat_id: TELEGRAM_CHANNEL});
+    const handle = chat.username ? `@${chat.username}` : String(chat.id);
+    console.log(
+      `[deals] target channel: ${chat.title || handle} | ${handle} | id ${chat.id}`
+    );
+    return handle;
+  } catch (error) {
+    console.warn(
+      `[deals] can't read channel "${TELEGRAM_CHANNEL}": ${error.message}`
+    );
+    return TELEGRAM_CHANNEL;
+  }
+}
+
+// קישור ישיר להודעה שפורסמה, כדי שאפשר לפתוח אותה מהלוג ולראות שהיא שם.
+function messageLinkOf(handle, messageId) {
+  if (!messageId) return null;
+  const value = String(handle || "").trim();
+  if (value.startsWith("@")) return `https://t.me/${value.slice(1)}/${messageId}`;
+  if (/^-100\d+$/.test(value)) return `https://t.me/c/${value.slice(4)}/${messageId}`;
+  return null;
+}
+
 function siteUrlOf(product) {
   const slug = product.slug || product.sourceId;
   return slug ? `${SITE_URL}/product/${encodeURIComponent(slug)}` : null;
 }
 
-// הכיתוב בטלגרם כולל קישור מקוצר, כי קישור שותפים ארוך נשבר לשורות
-// ולא ניתן ללחיצה.
+// שני קישורים לאותו מוצר:
+//   affiliate — הקישור האמיתי שלנו (נכנס לשם המוצר, לכפתור ולשיתוף).
+//   display   — מה שמדפיסים כטקסט; אם אליאקספרס כבר נתנה קישור קצר
+//               (s.click.aliexpress.com/e/...) משתמשים בו כמו שהוא.
 async function dealLinks(product) {
+  const affiliate = String(product.link || "");
+  const display = isAlreadyShort(affiliate)
+    ? affiliate
+    : await ali.shortenUrl(affiliate);
   return {
-    affiliate: await ali.shortenUrl(String(product.link || "")),
+    affiliate,
+    display,
     site: await ali.shortenUrl(siteUrlOf(product) || ""),
   };
 }
 
+function shareButtons(name, link) {
+  const title = String(name || "").trim();
+  const url = String(link || "");
+  if (!url) return [];
+  const telegram = `https://t.me/share/url?url=${encodeURIComponent(
+    url
+  )}&text=${encodeURIComponent(title)}`;
+  const whatsapp = `https://wa.me/?text=${encodeURIComponent(
+    `${title}\n${url}`.trim()
+  )}`;
+  return [
+    {text: "📤 שיתוף בטלגרם", url: telegram},
+    {text: "💬 שיתוף בוואטסאפ", url: whatsapp},
+  ];
+}
+
 async function postDeal(product, links) {
   const caption = [
-    dealCaption(product),
-    "",
-    links.affiliate ? `🛒 <b>לרכישה:</b>\n${escapeHtml(links.affiliate)}` : "",
-    links.site ? `🔗 <b>דף המוצר באתר:</b>\n${escapeHtml(links.site)}` : "",
+    dealCaption(product, links.affiliate, links.display),
+    links.site
+      ? `🔗 <a href="${escapeHtml(links.site)}">דף המוצר באתר Find4U</a>`
+      : "",
   ]
     .filter(Boolean)
-    .join("\n")
+    .join("\n\n")
     .slice(0, 1024);
 
   const keyboard = [];
   if (product.link) {
-    keyboard.push([{text: "🛒 לרכישה עכשיו", url: String(product.link)}]);
+    keyboard.push([{text: "🛒 BUY NOW ON ALIEXPRESS", url: String(product.link)}]);
   }
   const site = siteUrlOf(product);
-  if (site) keyboard.push([{text: "🔗 לדף המוצר", url: site}]);
+  if (site) keyboard.push([{text: "🔗 לדף המוצר באתר", url: site}]);
+  const share = shareButtons(product.name, product.link);
+  if (share.length === 2) keyboard.push(share);
 
   const message = await telegramApi("sendPhoto", {
     chat_id: TELEGRAM_CHANNEL,
@@ -219,6 +328,8 @@ async function postDeal(product, links) {
  * לא שולחים שני דילים מאותה קטגוריה באותה ריצה.
  */
 async function runDealPosts(firestore) {
+  const handle = await describeChannel();
+
   const snapshot = await firestore
     .collection("products")
     .orderBy("postedAt", "desc")
@@ -256,8 +367,11 @@ async function runDealPosts(firestore) {
 
     if (DRY_RUN) {
       console.log(
-        `[deals] would post ${product.id} | ${product.name}\n${dealCaption(product)}\n` +
-          `affiliate: ${links.affiliate}\nsite: ${links.site}`
+        `[deals] would post ${product.id} | ${product.name}\n${dealCaption(
+          product,
+          links.affiliate,
+          links.display
+        )}\naffiliate: ${links.affiliate}\nsite: ${links.site}`
       );
       posted.push({id: product.id, name: product.name, dryRun: true});
       if (category) usedCategories.add(category);
@@ -273,8 +387,12 @@ async function runDealPosts(firestore) {
         },
         {merge: true}
       );
-      console.log(`[deals] posted ${product.id} | ${product.name} | message ${messageId}`);
-      posted.push({id: product.id, name: product.name, messageId});
+      const link = messageLinkOf(handle, messageId);
+      console.log(
+        `[deals] posted ${product.id} | ${product.name} | message ${messageId}` +
+          (link ? ` | ${link}` : "")
+      );
+      posted.push({id: product.id, name: product.name, messageId, link});
       if (category) usedCategories.add(category);
     } catch (error) {
       console.error(`[deals] failed for ${product.id}: ${error.message}`);
@@ -300,6 +418,8 @@ module.exports = {
   shekels,
   telegramApi,
   siteUrlOf,
+  isAlreadyShort,
+  shareButtons,
   TELEGRAM_CHANNEL,
   SITE_URL,
 };

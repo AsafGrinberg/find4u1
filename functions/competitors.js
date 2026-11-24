@@ -43,8 +43,10 @@ const USER_AGENT =
 // ---- ערוצים -------------------------------------------------------------
 
 // COMPETITOR_CHANNELS="shodedim, @another_channel, https://t.me/third"
+const DEFAULT_CHANNELS = ["shodedim"];
+
 function channelsFromEnv() {
-  return String(process.env.COMPETITOR_CHANNELS || "")
+  return String(process.env.COMPETITOR_CHANNELS || DEFAULT_CHANNELS.join(","))
     .split(/[,\s]+/)
     .map((value) => value.trim())
     .map((value) =>
