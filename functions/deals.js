@@ -67,7 +67,8 @@ function shekels(value) {
 
 // קישור שותפים של אליאקספרס שכבר מקוצר על ידם (s.click.aliexpress.com/e/_xxx)
 // נשאר כמו שהוא — אין סיבה לעטוף אותו שוב ב-tinyurl.
-const ALREADY_SHORT = /^https?:\/\/s\.click\.aliexpress\.com\/e\/[\w-]+\/?$/i;
+const ALREADY_SHORT =
+  /^https?:\/\/(?:s\.click\.aliexpress\.com|a\.aliexpress\.com)\//i;
 
 function isAlreadyShort(url) {
   return ALREADY_SHORT.test(String(url || "").trim());
@@ -272,7 +273,9 @@ async function dealLinks(product) {
   return {
     affiliate,
     display,
-    site: await ali.shortenUrl(siteUrlOf(product) || ""),
+    // הקישור לאתר מוצג כטקסט מקושר ("דף המוצר באתר Find4U"), ולכן לא
+    // צריך לקצר אותו — הכפתור נושא את הכתובת המלאה.
+    site: siteUrlOf(product) || "",
   };
 }
 
@@ -292,25 +295,64 @@ function shareButtons(name, link) {
   ];
 }
 
-async function postDeal(product, links) {
+// הכפתורים שמתחת לפוסט: רכישה, דף המוצר ושיתוף (טלגרם + וואטסאפ).
+function dealKeyboard(fields = {}) {
+  const link = String(fields.link || "").trim();
+  const site = String(fields.site || "").trim();
+  const keyboard = [];
+
+  if (link) {
+    keyboard.push([{text: "🛒 BUY NOW ON ALIEXPRESS", url: link}]);
+  }
+  if (site) keyboard.push([{text: "🔗 לדף המוצר באתר", url: site}]);
+  const share = shareButtons(fields.name, link);
+  if (share.length === 2) keyboard.push(share);
+
+  return keyboard;
+}
+
+/**
+ * הודעת דיל שלמה — כיתוב + כפתורים — מכל מקור:
+ * מוצר מהקטלוג שלנו, מוצר שיובא מערוץ מתחרה, או מוצר שיובא מאליאקספרס.
+ * כל הפוסטים בטלגרם עוברים כאן, כדי שלא יהיו שני פורמטים שונים.
+ */
+function dealMessage(fields = {}) {
+  const link = String(fields.link || "").trim();
+  const site = String(fields.site || "").trim();
+
   const caption = [
-    dealCaption(product, links.affiliate, links.display),
-    links.site
-      ? `🔗 <a href="${escapeHtml(links.site)}">דף המוצר באתר Find4U</a>`
-      : "",
+    dealCaption(
+      {
+        name: fields.name,
+        price: fields.price,
+        originalPrice: fields.originalPrice,
+        discountPercent: fields.discountPercent,
+        sales: fields.sales,
+        rating: fields.rating,
+      },
+      link,
+      link
+    ),
+    site ? `🔗 <a href="${escapeHtml(site)}">דף המוצר באתר Find4U</a>` : "",
   ]
     .filter(Boolean)
     .join("\n\n")
     .slice(0, 1024);
 
-  const keyboard = [];
-  if (product.link) {
-    keyboard.push([{text: "🛒 BUY NOW ON ALIEXPRESS", url: String(product.link)}]);
-  }
-  const site = siteUrlOf(product);
-  if (site) keyboard.push([{text: "🔗 לדף המוצר באתר", url: site}]);
-  const share = shareButtons(product.name, product.link);
-  if (share.length === 2) keyboard.push(share);
+  return {caption, keyboard: dealKeyboard({link, site, name: fields.name})};
+}
+
+async function postDeal(product, links) {
+  const {caption, keyboard} = dealMessage({
+    name: product.name,
+    price: product.price,
+    originalPrice: product.originalPrice,
+    discountPercent: product.discountPercent,
+    sales: product.sales,
+    rating: product.rating,
+    link: links.affiliate,
+    site: siteUrlOf(product),
+  });
 
   const message = await telegramApi("sendPhoto", {
     chat_id: TELEGRAM_CHANNEL,
@@ -413,6 +455,8 @@ module.exports = {
   isDealCandidate,
   discountOf,
   dealCaption,
+  dealMessage,
+  dealKeyboard,
   dealScore,
   escapeHtml,
   shekels,

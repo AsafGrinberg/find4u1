@@ -213,54 +213,32 @@ async function resolveShortLink(url, hops = 0) {
 // ---- כיתוב ---------------------------------------------------------------
 
 // הכיתוב נכתב אצלנו מהנתונים של אליאקספרס. שום טקסט של המתחרה לא מועתק.
-function importCaption(product) {
-  const price = shekels(product.price);
-  const original = shekels(product.originalPrice);
-  const lines = [`🆕 <b>מצאנו בשבילכם</b>`, "", `<b>${escapeHtml(product.name)}</b>`, ""];
-
-  if (price && original && Number(product.originalPrice) > Number(product.price)) {
-    lines.push(`💰 <b>${price}</b> במקום ${original}`);
-  } else if (price) {
-    lines.push(`💰 <b>${price}</b>`);
-  }
-  if (Number(product.discountPercent) > 0) {
-    lines.push(`📉 ${Math.round(Number(product.discountPercent))}% הנחה`);
-  }
-  if (Number(product.rating) > 0) {
-    lines.push(`⭐ דירוג ${Number(product.rating).toFixed(1)} מתוך 5`);
-  }
-  if (Number(product.sales) > 0) {
-    lines.push(`🔥 ${Number(product.sales).toLocaleString("he-IL")} נמכרו`);
-  }
-
-  lines.push("", "🚚 משלוח לישראל");
-  return lines.join("\n").trim();
+// הפורמט עצמו מגיע מ-deals.js — שם מוצר לחיץ, מחיר עם פס, אימוג'ים,
+// BUY NOW וקישור s.click.aliexpress.com, בדיוק כמו בכל שאר הפוסטים.
+function importMessage(product) {
+  const {dealMessage} = require("./deals");
+  return dealMessage({
+    name: product.name,
+    price: product.price,
+    originalPrice: product.originalPrice,
+    discountPercent: product.discountPercent,
+    sales: product.sales,
+    rating: product.rating,
+    link: product.link,
+    site: siteUrlOf(product),
+  });
 }
 
-async function postImport(product, links) {
-  const caption = [
-    importCaption(product),
-    "",
-    links.affiliate ? `🛒 <b>לרכישה:</b>\n${escapeHtml(links.affiliate)}` : "",
-    links.site ? `🔗 <b>דף המוצר באתר:</b>\n${escapeHtml(links.site)}` : "",
-  ]
-    .filter(Boolean)
-    .join("\n")
-    .slice(0, 1024);
-
-  const keyboard = [];
-  if (product.link) {
-    keyboard.push([{text: "🛒 לרכישה עכשיו", url: String(product.link)}]);
-  }
-  const site = siteUrlOf(product);
-  if (site) keyboard.push([{text: "🔗 לדף המוצר", url: site}]);
+async function postImport(product) {
+  const {caption, keyboard} = importMessage(product);
 
   const message = await telegramApi("sendPhoto", {
     chat_id: TELEGRAM_CHANNEL,
     photo: product.image,
     caption,
     parse_mode: "HTML",
-    reply_markup: keyboard.length > 0 ? {inline_keyboard: keyboard} : {},
+    reply_markup:
+      keyboard.length > 0 ? {inline_keyboard: keyboard} : undefined,
   });
 
   return message && message.message_id ? message.message_id : null;
@@ -402,15 +380,12 @@ async function publishCandidate(firestore, candidate) {
 
   if (DRY_RUN) {
     console.log(
-      `[import] would post ${docId}\n${importCaption(saved)}\naffiliate: ${saved.link}`
+      `[import] would post ${docId}\n${importMessage(saved).caption}\naffiliate: ${saved.link}`
     );
     return {docId, created: true, posted: false, dryRun: true};
   }
 
-  const messageId = await postImport(saved, {
-    affiliate: await ali.shortenUrl(affiliateLink),
-    site: await ali.shortenUrl(siteUrlOf(saved) || ""),
-  }).catch((error) => {
+  const messageId = await postImport(saved).catch((error) => {
     console.error(`[import] telegram failed for ${docId}: ${error.message}`);
     return null;
   });
@@ -562,5 +537,5 @@ module.exports = {
   resolveShortLink,
   channelsFromEnv,
   readInbox,
-  importCaption,
+  importMessage,
 };

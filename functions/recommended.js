@@ -1025,67 +1025,48 @@ async function shortenUrl(url) {
   return url;
 }
 
-function composeCaption(product, nameHe, shortLink, siteShortUrl) {
-  const price = salePrice(product);
-  const original = originalPrice(product);
-  const discount = discountPercent(product);
-  const rating = ratingOutOfFive(product);
-  const sales = toNumber(product.lastest_volume);
-
-  return [
-    `<b>${escapeHtml(nameHe)}</b>`,
-    escapeHtml(pick(HOOKS)),
-    "",
-    escapeHtml(
-      original && original > price
-        ? `${shekels(price)} במקום ${shekels(original)}`
-        : `${shekels(price)} בלבד`
-    ),
-    discount ? `${discount}% הנחה` : "",
-    rating ? `דירוג ${rating.toFixed(1)} מתוך 5` : "",
-    sales ? `${sales.toLocaleString("he-IL")} מכירות` : "",
-    "",
-    "משלוח לישראל",
-    "",
-    "<b><u>🛒 לינק לרכישה מאלי אקספרס:</u></b>",
-    shortLink ? `<b><u>${escapeHtml(shortLink)}</u></b>` : "",
-    siteShortUrl
-      ? `\n🔗 <b>עמוד המוצר באתר Find4U:</b>\n${escapeHtml(siteShortUrl)}`
-      : "",
-  ]
-    .filter((line) => line !== "")
-    .join("\n");
+// כל הפוסטים בטלגרם עוברים דרך deals.js, כדי שכולם ייראו אותו דבר:
+// שם מוצר לחיץ, מחיר עם פס, אימוג'ים, BUY NOW וקישור s.click.aliexpress.com.
+// ה-require כאן ולא בראש הקובץ כי deals.js עצמו דורש את הקובץ הזה.
+function dealFieldsOf(product, affiliateLink, nameHe, slug) {
+  return {
+    name: nameHe,
+    price: salePrice(product),
+    originalPrice: originalPrice(product),
+    discountPercent: discountPercent(product) || 0,
+    sales: toNumber(product.lastest_volume) || 0,
+    rating: ratingOutOfFive(product) || 0,
+    // הקישור של אליאקספרס (s.click) מוצג כמו שהוא — לא עוטפים ב-tinyurl.
+    link: affiliateLink || "",
+    site: slug ? siteProductUrl(slug) : "",
+  };
 }
 
 async function postProductToTelegram(product, affiliateLink, nameHe, slug) {
-  const shortLink = await shortenUrl(affiliateLink);
-  // גם הקישור לאתר מקוצר, כי הכתובת בעברית מקבלת קידוד ארוך ומכוער.
-  const siteShortUrl = await shortenUrl(siteProductUrl(slug));
-  const caption = composeCaption(product, nameHe, shortLink, siteShortUrl);
+  const {dealMessage} = require("./deals");
+  const {caption, keyboard} = dealMessage(
+    dealFieldsOf(product, affiliateLink, nameHe, slug)
+  );
+  const reply_markup =
+    keyboard.length > 0 ? {inline_keyboard: keyboard} : undefined;
 
-  // סרטון עולה יחד עם התמונה והטקסט באותה הודעה (אלבום של טלגרם),
-  // ולא כהודעה נפרדת. הכיתוב יושב על הפריט הראשון.
+  // מוצר עם סרטון של המוכר: הסרטון נשלח עם אותו כיתוב ואותם כפתורים.
+  // אם טלגרם לא מצליחה למשוך את הסרטון — נופלים לתמונה.
   const video = productVideoUrl(product);
   if (video) {
     try {
-      const messages = await telegramRequest("sendMediaGroup", {
+      const message = await telegramRequest("sendVideo", {
         chat_id: TELEGRAM_CHANNEL,
-        media: [
-          {
-            type: "photo",
-            media: mainImage(product),
-            caption: caption,
-            parse_mode: "HTML",
-          },
-          {type: "video", media: video, supports_streaming: true},
-        ],
+        video,
+        caption,
+        parse_mode: "HTML",
+        supports_streaming: true,
+        reply_markup,
       });
-      return (Array.isArray(messages) ? messages : [])
-        .map((message) => message && message.message_id)
-        .filter(Boolean);
+      if (message && message.message_id) return [message.message_id];
     } catch (error) {
       console.error(
-        `[recommended] album failed for ${product.product_id}: ${error.message}`
+        `[recommended] video post failed for ${product.product_id}: ${error.message}`
       );
     }
   }
@@ -1093,15 +1074,9 @@ async function postProductToTelegram(product, affiliateLink, nameHe, slug) {
   const message = await telegramRequest("sendPhoto", {
     chat_id: TELEGRAM_CHANNEL,
     photo: mainImage(product),
-    caption: caption,
+    caption,
     parse_mode: "HTML",
-    reply_markup: affiliateLink
-      ? {
-          inline_keyboard: [
-            [{text: "🛒 לרכישה עכשיו", url: affiliateLink}],
-          ],
-        }
-      : undefined,
+    reply_markup,
   });
 
   // מחזירים את מזהי ההודעות כדי שאפשר יהיה למחוק פוסט של מוצר שנמחק.
@@ -1566,7 +1541,6 @@ module.exports = {
     cleanTitle,
     hebrewName,
     shortenUrl,
-    composeCaption,
     siteProductUrl,
     titleKey,
     shopIdOf,
