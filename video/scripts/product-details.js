@@ -130,13 +130,63 @@ async function fetchProductDetails(productId) {
   };
 }
 
+const REVIEWS_URL = "https://feedback.aliexpress.com/pc/searchEvaluation.do";
+
 /**
- * משלים למוצר תיאור ומפרט, ושומר אותם ב-Firestore כדי שריצה הבאה לא
- * תבזבז עליהם קריאה. לא זורק שגיאה בשום מקרה.
+ * סקירות קונים מהעמוד הציבורי של אליאקספרס. משתמשים בהן כחומר גלם
+ * לקריינות: "מה אנשים שקנו אומרים על זה" הוא המידע הכי שימושי ל-Gemini.
+ * אין הבטחה שהעמוד יענה (הוא לא API רשמי), ולכן כל כישלון מחזיר [].
+ */
+async function fetchReviews(productId, limit = 20) {
+  const url =
+    `${REVIEWS_URL}?productId=${encodeURIComponent(productId)}` +
+    `&page=1&pageSize=${limit}&filter=all&sort=complex_default`;
+
+  const response = await fetch(url, {
+    headers: {
+      "User-Agent":
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
+      "Accept-Language": "en-US,en;q=0.9",
+    },
+    signal: AbortSignal.timeout(20000),
+  });
+  const text = await response.text();
+  if (!response.ok) throw new Error(`reviews ${response.status}`);
+
+  // התשובה עטופה ב-jsonp או ב-HTML; מחלצים את אובייקט ה-JSON הראשון.
+  const start = text.indexOf("{");
+  const end = text.lastIndexOf("}");
+  if (start === -1 || end <= start) throw new Error("reviews: no json");
+
+  const json = JSON.parse(text.slice(start, end + 1));
+  const data = json.data || json;
+  const list = data.evaViewList || data.evaluationList || [];
+
+  const reviews = [];
+  for (const item of list) {
+    const body =
+      item.buyerTranslationFeedback || item.buyerFeedback || item.feedback || "";
+    const clean = htmlToText(body);
+    if (clean && clean.length > 8) reviews.push(clean.slice(0, 400));
+    if (reviews.length >= limit) break;
+  }
+  return reviews;
+}
+
+/**
+ * משלים למוצר תיאור, מפרט וסקירות, ושומר אותם ב-Firestore כדי שריצה
+ * הבאה לא תבזבז עליהם קריאה. לא זורק שגיאה בשום מקרה.
  */
 async function enrichProduct(product, options = {}) {
   if (!product || !product.id) return product;
-  if (product.sourceDescription && product.sourceDescription.length > 80) {
+  // רק כשיש גם תיאור וגם סקירות אין טעם לקרוא שוב. תיאור בלי סקירות
+  // עדיין שווה קריאה חוזרת — הסקירות הן חומר הגלם של הקריינות.
+  if (
+    product.sourceDescription &&
+    product.sourceDescription.length > 80 &&
+    Array.isArray(product.sourceReviews) &&
+    product.sourceReviews.length > 0
+  ) {
     return product;
   }
   if (options.skip) return product;
@@ -154,8 +204,16 @@ async function enrichProduct(product, options = {}) {
     product.specs = details.specs;
     if (!product.brand && details.brand) product.brand = details.brand;
 
+    let reviews = [];
+    try {
+      reviews = await fetchReviews(sourceId);
+      if (reviews.length) product.sourceReviews = reviews;
+    } catch (error) {
+      console.warn(`[product] reviews unavailable: ${error.message}`);
+    }
+
     console.log(
-      `[product] description ${details.description.length} chars, ${details.specs.length} specs for ${product.id}`
+      `[product] description ${details.description.length} chars, ${details.specs.length} specs, ${reviews.length} reviews for ${product.id}`
     );
 
     if (product.ref) {
@@ -164,6 +222,7 @@ async function enrichProduct(product, options = {}) {
           {
             sourceDescription: product.sourceDescription,
             sourceSpecs: details.specs,
+            sourceReviews: product.sourceReviews || [],
             detailsUpdatedAt: new Date().toISOString(),
           },
           {merge: true}
@@ -177,4 +236,10 @@ async function enrichProduct(product, options = {}) {
   return product;
 }
 
-module.exports = {enrichProduct, fetchProductDetails, htmlToText, specsOf};
+module.exports = {
+  enrichProduct,
+  fetchProductDetails,
+  fetchReviews,
+  htmlToText,
+  specsOf,
+};

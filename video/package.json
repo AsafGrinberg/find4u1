@@ -8,6 +8,8 @@
     "render": "node scripts/render.js",
     "reply": "node scripts/reply-comments.js",
     "reply:dry": "node scripts/reply-comments.js --dry-run",
+    "reply:social": "node scripts/reply-social.js",
+    "reply:social:dry": "node scripts/reply-social.js --dry-run",
     "auth": "node scripts/auth-token.js"
   },
   "dependencies": {

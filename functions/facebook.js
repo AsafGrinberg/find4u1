@@ -174,10 +174,128 @@ async function publishVideo({file, description, title} = {}) {
   };
 }
 
+/**
+ * תגובות על פוסט או סרטון בדף. מחזיר רק תגובות של אנשים אחרים — תגובות
+ * של הדף עצמו (התגובה הראשונה שלנו) מסוננות כאן.
+ */
+async function commentsOf(postId, limit = 50) {
+  const json = await graphGet(`${postId}/comments`, {
+    fields: "id,message,created_time,permalink_url,from,parent",
+    limit: String(Math.min(Number(limit) || 50, 100)),
+    filter: "stream",
+  });
+  const pageId = String(process.env.FB_PAGE_ID || "");
+  return (json.data || []).filter(
+    (comment) => String(comment.from?.id || "") !== pageId
+  );
+}
+
+/** הפוסטים והסרטונים האחרונים בדף — מהם קוראים את התגובות. */
+async function recentObjects(limit = 15) {
+  const size = String(Math.min(Number(limit) || 15, 50));
+  const objects = [];
+
+  try {
+    const posts = await graphGet(`${process.env.FB_PAGE_ID}/posts`, {
+      fields: "id,created_time,permalink_url",
+      limit: size,
+    });
+    (posts.data || []).forEach((post) =>
+      objects.push({id: post.id, createdTime: post.created_time})
+    );
+  } catch (error) {
+    console.warn(`[facebook] could not list posts: ${error.message}`);
+  }
+
+  try {
+    const videos = await graphGet(`${process.env.FB_PAGE_ID}/videos`, {
+      fields: "id,created_time,permalink_url",
+      limit: size,
+    });
+    (videos.data || []).forEach((video) =>
+      objects.push({id: video.id, createdTime: video.created_time})
+    );
+  } catch (error) {
+    console.warn(`[facebook] could not list videos: ${error.message}`);
+  }
+
+  return objects;
+}
+
+/** הכיתוב של פוסט/סרטון — משמש כגיבוי לזיהוי המוצר כשאין מזהה שמור. */
+async function objectMessage(objectId) {
+  try {
+    const json = await graphGet(String(objectId), {fields: "message,description"});
+    return json.message || json.description || "";
+  } catch (error) {
+    return "";
+  }
+}
+
+/** מענה ציבורי לתגובה. */
+async function replyToComment(commentId, message) {
+  const json = await graphPost(`${commentId}/comments`, {message});
+  return json.id || null;
+}
+
+/**
+ * הודעה פרטית (Private Reply) למי שהגיב — דרך ה-Messenger של הדף.
+ * חייבת להישלח עם comment_id של התגובה, בתוך 7 ימים ממנה.
+ */
+async function sendPrivateReply(commentId, text) {
+  const json = await graphPost(`${process.env.FB_PAGE_ID}/messages`, {
+    recipient: JSON.stringify({comment_id: commentId}),
+    messaging_type: "RESPONSE",
+    message: JSON.stringify({text}),
+  });
+  return json.message_id || json.id || null;
+}
+
+async function graphGet(endpoint, params = {}) {
+  const query = new URLSearchParams({
+    ...params,
+    access_token: process.env.FB_PAGE_ACCESS_TOKEN,
+  });
+  const response = await fetch(`${GRAPH}/${endpoint}?${query.toString()}`);
+  return readJson(response, endpoint);
+}
+
+/**
+ * תגובה ראשונה לסרטון שזה עתה עלה. פייסבוק מקבלת את מזהה הסרטון לפני
+ * שהפוסט עצמו מוכן לתגובות, ולכן מנסים שוב במקום לוותר בשקט — זו הסיבה
+ * שהתגובה הראשונה לא הופיעה על הריל.
+ */
+async function commentWhenReady(postId, message, options = {}) {
+  const attempts = Number(options.attempts || 5);
+  const delayMs = Number(options.delayMs || 15000);
+
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      const commentId = await commentOn(postId, message);
+      if (commentId) return commentId;
+    } catch (error) {
+      console.warn(
+        `[facebook] comment attempt ${attempt}/${attempts} on ${postId} failed: ${error.message}`
+      );
+    }
+    if (attempt < attempts) {
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+    }
+  }
+
+  return null;
+}
+
 module.exports = {
   configured,
   publish,
   publishVideo,
   commentOn,
+  commentWhenReady,
+  commentsOf,
+  recentObjects,
+  objectMessage,
+  replyToComment,
+  sendPrivateReply,
   tryPinComment,
 };

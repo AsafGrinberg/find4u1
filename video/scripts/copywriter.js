@@ -107,6 +107,16 @@ function productFacts(product) {
   if (product.sourceDescription) {
     lines.push(`תיאור המוצר מהמוכר (אנגלית):\n${product.sourceDescription}`);
   }
+  // סקירות קונים הן הדבר הקרוב ביותר ל"מה אנשים אומרים על המוצר",
+  // ומשם נגזרים ההוק והכאב האמיתיים — לא מניחושים לפי הקטגוריה.
+  if (Array.isArray(product.sourceReviews) && product.sourceReviews.length) {
+    lines.push(
+      `סקירות קונים מהעמוד של אליאקספרס (אנגלית):\n${product.sourceReviews
+        .slice(0, 12)
+        .map((review) => `- ${review}`)
+        .join("\n")}`
+    );
+  }
   return lines.join("\n");
 }
 
@@ -116,6 +126,9 @@ function promptFor(product, options = {}) {
   const total = Number(options.maxSentences) || 9;
 
   return [
+    options.retryReason
+      ? `הניסיון הקודם נפסל (${options.retryReason}). כתוב מחדש, פשוט יותר: משפטים קצרים, בלי פסיקים, בלי ספרות.`
+      : "",
     "אתה כותב קריינות קצרה בעברית לריל מכירה של מוצר בודד.",
     "",
     "המוצר:",
@@ -133,7 +146,7 @@ function promptFor(product, options = {}) {
     "3. אסור להמציא עובדות. אם הפרט לא כתוב בכותרת, במפרט או בתיאור — לא אומרים אותו.",
     "4. אסור לדבר על משמרות לילה, תינוקות, סוללות, כאבי גב או כל נושא אחר שלא מופיע במוצר.",
     "5. בלי מחיר, בלי הנחה, בלי מספרים וספרות, בלי דירוג, בלי כמות מכירות.",
-    "6. בלי פסיקים ונקודתיים בכלל. כל משפט קצר — עד 55 תווים.",
+    "6. בלי פסיקים ונקודתיים בכלל. כל משפט קצר — עד 60 תווים.",
     "7. עברית מדוברת ופשוטה. לא שפה של דף מוצר ולא סופרלטיבים ריקים.",
     "8. משפט ה-reveal הראשון חייב לומר בבירור מה המוצר (\"זו מצלמה ש...\", \"זה פנס ש...\").",
     "",
@@ -255,33 +268,44 @@ async function writeScript(product, options = {}) {
     return {...fallback(), reason: "GEMINI_API_KEY is missing"};
   }
 
-  const prompt = promptFor(product, options);
   let lastError = "";
 
   for (const model of DEFAULT_MODELS) {
-    try {
-      const parsed = await callGemini(model, prompt);
-      const checked = validateScript(parsed);
-      if (!checked.ok) {
-        lastError = `${model}: ${checked.reason}`;
-        continue;
+    // שתי קריאות לאותו מודל: אם התשובה הראשונה לא עוברת את הבדיקה,
+    // מנסים שוב עם הנחיה מחמירה יותר — במקום ליפול חזרה לתבניות.
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const prompt = promptFor(product, {
+        ...options,
+        retryReason: attempt > 0 ? lastError : "",
+      });
+      try {
+        const parsed = await callGemini(model, prompt);
+        const checked = validateScript(parsed);
+        if (!checked.ok) {
+          lastError = `${model}: ${checked.reason}`;
+          continue;
+        }
+
+        const sentences = withCallToAction(
+          checked.sentences,
+          checked.keyword,
+          options.maxSentences
+        );
+
+        console.log(
+          `[script] Gemini wrote ${checked.sentences.length} sentences with ${model} (keyword "${checked.keyword}")`
+        );
+
+        return {
+          keyword: checked.keyword,
+          family: options.family || "gemini",
+          model,
+          source: "gemini",
+          sentences,
+        };
+      } catch (error) {
+        lastError = error.message;
       }
-
-      const sentences = withCallToAction(
-        checked.sentences,
-        checked.keyword,
-        options.maxSentences
-      );
-
-      return {
-        keyword: checked.keyword,
-        family: options.family || "gemini",
-        model,
-        source: "gemini",
-        sentences,
-      };
-    } catch (error) {
-      lastError = error.message;
     }
   }
 

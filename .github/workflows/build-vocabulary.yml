@@ -14,7 +14,7 @@ on:
       pages:
         description: "עמודים לכל שאילתה (50 מוצרים בעמוד)"
         required: false
-        default: "1"
+        default: "3"
       queries:
         description: "שאילתות מופרדות בפסיק (ריק = כל הקטגוריות)"
         required: false
@@ -26,7 +26,7 @@ permissions:
 jobs:
   vocabulary:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 40
 
     steps:
       - name: Checkout
@@ -43,8 +43,7 @@ jobs:
           ALIEXPRESS_APP_KEY: ${{ secrets.ALIEXPRESS_APP_KEY }}
           ALIEXPRESS_APP_SECRET: ${{ secrets.ALIEXPRESS_APP_SECRET }}
           ALIEXPRESS_TRACKING_ID: ${{ secrets.ALIEXPRESS_TRACKING_ID }}
-        env:
-          PAGES: ${{ github.event.inputs.pages || '1' }}
+          PAGES: ${{ github.event.inputs.pages || '3' }}
           QUERIES: ${{ github.event.inputs.queries }}
         run: |
           ARGS=(--pages "$PAGES")

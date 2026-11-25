@@ -311,7 +311,7 @@ async function graphGet(endpoint, params) {
   return json;
 }
 
-async function publishInstagram(meta, caption) {
+async function publishInstagram(meta, caption, firstComment) {
   if (!igConfigured()) {
     return {ok: false, reason: "IG_USER_ID / IG_ACCESS_TOKEN are not set"};
   }
@@ -360,7 +360,28 @@ async function publishInstagram(meta, caption) {
     {creation_id: container.id}
   );
   console.log(`[publish] Instagram media: ${published.id}`);
-  return {ok: true, id: published.id};
+
+  // תגובה ראשונה של החשבון: באינסטגרם הלינק בכיתוב אינו לחיץ, והתגובה
+  // נשארת גלויה למי שפותח את התגובות. כישלון כאן לא מפיל את הפרסום.
+  let commentId = null;
+  if (firstComment) {
+    for (let attempt = 1; attempt <= 3 && !commentId; attempt += 1) {
+      try {
+        const comment = await graphPost(`${published.id}/comments`, {
+          message: firstComment,
+        });
+        commentId = comment.id || null;
+        console.log(`[publish] Instagram first comment: ${commentId}`);
+      } catch (error) {
+        console.warn(
+          `[publish] Instagram first comment attempt ${attempt}/3 failed: ${error.message}`
+        );
+        await sleep(15000);
+      }
+    }
+  }
+
+  return {ok: true, id: published.id, commentId};
 }
 
 // ---- Facebook Page -----------------------------------------------------
@@ -388,12 +409,13 @@ async function publishFacebook(meta, caption) {
 
   // תגובה ראשונה של הדף לפוסט — שוב כל הפרטים והלינקים, כדי שגם מי
   // שפותח את התגובות מקבל אותם.
-  let commentId = null;
-  try {
-    commentId = await facebookPage.commentOn(video.id, caption);
+  const commentId = await facebookPage.commentWhenReady(video.id, caption);
+  if (commentId) {
     await facebookPage.tryPinComment(commentId);
-  } catch (error) {
-    console.warn(`[publish] Facebook first comment failed: ${error.message}`);
+  } else {
+    console.warn(
+      `[publish] Facebook first comment was not created on ${video.id} — the reel is published without it`
+    );
   }
 
   return {ok: true, id: video.id, commentId, url: video.url};
@@ -794,6 +816,16 @@ async function main() {
     note: detailNote,
     signature: signatures.facebook,
   });
+  // התגובה הראשונה באינסטגרם — הלינק עצמו, כי בכיתוב הוא לא לחיץ.
+  const instagramComment = [
+    `🛍️ ${meta.productName || "מוצר מ-Find4U"}`,
+    links.affiliate ? `🛒 לרכישה: ${links.affiliate}` : "",
+    links.site ? `🌐 דף המוצר: ${links.site}` : "",
+    detailNote,
+    signatures.instagram,
+  ]
+    .filter(Boolean)
+    .join("\n");
   // בטיקטוק אין קישורים בכיתוב, ולכן רק התוכן וההאשטגים.
   const tiktokCaption = [captionBody(meta), hashtags(meta)]
     .filter(Boolean)
@@ -833,7 +865,9 @@ async function main() {
   };
 
   await run("telegram", () => sendTelegram(meta, links, signatures.telegram));
-  await run("instagram", () => publishInstagram(meta, instagramCaption));
+  await run("instagram", () =>
+    publishInstagram(meta, instagramCaption, instagramComment)
+  );
   await run("facebook", () => publishFacebook(meta, facebookCaption));
   await run("youtube", () =>
     publishYouTube(meta, captionBody(meta), links, signatures.youtube)
@@ -885,15 +919,25 @@ async function main() {
           ? {telegramReelMessageId: telegramMessageId}
           : {}),
         reel: {
-          url: meta.publicUrl || null,
-          file: meta.publicFile || null,
-          durationSeconds: meta.totalSeconds || null,
-          keyword: meta.keyword || null,
-          youtubeId: results.youtube?.id || null,
-          youtubeUrl: results.youtube?.url || null,
-          telegramMessageId: telegramMessageId,
-          publishedAt: new Date().toISOString(),
-        },
+            url: meta.publicUrl || null,
+            file: meta.publicFile || null,
+            durationSeconds: meta.totalSeconds || null,
+            keyword: meta.keyword || null,
+            youtubeId: results.youtube?.id || null,
+            youtubeUrl: results.youtube?.url || null,
+            instagramMediaId: results.instagram?.id || null,
+            facebookPostId: results.facebook?.id || null,
+            telegramMessageId: telegramMessageId,
+            publishedAt: new Date().toISOString(),
+          },
+          // המזהים של הפוסטים בכל רשת — איתם ג'וב המענה לתגובות מוצא
+          // לאיזה מוצר שייך כל פוסט, ועונה עם הלינק הנכון.
+          ...(results.instagram?.ok && results.instagram.id
+            ? {instagramMediaIds: [results.instagram.id]}
+            : {}),
+          ...(results.facebook?.ok && results.facebook.id
+            ? {facebookPostIds: [results.facebook.id]}
+            : {}),
       },
       {merge: true}
     );

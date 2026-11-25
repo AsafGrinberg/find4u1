@@ -1,0 +1,79 @@
+name: Facebook and Instagram comment replies
+
+# כל חצי שעה: עובר על התגובות בפוסטים ובסרטונים האחרונים של הדף והחשבון,
+# עונה למי שמבקש לינק עם דף המוצר, ושולח לו גם הודעה פרטית (DM).
+#
+# איך יודעים לאיזה מוצר שייך הפוסט:
+#   publish.js כותב על המוצר facebookPostIds / instagramMediaIds, וכאן
+#   מחפשים את המוצר לפי המזהה — לא מנחשים לפי טקסט.
+#
+# סודות נדרשים:
+#   FB_PAGE_ID / FB_PAGE_ACCESS_TOKEN   (pages_read_engagement,
+#                                        pages_manage_posts, pages_messaging)
+#   IG_USER_ID / IG_ACCESS_TOKEN        (instagram_basic,
+#                                        instagram_manage_comments,
+#                                        instagram_manage_messages)
+#   FIREBASE_SERVICE_ACCOUNT
+# אופציונלי:
+#   SITE_URL                    (ברירת מחדל https://find4u.vercel.app)
+#   SOCIAL_REPLY_MAX_PER_RUN    (ברירת מחדל 25 תגובות לריצה)
+#   SOCIAL_REPLY_MAX_AGE_DAYS   (ברירת מחדל 14)
+#   SOCIAL_REPLY_OBJECTS        (ברירת מחדל 15 פוסטים אחרונים לכל רשת)
+#   SOCIAL_TELEGRAM / SOCIAL_INSTAGRAM / SOCIAL_FACEBOOK / SOCIAL_YOUTUBE
+#
+# הרצה ידנית: Actions → "Facebook and Instagram comment replies" → Run workflow.
+# dry_run=true מדפיס מה היה נשלח בלי לשלוח כלום.
+
+on:
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "רק להדפיס מה היה נשלח (לא שולח תגובות והודעות)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: social-comments
+  cancel-in-progress: false
+
+jobs:
+  reply:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install dependencies
+        working-directory: video
+        run: npm install --no-audit --no-fund
+
+      - name: Reply to Facebook and Instagram comments
+        working-directory: video
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          FB_PAGE_ID: ${{ secrets.FB_PAGE_ID }}
+          FB_PAGE_ACCESS_TOKEN: ${{ secrets.FB_PAGE_ACCESS_TOKEN }}
+          IG_USER_ID: ${{ secrets.IG_USER_ID }}
+          IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
+          SITE_URL: ${{ secrets.SITE_URL }}
+          SOCIAL_TELEGRAM: ${{ secrets.SOCIAL_TELEGRAM }}
+          SOCIAL_INSTAGRAM: ${{ secrets.SOCIAL_INSTAGRAM }}
+          SOCIAL_FACEBOOK: ${{ secrets.SOCIAL_FACEBOOK }}
+          SOCIAL_YOUTUBE: ${{ secrets.SOCIAL_YOUTUBE }}
+          SOCIAL_REPLY_MAX_PER_RUN: ${{ secrets.SOCIAL_REPLY_MAX_PER_RUN }}
+          SOCIAL_REPLY_MAX_AGE_DAYS: ${{ secrets.SOCIAL_REPLY_MAX_AGE_DAYS }}
+          SOCIAL_REPLY_OBJECTS: ${{ secrets.SOCIAL_REPLY_OBJECTS }}
+          DRY_RUN: ${{ github.event.inputs.dry_run || '0' }}
+        run: node scripts/reply-social.js

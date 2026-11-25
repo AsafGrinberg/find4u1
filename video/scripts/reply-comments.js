@@ -503,8 +503,30 @@ async function main() {
         scanned += 1;
         threadsSeen += 1;
 
-        // תגובה שלי — לא עונים לעצמי.
-        if (snippet.authorChannelId?.value === channelId) continue;
+        // תגובה שלנו (התגובה הראשונה עם הלינק): לא עונים לעצמי, אבל מי
+        // שהגיב עליה מקבל הפניה לדף המוצר. בלי זה שרשור שהתחיל בתגובה
+        // שלנו נדלג לגמרי — זו הסיבה שתגובה של משתמש על התגובה שלנו
+        // נשארה בלי מענה.
+        if (snippet.authorChannelId?.value === channelId) {
+          if (replied < MAX_REPLIES) {
+            try {
+              replied += await answerRepliesToOurs(
+                token,
+                store,
+                videoId,
+                top.id,
+                channelId,
+                target,
+                MAX_REPLIES - replied
+              );
+            } catch (error) {
+              console.warn(
+                `[reply] ${videoId}: nested answers on our comment failed — ${error.message}`
+              );
+            }
+          }
+          continue;
+        }
 
         // כבר יש תגובה שלי בשרשור. את התגובה הראשית כבר לא עונים — אבל
         // מי שהגיב על התגובה שלנו עם הלינק מקבל הפניה לדף המוצר.
