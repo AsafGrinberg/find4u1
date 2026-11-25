@@ -12,6 +12,7 @@
  *
  * הרשאות נדרשות לטוקן:
  *   instagram_basic, instagram_manage_comments, instagram_manage_messages
+ *   pages_messaging (עבור עמוד פייסבוק שמקושר לחשבון האינסטגרם)
  *
  * כל פונקציה זורקת שגיאה עם הודעת Graph. אף פעם לא ממציאים הצלחה.
  */
@@ -86,13 +87,38 @@ async function replyToComment(commentId, message) {
 /**
  * הודעה פרטית למי שהגיב — Private Reply. חייבת להישלח עם comment_id,
  * ולא עם מזהה משתמש שנוחש מהתגובה.
+ *
+ * למטא יש שני נתיבים לאותה פעולה, והם תלויים בסוג הטוקן:
+ *   • עמוד פייסבוק שמקושר לחשבון אינסטגרם עסקי (Facebook Login):
+ *       POST /{PAGE_ID}/messages  + הרשאות pages_messaging
+ *       ו-instagram_manage_comments.
+ *   • כניסה עם אינסטגרם (Instagram Login / Platform):
+ *       POST /{IG_USER_ID}/messages  + instagram_manage_messages.
+ * אין דרך לדעת מראש איזה טוקן יש ביד, ולכן מנסים את נתיב העמוד קודם
+ * (זה המצב אצלנו) ואם הוא נכשל — את נתיב האינסטגרם, לפני שמוותרים.
  */
 async function sendPrivateReply(commentId, text) {
-  const json = await graphPost(`${process.env.IG_USER_ID}/messages`, {
-    recipient: JSON.stringify({comment_id: commentId}),
-    message: JSON.stringify({text}),
-  });
-  return json.message_id || json.id || null;
+  const accounts = [process.env.FB_PAGE_ID, process.env.IG_USER_ID]
+    .map((id) => String(id || "").trim())
+    .filter(Boolean)
+    .filter((id, index, list) => list.indexOf(id) === index);
+
+  const errors = [];
+  for (const account of accounts) {
+    try {
+      const json = await graphPost(`${account}/messages`, {
+        recipient: JSON.stringify({comment_id: commentId}),
+        message: JSON.stringify({text}),
+      });
+      return json.message_id || json.id || null;
+    } catch (error) {
+      errors.push(`${account}: ${error.message}`);
+    }
+  }
+
+  throw new Error(
+    errors.join(" | ") || "Instagram private reply: no account id is set"
+  );
 }
 
 module.exports = {

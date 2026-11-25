@@ -34,6 +34,7 @@ const socials = require("../../functions/socials");
 const facebook = require("../../functions/facebook");
 const instagram = require("../../functions/instagram");
 const {initFirebase} = require("./product");
+const {shortenUrl} = require("./short");
 
 const SITE_URL = (process.env.SITE_URL || "https://find4u.vercel.app").replace(
   /\/$/,
@@ -86,15 +87,30 @@ function purchaseUrl(product) {
   return product.link || product.affiliateUrl || "";
 }
 
-async function messageBody(product, signature) {
+// הלינק של אליאקספרס וכתובת דף המוצר (עם ה-slug בעברית) ארוכים מאוד
+// ונשברים לשורות בתגובה. מקצרים אותם פעם אחת לכל מוצר — בדיוק כמו
+// שהפוסטים בטלגרם מציגים אותם.
+async function shortLinksFor(product) {
+  const cacheKey = String(product.id || product.slug || product.name || "");
+  if (shortLinksCache.has(cacheKey)) return shortLinksCache.get(cacheKey);
+  const links = {
+    buy: await shortenUrl(purchaseUrl(product)),
+    page: await shortenUrl(productPage(product)),
+  };
+  shortLinksCache.set(cacheKey, links);
+  return links;
+}
+
+const shortLinksCache = new Map();
+
+async function messageBody(product, signature, links) {
   const lines = [`🛍️ ${product.name || "מוצר מ-Find4U"}`];
   const price = Number(product.price);
   if (Number.isFinite(price) && price > 0) {
     lines.push(`💰 ${price.toLocaleString("he-IL")} ₪`);
   }
-  const buy = purchaseUrl(product);
-  if (buy) lines.push(`🛒 לרכישה: ${buy}`);
-  lines.push(`🌐 דף המוצר: ${productPage(product)}`);
+  if (links.buy) lines.push(`🛒 לרכישה: ${links.buy}`);
+  lines.push(`🌐 דף המוצר: ${links.page}`);
   lines.push("📍 כל המידע והמחירים של המוצר אפשר למצוא בדף המוצר");
   if (signature) lines.push(signature);
   return lines.join("\n");
@@ -107,9 +123,9 @@ async function openStore(db) {
   let cachedProducts = null;
 
   return {
-    async alreadyAnswered(commentId) {
+    async answered(commentId) {
       const doc = await answered.doc(String(commentId)).get();
-      return doc.exists;
+      return doc.exists ? doc.data() : null;
     },
     async remember(commentId, data) {
       await answered.doc(String(commentId)).set(data, {merge: true});
@@ -180,34 +196,41 @@ async function answer(platform, store, objectId, product, comment, budget) {
   const commentId = comment.id;
   if (!commentId) return 0;
 
-  if (await store.alreadyAnswered(commentId)) return 0;
+  const previous = await store.answered(commentId);
+  // כבר נשלחו גם תגובה וגם הודעה — אין מה לעשות.
+  if (previous && previous.dmId) return 0;
+  // תגובה ציבורית כן נשלחה בריצה קודמת אבל ה-DM נכשל. אין טעם לענות
+  // לתגובה שוב — מנסים רק את ההודעה הפרטית.
+  const dmOnly = Boolean(previous);
 
   const signature = await socials.signature({skip: [platform]});
-  const page = productPage(product);
-  const lines = [
-    variantFor(PUBLIC_REPLIES[platform], commentId),
-  ];
-  if (purchaseUrl(product)) lines.push(`🛒 ${purchaseUrl(product)}`);
-  lines.push(`🌐 ${page}`, signature);
+  const links = await shortLinksFor(product);
+  const lines = [variantFor(PUBLIC_REPLIES[platform], commentId)];
+  if (links.buy) lines.push(`🛒 ${links.buy}`);
+  lines.push(`🌐 ${links.page}`, signature);
   const publicText = lines.filter(Boolean).join("\n");
-  const dm = await messageBody(product, signature);
+  const dm = await messageBody(product, signature, links);
 
   if (DRY_RUN) {
-    console.log(`[social] DRY_RUN ${platform} reply ${commentId}: ${publicText}`);
+    if (!dmOnly) {
+      console.log(`[social] DRY_RUN ${platform} reply ${commentId}: ${publicText}`);
+    }
     console.log(`[social] DRY_RUN ${platform} dm ${commentId}: ${dm}`);
     return 1;
   }
 
-  let replyId = null;
+  let replyId = dmOnly ? previous.replyId || null : null;
   let dmId = null;
 
-  try {
-    replyId =
-      platform === "facebook"
-        ? await facebook.replyToComment(commentId, publicText)
-        : await instagram.replyToComment(commentId, publicText);
-  } catch (error) {
-    console.warn(`[social] ${platform} reply ${commentId} failed — ${error.message}`);
+  if (!dmOnly) {
+    try {
+      replyId =
+        platform === "facebook"
+          ? await facebook.replyToComment(commentId, publicText)
+          : await instagram.replyToComment(commentId, publicText);
+    } catch (error) {
+      console.warn(`[social] ${platform} reply ${commentId} failed — ${error.message}`);
+    }
   }
 
   try {
@@ -228,6 +251,10 @@ async function answer(platform, store, objectId, product, comment, budget) {
       productId: product.id,
       replyId,
       dmId,
+      // נשאר true עד שה-DM יישלח, כדי שריצה הבאה תנסה שוב (Private Reply
+      // אחת לתגובה, ולכן לא שולחים תגובה ציבורית כפולה).
+      dmPending: !dmId,
+      attempts: Number(previous?.attempts || 0) + 1,
       repliedAt: new Date().toISOString(),
       source: "reply-social",
     })
