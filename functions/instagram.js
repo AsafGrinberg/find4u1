@@ -65,9 +65,31 @@ async function recentMedia(limit = 25) {
   return json.data || [];
 }
 
+// שם המשתמש של החשבון שלנו, לזיהוי תגובות שאנחנו כתבנו (התגובה הראשונה
+// שלנו וכל מענה קודם). נשמר בזיכרון — פעם אחת לריצה.
+let ownUsernameCache = null;
+
+async function ownUsername() {
+  if (ownUsernameCache !== null) return ownUsernameCache;
+  try {
+    const json = await graphGet(String(process.env.IG_USER_ID), {
+      fields: "username",
+    });
+    ownUsernameCache = String(json.username || "")
+      .replace(/^@/, "")
+      .toLowerCase();
+  } catch (error) {
+    ownUsernameCache = "";
+  }
+  return ownUsernameCache;
+}
+
 /**
  * התגובות על מדיה אחת. שדה from דורש הרשאת ניהול תגובות; אם הוא חסר
  * עובדים עם username בלבד.
+ *
+ * תגובות של החשבון שלנו מסוננות כאן: התגובה הראשונה שלנו מכילה את המילה
+ * "המחירים", וזו הייתה הסיבה שהבוט ענה לעצמו בפוסטים.
  */
 async function commentsOf(mediaId, limit = 50) {
   const json = await graphGet(`${mediaId}/comments`, {
@@ -75,7 +97,17 @@ async function commentsOf(mediaId, limit = 50) {
     fields: "id,text,username,timestamp",
     limit: String(Math.min(Number(limit) || 50, 100)),
   });
-  return json.data || [];
+  const own = await ownUsername();
+  const ownId = String(process.env.IG_USER_ID || "");
+  return (json.data || []).filter((comment) => {
+    const author = String(comment.username || "")
+      .replace(/^@/, "")
+      .toLowerCase();
+    if (own && author === own) return false;
+    const authorId = String((comment.from && comment.from.id) || "");
+    if (ownId && authorId && authorId === ownId) return false;
+    return true;
+  });
 }
 
 /** מענה ציבורי לתגובה. */

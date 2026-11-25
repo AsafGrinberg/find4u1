@@ -69,6 +69,35 @@ const PUBLIC_REPLIES = {
   ],
 };
 
+// תגובה שאנחנו בעצמנו כתבנו — התגובה הראשונה שלנו על הפוסט, או מענה קודם.
+// אסור לענות לה: היא מכילה את המילה "המחירים" והייתה מזוהה כבקשת לינק,
+// ואז הבוט השיב לעצמו.
+const OWN_PAGE_ID = String(process.env.FB_PAGE_ID || "");
+const OWN_IG_ID = String(process.env.IG_USER_ID || "");
+const OWN_IG_USERNAME = String(process.env.IG_USERNAME || "")
+  .replace(/^@/, "")
+  .toLowerCase();
+
+function isOwnComment(comment) {
+  const author = String(
+    (comment.from && (comment.from.id || comment.from.username)) ||
+      comment.username ||
+      ""
+  )
+    .replace(/^@/, "")
+    .toLowerCase();
+  if (author && (author === OWN_IG_USERNAME || author === OWN_PAGE_ID || author === OWN_IG_ID)) {
+    return true;
+  }
+
+  // גם בלי שדות המחבר: כל תגובה שלנו כוללת קישור לאתר או לערוץ.
+  const text = String(comment.message || comment.text || "");
+  if (SITE_DOMAIN && text.toLowerCase().includes(SITE_DOMAIN.toLowerCase())) return true;
+  if (/https?:\/\/t\.me\//i.test(text)) return true;
+  if (OWN_PAGE_ID && text.includes(OWN_PAGE_ID)) return true;
+  return false;
+}
+
 function variantFor(list, seed) {
   const text = String(seed || "");
   let hash = 0;
@@ -191,6 +220,10 @@ async function openStore(db) {
 async function answer(platform, store, objectId, product, comment, budget) {
   if (budget <= 0) return 0;
   const text = String(comment.message || comment.text || "");
+  if (isOwnComment(comment)) {
+    console.log(`[social] ${platform} ${comment.id}: our own comment (skipped)`);
+    return 0;
+  }
   if (!REQUEST.test(text)) return 0;
 
   const commentId = comment.id;

@@ -6,6 +6,8 @@ const LINKS = [
   { href: '/shipping-returns', label: 'משלוחים והחזרות' },
   { href: '/affiliate-disclosure', label: 'גילוי נאות' },
   { href: '/alerts', label: 'התראות ירידת מחיר' },
+  { href: '/privacy', label: 'מדיניות פרטיות' },
+  { href: '/data-deletion', label: 'מחיקת נתונים' },
 ];
 
 export default function Footer() {
