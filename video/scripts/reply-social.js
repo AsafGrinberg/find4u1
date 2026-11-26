@@ -34,116 +34,15 @@ const socials = require("../../functions/socials");
 const facebook = require("../../functions/facebook");
 const instagram = require("../../functions/instagram");
 const {initFirebase} = require("./product");
-const {shortenUrl} = require("./short");
+// הנוסחים, מילת המפתח לבקשה ואיתור המוצר משותפים עם ה-webhook שבאתר.
+const replies = require("../../lib/social/replies");
 
-const SITE_URL = (process.env.SITE_URL || "https://find4u.vercel.app").replace(
-  /\/$/,
-  ""
-);
-const SITE_DOMAIN = SITE_URL.replace(/^https?:\/\//, "");
 const MAX_REPLIES = Number(process.env.SOCIAL_REPLY_MAX_PER_RUN || 25);
 const MAX_AGE_DAYS = Number(process.env.SOCIAL_REPLY_MAX_AGE_DAYS || 14);
 const ARGV = process.argv.slice(2);
 const DRY_RUN = ARGV.includes("--dry-run") || truthy(process.env.DRY_RUN);
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-
-// תגובה שנראית כמו בקשה. תגובה סתמית ("ואו", "אהבתי") לא מקבלת לינק,
-// כדי שהתגובות לא ייראו כמו ספאם.
-const REQUEST =
-  /לינק|קישור|לינקים|מחיר|כמה (זה )?עולה|איפה (קונים|מזמינים)|אפשר|רוצה|צריך|מעוניין|מעניין|קונים|להזמין|link|price|where/i;
-
-// ניסוחים מתחלפים. הבחירה לפי מזהה התגובה — יציבה אבל לא אחידה.
-const PUBLIC_REPLIES = {
-  facebook: [
-    "שלחתי לך את הלינק בהודעה 📩 קיבלת? כל הפרטים גם כאן:",
-    "כתבתי לך בפרטי ✅ ודף המוצר עם כל המחירים:",
-    "הלינק אצלך ב-Messenger 📨 וכאן כל המידע:",
-    "שלחתי!! כנס ותזמין, שווה כל שקל 😊 כל הפרטים כאן:",
-  ],
-  instagram: [
-    "שלחתי לך בפרטי 📩 קיבלת? כל המידע בדף המוצר:",
-    "אצלך ב-DM ✅ כל הפרטים והמחירים כאן:",
-    "כתבתי לך בהודעה 📨 ודף המוצר עם כל המידע:",
-    "שלחתי!! שווה כל שקל 😊 כל הפרטים כאן:",
-  ],
-};
-
-// תגובה שאנחנו בעצמנו כתבנו — התגובה הראשונה שלנו על הפוסט, או מענה קודם.
-// אסור לענות לה: היא מכילה את המילה "המחירים" והייתה מזוהה כבקשת לינק,
-// ואז הבוט השיב לעצמו.
-const OWN_PAGE_ID = String(process.env.FB_PAGE_ID || "");
-const OWN_IG_ID = String(process.env.IG_USER_ID || "");
-const OWN_IG_USERNAME = String(process.env.IG_USERNAME || "")
-  .replace(/^@/, "")
-  .toLowerCase();
-
-function isOwnComment(comment) {
-  const author = String(
-    (comment.from && (comment.from.id || comment.from.username)) ||
-      comment.username ||
-      ""
-  )
-    .replace(/^@/, "")
-    .toLowerCase();
-  if (author && (author === OWN_IG_USERNAME || author === OWN_PAGE_ID || author === OWN_IG_ID)) {
-    return true;
-  }
-
-  // גם בלי שדות המחבר: כל תגובה שלנו כוללת קישור לאתר או לערוץ.
-  const text = String(comment.message || comment.text || "");
-  if (SITE_DOMAIN && text.toLowerCase().includes(SITE_DOMAIN.toLowerCase())) return true;
-  if (/https?:\/\/t\.me\//i.test(text)) return true;
-  if (OWN_PAGE_ID && text.includes(OWN_PAGE_ID)) return true;
-  return false;
-}
-
-function variantFor(list, seed) {
-  const text = String(seed || "");
-  let hash = 0;
-  for (let index = 0; index < text.length; index += 1) {
-    hash = (hash * 31 + text.charCodeAt(index)) % 100000;
-  }
-  return list[hash % list.length];
-}
-
-function productPage(product) {
-  if (product.slug) return `${SITE_URL}/product/${encodeURIComponent(product.slug)}`;
-  return SITE_URL;
-}
-
-function purchaseUrl(product) {
-  return product.link || product.affiliateUrl || "";
-}
-
-// הלינק של אליאקספרס וכתובת דף המוצר (עם ה-slug בעברית) ארוכים מאוד
-// ונשברים לשורות בתגובה. מקצרים אותם פעם אחת לכל מוצר — בדיוק כמו
-// שהפוסטים בטלגרם מציגים אותם.
-async function shortLinksFor(product) {
-  const cacheKey = String(product.id || product.slug || product.name || "");
-  if (shortLinksCache.has(cacheKey)) return shortLinksCache.get(cacheKey);
-  const links = {
-    buy: await shortenUrl(purchaseUrl(product)),
-    page: await shortenUrl(productPage(product)),
-  };
-  shortLinksCache.set(cacheKey, links);
-  return links;
-}
-
-const shortLinksCache = new Map();
-
-async function messageBody(product, signature, links) {
-  const lines = [`🛍️ ${product.name || "מוצר מ-Find4U"}`];
-  const price = Number(product.price);
-  if (Number.isFinite(price) && price > 0) {
-    lines.push(`💰 ${price.toLocaleString("he-IL")} ₪`);
-  }
-  if (links.buy) lines.push(`🛒 לרכישה: ${links.buy}`);
-  lines.push(`🌐 דף המוצר: ${links.page}`);
-  lines.push("📍 כל המידע והמחירים של המוצר אפשר למצוא בדף המוצר");
-  if (signature) lines.push(signature);
-  return lines.join("\n");
-}
 
 async function openStore(db) {
   const answered = db.collection("answeredComments");
@@ -220,11 +119,11 @@ async function openStore(db) {
 async function answer(platform, store, objectId, product, comment, budget) {
   if (budget <= 0) return 0;
   const text = String(comment.message || comment.text || "");
-  if (isOwnComment(comment)) {
+  if (replies.isOwnComment(comment)) {
     console.log(`[social] ${platform} ${comment.id}: our own comment (skipped)`);
     return 0;
   }
-  if (!REQUEST.test(text)) return 0;
+  if (!replies.REQUEST.test(text)) return 0;
 
   const commentId = comment.id;
   if (!commentId) return 0;
@@ -237,12 +136,14 @@ async function answer(platform, store, objectId, product, comment, budget) {
   const dmOnly = Boolean(previous);
 
   const signature = await socials.signature({skip: [platform]});
-  const links = await shortLinksFor(product);
-  const lines = [variantFor(PUBLIC_REPLIES[platform], commentId)];
-  if (links.buy) lines.push(`🛒 ${links.buy}`);
-  lines.push(`🌐 ${links.page}`, signature);
-  const publicText = lines.filter(Boolean).join("\n");
-  const dm = await messageBody(product, signature, links);
+  const links = await replies.linksFor(product);
+  const publicText = replies.commentReplyText({
+    platform,
+    seed: commentId,
+    links,
+    signature,
+  });
+  const dm = replies.dmText({product, links, signature});
 
   if (DRY_RUN) {
     if (!dmOnly) {
