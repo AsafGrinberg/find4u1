@@ -1,10 +1,12 @@
-name: Recommended products (hourly)
+name: Recommended products (every 4 hours)
 
 on:
-  # כל שעה בעגלה: פונה לפיילייט API של אליאקספרס, לוקח 3 זוויות חיפוש,
+  # כל 4 שעות: פונה לפיילייט API של אליאקספרס, לוקח 3 זוויות חיפוש,
   # שומר מוצרים ל-Firestore (האתר) ומפרסם לטלגרם.
+  # כל שעה גמר את מכסת הכתיבות היומית של Firebase (Spark) — פעם ב-4 שעות
+  # מוריד את הכתיבות לרבע.
   schedule:
-    - cron: "0 * * * *"
+    - cron: "0 */4 * * *"
   workflow_dispatch:
 
 permissions:
